@@ -1,18 +1,21 @@
-name: Instalador Windows
+name: Windows — compilación, instalador y prueba real
 
-# Se ejecuta a mano o al crear una etiqueta de versión (v0.1.0, v0.2.0…).
-# Compila en Windows real y publica el instalador NSIS como artefacto descargable.
+# Corre en Windows real (runner de GitHub): pruebas del núcleo, APIs reales, instalador NSIS,
+# instalación silenciosa por usuario, prueba de humo de la app instalada (con medición de
+# memoria) y desinstalación. Los resultados se publican como anotaciones del workflow.
 on:
-  workflow_dispatch:
   push:
+    branches: [main]
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build:
+  windows:
     runs-on: windows-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -27,14 +30,78 @@ jobs:
         run: npm ci
       - name: Pruebas del núcleo en Windows
         run: cargo test -p bouteca-core
-      - name: Compilar instalador
+      - name: APIs reales desde Windows
+        shell: bash
+        env:
+          BOUTECA_KEY_GIPHY: ${{ secrets.BOUTECA_KEY_GIPHY }}
+          BOUTECA_KEY_KLIPY: ${{ secrets.BOUTECA_KEY_KLIPY }}
+          BOUTECA_KEY_YOUTUBE: ${{ secrets.BOUTECA_KEY_YOUTUBE }}
+          BOUTECA_KEY_FREESOUND: ${{ secrets.BOUTECA_KEY_FREESOUND }}
+          BOUTECA_KEY_PIXABAY: ${{ secrets.BOUTECA_KEY_PIXABAY }}
+          BOUTECA_KEY_PEXELS: ${{ secrets.BOUTECA_KEY_PEXELS }}
+        run: |
+          set -o pipefail
+          cargo test -p bouteca-core --test live -- --ignored --nocapture --test-threads=1 2>&1 | tee live.log
+          grep '^LIVE|' live.log | while IFS='|' read -r _ id st msg; do echo "::notice title=API real (Windows) ${id}: ${st}::${msg}"; done
+      - name: Compilar app e instalador NSIS
         run: node ui/node_modules/@tauri-apps/cli/tauri.js build
-      - name: Publicar artefacto
+      - name: Huella SHA-256 de los artefactos
+        shell: pwsh
+        run: |
+          Get-ChildItem target/release/bundle/nsis/*.exe, target/release/bouteca.exe | ForEach-Object {
+            $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+            $mb = [math]::Round($_.Length / 1MB, 2)
+            "$h  $($_.Name)" | Out-File -Append -Encoding utf8 SHA256SUMS.txt
+            Write-Output "::notice title=Artefacto $($_.Name)::$mb MB, SHA-256 $h"
+          }
+      - name: Instalar en silencio (por usuario, sin administrador)
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
+          Start-Process $setup.FullName -ArgumentList '/S' -Wait
+          $exe = Join-Path $env:LOCALAPPDATA 'Bouteca\bouteca.exe'
+          if (-not (Test-Path $exe)) {
+            $found = Get-ChildItem $env:LOCALAPPDATA -Recurse -Filter bouteca.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) { $exe = $found.FullName } else { Write-Output "::error title=Instalación::No se encontró bouteca.exe"; exit 1 }
+          }
+          Write-Output "::notice title=Instalación::OK en $exe"
+          "BOUTECA_EXE=$exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+      - name: Prueba de humo de la app instalada (arranque, búsqueda real, memoria)
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP 'smoke.json'
+          $p = Start-Process $env:BOUTECA_EXE -ArgumentList "--smoke-test=$out" -PassThru
+          if (-not $p.WaitForExit(180000)) { $p.Kill(); Write-Output "::error title=Humo::La app no terminó en 180 s"; exit 1 }
+          if (-not (Test-Path $out)) { Write-Output "::error title=Humo::No se generó el informe (código $($p.ExitCode))"; exit 1 }
+          Copy-Item $out smoke.json
+          $r = Get-Content $out -Raw | ConvertFrom-Json
+          Write-Output "::notice title=Humo — arranque::interfaz lista en $($r.ui_ready_ms) ms; $($r.os)"
+          Write-Output "::notice title=Humo — reposo::proceso $($r.idle.main_mb) MB + WebView2 $($r.idle.webview_mb) MB = $($r.idle.total_mb) MB; CPU $($r.idle.cpu_percent) %"
+          Write-Output "::notice title=Humo — búsqueda::$($r.total_results) resultados en $($r.search_ms) ms; $(($r.results_by_provider | ConvertTo-Json -Compress))"
+          Write-Output "::notice title=Humo — tras búsqueda::total $($r.after_search.total_mb) MB; tras liberar $($r.after_idle_release.total_mb) MB"
+          if ($r.provider_errors.PSObject.Properties.Count -gt 0) { Write-Output "::warning title=Humo — fuentes con error::$(($r.provider_errors | ConvertTo-Json -Compress))" }
+          if (-not $r.ok) { Write-Output "::error title=Humo::falló: $($r.errors -join '; ')"; exit 1 }
+      - name: Desinstalar en silencio y verificar
+        if: always()
+        shell: pwsh
+        run: |
+          $dir = if ($env:BOUTECA_EXE) { Split-Path $env:BOUTECA_EXE } else { Join-Path $env:LOCALAPPDATA 'Bouteca' }
+          $u = Join-Path $dir 'uninstall.exe'
+          if (Test-Path $u) {
+            Start-Process $u -ArgumentList '/S' -Wait
+            Start-Sleep -Seconds 8
+            if (Test-Path (Join-Path $dir 'bouteca.exe')) { Write-Output "::error title=Desinstalación::quedó bouteca.exe"; exit 1 }
+            if (Get-Process bouteca -ErrorAction SilentlyContinue) { Write-Output "::error title=Desinstalación::quedaron procesos"; exit 1 }
+            Write-Output "::notice title=Desinstalación::OK, sin archivos del programa ni procesos"
+          } else { Write-Output "::warning title=Desinstalación::no se encontró el desinstalador en $dir" }
+      - name: Publicar artefactos
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: bouteca-windows-x64
           path: |
             target/release/bundle/nsis/*.exe
-            target/release/bouteca.exe
-          if-no-files-found: error
+            SHA256SUMS.txt
+            smoke.json
+          if-no-files-found: warn
           retention-days: 30

@@ -10,23 +10,53 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: Pruebas (núcleo + interfaz)
+  checks:
+    name: Lint, pruebas y auditoría (Linux)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: ui/package-lock.json
-      - name: Núcleo (Rust)
-        run: cargo test -p bouteca-core
-      - name: Interfaz (TypeScript)
+      - name: Dependencias de sistema (WebKitGTK para compilar la capa Tauri)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev
+      - name: Interfaz — dependencias, TypeScript, pruebas y build
         working-directory: ui
         run: |
           npm ci
           npm run build
           npm test
+      - name: Interfaz — auditoría de dependencias
+        working-directory: ui
+        run: npm audit --audit-level=high
+      - name: Rust — formato
+        run: cargo fmt --all --check
+      - name: Rust — clippy (advertencias = error)
+        run: cargo clippy --all-targets -p bouteca-core -p bouteca -- -D warnings
+      - name: Rust — pruebas del núcleo
+        run: cargo test -p bouteca-core
+      - name: Rust — auditoría de vulnerabilidades (RustSec)
+        run: |
+          cargo install cargo-audit --locked
+          cargo audit
+      - name: APIs reales (sin clave y, si hay secretos, con clave)
+        env:
+          BOUTECA_KEY_GIPHY: ${{ secrets.BOUTECA_KEY_GIPHY }}
+          BOUTECA_KEY_KLIPY: ${{ secrets.BOUTECA_KEY_KLIPY }}
+          BOUTECA_KEY_YOUTUBE: ${{ secrets.BOUTECA_KEY_YOUTUBE }}
+          BOUTECA_KEY_FREESOUND: ${{ secrets.BOUTECA_KEY_FREESOUND }}
+          BOUTECA_KEY_PIXABAY: ${{ secrets.BOUTECA_KEY_PIXABAY }}
+          BOUTECA_KEY_PEXELS: ${{ secrets.BOUTECA_KEY_PEXELS }}
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test -p bouteca-core --test live -- --ignored --nocapture --test-threads=1 2>&1 | tee live.log
+          grep '^LIVE|' live.log | while IFS='|' read -r _ id st msg; do echo "::notice title=API real (Linux) ${id}: ${st}::${msg}"; done
