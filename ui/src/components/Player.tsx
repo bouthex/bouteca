@@ -52,7 +52,11 @@ export function Player({ src, kind, poster, wave }: { src: string; kind: "video"
     loop,
     muted,
     preload: "metadata" as const,
-    onPlay: () => setPlaying(true),
+    onPlay: () => {
+      setPlaying(true);
+      // Nunca dos reproducciones con sonido a la vez.
+      document.querySelectorAll<HTMLMediaElement>("audio, video").forEach((m) => { if (m !== ref.current && !m.muted && !m.paused) m.pause(); });
+    },
     onPause: () => setPlaying(false),
     onTimeUpdate: () => setT(ref.current?.currentTime ?? 0),
     onLoadedMetadata: () => { setD(ref.current?.duration ?? 0); setWaiting(false); },

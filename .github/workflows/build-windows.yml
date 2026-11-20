@@ -44,7 +44,7 @@ jobs:
         run: |
           code=0
           cargo test -p bouteca-core --test live -- --ignored --nocapture --test-threads=1 > live.log 2>&1 || code=$?
-          errs=$(grep -E "panicked|^test .* FAILED" live.log | head -10 || true)
+          errs=$(grep -E -A1 "panicked|^test .* FAILED" live.log | grep -v "^--$" | grep -v "^note:" | head -16 || true)
           if [ -n "$errs" ]; then while read -r l; do echo "::error title=API real (Windows)::${l}"; done <<< "$errs"; fi
           summary=$(grep '^LIVE|' live.log | cut -d'|' -f2- | sed 's/|/: /' | paste -sd ';' - || true)
           echo "::notice title=APIs reales (Windows) — código ${code}::${summary}"

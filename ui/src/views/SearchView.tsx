@@ -1,12 +1,12 @@
 import { useEffect, useState } from "preact/hooks";
 import { api } from "../lib/api";
-import { providerName } from "../lib/format";
+import { duration, providerName } from "../lib/format";
 import * as Icon from "../lib/icons";
 import {
   elapsedMs, filter, hasMore, lastSearched, loadMore, loadingMore, plan, providerErrors, providerState,
-  results, runSearch, searching, userScrolled, view, visual, clearVisual,
+  results, rightsFilter, runSearch, searching, understood, usageFilter, userScrolled, view, visual, clearVisual,
 } from "../lib/store";
-import type { KindFilter, SearchEntry } from "../lib/types";
+import type { KindFilter, RightsFilter, SearchEntry, Usage } from "../lib/types";
 import { ResultGrid } from "../components/ResultGrid";
 import { SearchBar } from "../components/SearchBar";
 
@@ -17,7 +17,68 @@ const FILTERS: { id: KindFilter; label: string; color?: string }[] = [
   { id: "meme", label: "Memes", color: "var(--k-image)" },
   { id: "image", label: "Imágenes", color: "var(--k-image)" },
   { id: "audio", label: "Sonidos", color: "var(--k-audio)" },
+  { id: "music", label: "Música", color: "var(--k-music)" },
 ];
+
+export const RIGHTS_OPTIONS: { id: RightsFilter; label: string; hint: string }[] = [
+  { id: "sin_atribucion", label: "Sin atribución", hint: "CC0, dominio público o licencias sin créditos obligatorios" },
+  { id: "con_atribucion", label: "Con atribución", hint: "Libres dando créditos al autor (CC BY, BY-SA, BY-ND)" },
+  { id: "libre", label: "Libres de uso", hint: "Cualquiera de las dos anteriores" },
+  { id: "licencia_comercial", label: "Licencia comercial", hint: "Uso personal libre; para uso comercial hace falta permiso o licencia" },
+  { id: "restringido", label: "Uso restringido", hint: "Con copyright: solo ver o escuchar en la fuente" },
+];
+
+export const USAGE_OPTIONS: { id: Usage; label: string }[] = [
+  { id: "you_tube", label: "YouTube" },
+  { id: "you_tube_monetized", label: "YouTube monetizado" },
+  { id: "social", label: "TikTok / Instagram" },
+  { id: "stream", label: "Streams" },
+  { id: "game", label: "Videojuegos" },
+  { id: "film", label: "Películas y cortos" },
+  { id: "commercial", label: "Uso comercial" },
+  { id: "personal", label: "Uso personal" },
+];
+
+const DETECTED_LABEL: Record<string, string> = {};
+for (const r of RIGHTS_OPTIONS) DETECTED_LABEL[r.id] = r.label;
+for (const u of USAGE_OPTIONS) DETECTED_LABEL[u.id] = u.label;
+
+function RightsBar() {
+  const u = understood.value;
+  const fromText = u ? [
+    u.intent.kind && u.intent.kind !== "all" ? FILTERS.find((f) => f.id === u.intent.kind)?.label : null,
+    !rightsFilter.value && u.rights ? DETECTED_LABEL[u.rights] : null,
+    !usageFilter.value && u.usage ? `para ${DETECTED_LABEL[u.usage]}` : null,
+    u.intent.duration_secs ? `≈ ${duration(u.intent.duration_secs)}` : null,
+  ].filter(Boolean) : [];
+  const rerun = () => runSearch(lastSearched.value, filter.value);
+  return (
+    <div class="rights-bar">
+      <label class="select-chip" data-on={String(!!rightsFilter.value)} title="Filtrar por derechos de uso verificados">
+        <span>Derechos</span>
+        <select value={rightsFilter.value ?? ""} onChange={(e) => { rightsFilter.value = ((e.target as HTMLSelectElement).value || null) as RightsFilter | null; rerun(); }}>
+          <option value="">Todos</option>
+          {RIGHTS_OPTIONS.map((o) => <option key={o.id} value={o.id} title={o.hint}>{o.label}</option>)}
+        </select>
+      </label>
+      <label class="select-chip" data-on={String(!!usageFilter.value)} title="Mostrar solo lo compatible con este uso (verificado según la licencia)">
+        <span>Uso</span>
+        <select value={usageFilter.value ?? ""} onChange={(e) => { usageFilter.value = ((e.target as HTMLSelectElement).value || null) as Usage | null; rerun(); }}>
+          <option value="">Cualquiera</option>
+          {USAGE_OPTIONS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+        </select>
+      </label>
+      {fromText.length > 0 && (
+        <span class="understood" title="Detectado en tu búsqueda. Se aplica como filtro verificado.">
+          Entendí: {fromText.join(" · ")}
+        </span>
+      )}
+      {(rightsFilter.value || usageFilter.value || u?.rights || u?.usage) && (
+        <span class="small muted">Lo que no se puede verificar queda afuera: una licencia desconocida no es un permiso.</span>
+      )}
+    </div>
+  );
+}
 
 const EXAMPLES = ["gato bailando", "risa", "bob esponja", "vine boom", "aplausos", "terror", "perro confundido", "coffin dance"];
 
@@ -101,6 +162,7 @@ export function SearchView() {
             ))}
           </div>
         </div>
+        <RightsBar />
         <VisualBar />
         {translations.length > 0 && (
           <div class="translations">
@@ -132,6 +194,9 @@ export function SearchView() {
           <div class="glyph"><Icon.Search size={28} /></div>
           <h2>Sin resultados para «{lastSearched.value}»</h2>
           <p>Probá con menos palabras, otro filtro o una descripción distinta (por ejemplo, el nombre del personaje o la emoción).</p>
+          {(rightsFilter.value || usageFilter.value) && (
+            <button class="btn" onClick={() => { rightsFilter.value = null; usageFilter.value = null; runSearch(lastSearched.value, filter.value); }}>Quitar filtros de derechos</button>
+          )}
           {filter.value !== "all" && <button class="btn" onClick={() => runSearch(lastSearched.value, "all")}>Buscar en todo</button>}
         </div>
       ) : (

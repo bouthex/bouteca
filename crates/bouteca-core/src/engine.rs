@@ -67,6 +67,12 @@ pub struct SearchRequest {
     /// 1 = búsqueda nueva; >1 = cargar más.
     #[serde(default = "one")]
     pub page: u32,
+    /// Filtro de derechos elegido en la interfaz (tiene prioridad sobre lo que diga el texto).
+    #[serde(default)]
+    pub rights: Option<crate::rights::RightsFilter>,
+    /// Uso previsto elegido en la interfaz: solo se muestran resultados compatibles verificados.
+    #[serde(default)]
+    pub usage: Option<crate::rights::Usage>,
 }
 
 fn one() -> u32 {
@@ -76,11 +82,42 @@ fn one() -> u32 {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum SearchEvent {
-    Plan { search_id: u64, variants: Vec<query::QueryVariant>, concepts: Vec<String>, entities: Vec<String>, providers: Vec<String> },
-    Batch { search_id: u64, provider: String, items: Vec<MediaItem> },
-    Alternate { search_id: u64, dedupe_key: String, provider: String, uid: String, renditions: Vec<Rendition> },
-    ProviderError { search_id: u64, provider: String, message: String, status: ProviderStatus },
-    Done { search_id: u64, has_more: bool, total_items: usize, elapsed_ms: u64 },
+    Plan {
+        search_id: u64,
+        variants: Vec<query::QueryVariant>,
+        concepts: Vec<String>,
+        entities: Vec<String>,
+        providers: Vec<String>,
+        /// Lo que se entendió del texto (tipo, derechos, uso, duración) y los filtros efectivos.
+        intent: crate::intent::Intent,
+        filter: KindFilter,
+        rights: Option<crate::rights::RightsFilter>,
+        usage: Option<crate::rights::Usage>,
+    },
+    Batch {
+        search_id: u64,
+        provider: String,
+        items: Vec<MediaItem>,
+    },
+    Alternate {
+        search_id: u64,
+        dedupe_key: String,
+        provider: String,
+        uid: String,
+        renditions: Vec<Rendition>,
+    },
+    ProviderError {
+        search_id: u64,
+        provider: String,
+        message: String,
+        status: ProviderStatus,
+    },
+    Done {
+        search_id: u64,
+        has_more: bool,
+        total_items: usize,
+        elapsed_ms: u64,
+    },
 }
 
 pub type EventSink = Arc<dyn Fn(SearchEvent) + Send + Sync>;
@@ -88,6 +125,9 @@ pub type EventSink = Arc<dyn Fn(SearchEvent) + Send + Sync>;
 struct Session {
     plan: QueryPlan,
     filter: KindFilter,
+    rights: Option<crate::rights::RightsFilter>,
+    usage: Option<crate::rights::Usage>,
+    duration: Option<u32>,
     /// proveedor → hay más páginas (de la variante principal)
     more: HashMap<String, bool>,
     seen: HashSet<String>,
@@ -246,8 +286,13 @@ impl SearchEngine {
         let settings = self.settings();
 
         // Plan: nuevo o recuperado de la sesión (paginación).
-        let (plan, filter) = if req.page <= 1 {
-            let plan = query::plan(&req.query, settings.primary_lang, &settings.extra_langs);
+        let mut intent = crate::intent::Intent::default();
+        let (plan, filter, rights, usage, duration) = if req.page <= 1 {
+            intent = crate::intent::parse_for(&req.query, req.filter);
+            let filter = if req.filter == KindFilter::All { intent.kind.unwrap_or(KindFilter::All) } else { req.filter };
+            let rights = req.rights.or(intent.rights);
+            let usage = req.usage.or(intent.usage);
+            let plan = query::plan(&intent.cleaned, settings.primary_lang, &settings.extra_langs);
             let mut sessions = self.sessions.lock();
             if sessions.len() >= MAX_SESSIONS {
                 if let Some(oldest) = sessions.iter().min_by_key(|(_, s)| s.created).map(|(k, _)| *k) {
@@ -256,12 +301,21 @@ impl SearchEngine {
             }
             sessions.insert(
                 req.search_id,
-                Session { plan: plan.clone(), filter: req.filter, more: HashMap::new(), seen: HashSet::new(), created: Instant::now() },
+                Session {
+                    plan: plan.clone(),
+                    filter,
+                    rights,
+                    usage,
+                    duration: intent.duration_secs,
+                    more: HashMap::new(),
+                    seen: HashSet::new(),
+                    created: Instant::now(),
+                },
             );
-            (plan, req.filter)
+            (plan, filter, rights, usage, intent.duration_secs)
         } else {
             match self.sessions.lock().get(&req.search_id) {
-                Some(s) => (s.plan.clone(), s.filter),
+                Some(s) => (s.plan.clone(), s.filter, s.rights, s.usage, s.duration),
                 None => {
                     sink(SearchEvent::Done { search_id: req.search_id, has_more: false, total_items: 0, elapsed_ms: 0 });
                     self.finish(req.search_id);
@@ -287,6 +341,10 @@ impl SearchEngine {
                 concepts: plan.concepts.clone(),
                 entities: plan.entities.clone(),
                 providers: candidates.iter().map(|p| p.info().id.to_string()).collect(),
+                intent: intent.clone(),
+                filter,
+                rights,
+                usage,
             });
         }
 
@@ -358,6 +416,7 @@ impl SearchEngine {
                     page,
                     per_page,
                     safe: engine.settings.read().safe_search,
+                    rights,
                 };
                 let result = tokio::select! {
                     r = engine.fetch(&provider, &q) => r,
@@ -377,7 +436,17 @@ impl SearchEngine {
                                 continue;
                             }
                             item.rights = crate::rights::derive(&item);
+                            // Filtros de derechos y de uso: solo lo verificado (lo dudoso se excluye).
+                            if rights.is_some_and(|r| !r.matches(&item.rights)) || usage.is_some_and(|u| item.rights.allows(u) != Some(true)) {
+                                continue;
+                            }
                             item.score = rank::score(&item, &plan, variant.weight, pos);
+                            if let (Some(target), Some(d)) = (duration, item.duration_secs) {
+                                // Cercanía a la duración pedida: suma hasta 12 puntos (no excluye).
+                                let ratio = (d / target as f64).clamp(0.01, 100.0);
+                                let closeness = 1.0 - ratio.ln().abs().min(1.0);
+                                item.score += 12.0 * closeness as f32;
+                            }
                             item.dedupe_key = rank::dedupe_key(&item);
                             let dup = {
                                 let mut sessions = engine.sessions.lock();
@@ -447,7 +516,7 @@ impl SearchEngine {
 
     async fn fetch(&self, provider: &DynProvider, q: &ProviderQuery) -> crate::Result<ProviderPage> {
         let id = provider.info().id;
-        let key = format!("{id}|{:?}|{}|{}|{}|{}", q.filter, q.lang.code(), q.page, q.per_page, q.text.to_lowercase());
+        let key = format!("{id}|{:?}|{:?}|{}|{}|{}|{}", q.filter, q.rights, q.lang.code(), q.page, q.per_page, q.text.to_lowercase());
         // Pixabay exige cachear 24 h; el resto, 15 min (suficiente para volver atrás sin repetir llamadas).
         let ttl = if id == "pixabay" { Duration::from_secs(24 * 3600) } else { Duration::from_secs(15 * 60) };
         if let Some((at, page)) = self.cache.lock().get(&key) {

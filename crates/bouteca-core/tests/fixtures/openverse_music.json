@@ -1,0 +1,5 @@
+{"result_count":3,"page_count":1,"page_size":20,"page":1,"results":[
+ {"id":"m-1","title":"Dark Tension Drone","creator":"Ana","url":"https://cdn.freesound.org/x/tension.mp3","foreign_landing_url":"https://freesound.org/s/1/","license":"cc0","license_version":"1.0","license_url":"https://creativecommons.org/publicdomain/zero/1.0/","source":"freesound","tags":[{"name":"tension"},{"name":"horror"},{"name":"dark"}],"filetype":"mp3","duration":118000},
+ {"id":"m-2","title":"Horror Tension Loop","creator":"Bob","url":"https://mirror.jamendo.com/y/horror.mp3","foreign_landing_url":"https://www.jamendo.com/track/2","license":"by","license_version":"3.0","license_url":"https://creativecommons.org/licenses/by/3.0/","source":"jamendo","tags":[{"name":"horror"},{"name":"tension"}],"filetype":"mp3","duration":200000},
+ {"id":"m-3","title":"Tension NC","creator":"Cy","url":"https://mirror.jamendo.com/z/nc.mp3","foreign_landing_url":"https://www.jamendo.com/track/3","license":"by-nc","license_version":"3.0","license_url":"https://creativecommons.org/licenses/by-nc/3.0/","source":"jamendo","tags":[{"name":"tension"}],"filetype":"mp3","duration":60000}
+]}

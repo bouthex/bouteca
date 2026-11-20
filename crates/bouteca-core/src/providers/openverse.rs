@@ -68,6 +68,8 @@ struct Item {
     filesize: Option<u64>,
     /// Audio: milisegundos.
     duration: Option<f64>,
+    /// Audio: "music", "sound_effect", "podcast"… (puede faltar).
+    category: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -78,7 +80,8 @@ struct Tag {
 fn map(i: Item, audio: bool, music: bool) -> Option<MediaItem> {
     let url = i.url?;
     let ft = i.filetype.clone().unwrap_or_default().to_lowercase();
-    let kind = if music {
+    let is_music_cat = i.category.as_deref().map(|c| c.eq_ignore_ascii_case("music")).unwrap_or(false);
+    let kind = if music || (audio && is_music_cat) {
         MediaKind::Music
     } else if audio {
         MediaKind::Audio
@@ -161,13 +164,22 @@ impl Provider for Openverse {
         if q.safe {
             params.push(("mature", "false".into()));
         }
+        // Música: categoría "music" en origen. Sonidos: sin categoría (muchos efectos no la tienen);
+        // los resultados marcados como música se clasifican como Música y el motor los separa.
         if music {
             params.push(("category", "music".into()));
-        } else if audio {
-            params.push(("category", "sound_effect".into()));
         }
         if q.filter == KindFilter::Gif {
             params.push(("extension", "gif".into()));
+        }
+        // Filtro de derechos en origen (la API acepta licencias concretas).
+        use crate::rights::RightsFilter as R;
+        match q.rights {
+            Some(R::SinAtribucion) => params.push(("license", "cc0,pdm".into())),
+            Some(R::ConAtribucion) => params.push(("license", "by,by-sa,by-nd".into())),
+            Some(R::Libre) => params.push(("license", "cc0,pdm,by,by-sa,by-nd".into())),
+            Some(R::LicenciaComercial) => params.push(("license", "by-nc,by-nc-sa,by-nc-nd".into())),
+            Some(R::Restringido) | None => {}
         }
         let resp = http::send("openverse", ctx.client.get(url).query(&params)).await?;
         let body = http::body(resp).await?;

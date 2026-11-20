@@ -20,7 +20,7 @@ fn ctx(key: Option<String>) -> ProviderCtx {
 }
 
 fn q(text: &str, filter: KindFilter) -> ProviderQuery {
-    ProviderQuery { text: text.into(), lang: LangCode::En, filter, page: 1, per_page: 12, safe: true }
+    ProviderQuery { text: text.into(), lang: LangCode::En, filter, page: 1, per_page: 12, safe: true, rights: None }
 }
 
 async fn check(id: &str, text: &str, filter: KindFilter) -> usize {
@@ -183,7 +183,6 @@ async fn live_museos() {
     check("artic", "cat", KindFilter::Image).await;
     check("met", "horse", KindFilter::Image).await;
     check("cleveland", "landscape", KindFilter::Image).await;
-    check("loc", "train", KindFilter::Image).await;
 }
 
 #[tokio::test]

@@ -245,6 +245,10 @@ impl Provider for InternetArchive {
         if !ctx.include_unlicensed {
             query.push_str(" AND licenseurl:*");
         }
+        // Sin atribución: CC0 y marca de dominio público (se verifica igual en el motor).
+        if q.rights == Some(crate::rights::RightsFilter::SinAtribucion) {
+            query.push_str(" AND licenseurl:*publicdomain*");
+        }
         let rows = q.per_page.min(50);
         let url = format!("{}/advancedsearch.php", ctx.base("https://archive.org"));
         let req = ctx.client.get(url).query(&[

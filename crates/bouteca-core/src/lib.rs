@@ -19,6 +19,7 @@ pub mod downloads;
 pub mod engine;
 pub mod error;
 pub mod http;
+pub mod intent;
 pub mod maintenance;
 pub mod model;
 pub mod providers;

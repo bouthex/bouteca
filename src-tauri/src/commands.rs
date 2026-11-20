@@ -141,6 +141,28 @@ pub async fn resolve_item(state: S<'_>, item: MediaItem) -> R<MediaItem> {
     state.engine.resolve(item).await.map_err(e)
 }
 
+/// Permisos verificados del recurso y compatibilidad por uso (se recalculan aquí: la interfaz
+/// no puede declarar permisos por su cuenta).
+#[derive(serde::Serialize)]
+pub struct RightsDetail {
+    rights: bouteca_core::rights::Rights,
+    usages: Vec<UsageRow>,
+}
+
+#[derive(serde::Serialize)]
+pub struct UsageRow {
+    usage: bouteca_core::rights::Usage,
+    label: &'static str,
+    ok: Option<bool>,
+}
+
+#[tauri::command]
+pub fn rights_detail(item: MediaItem) -> RightsDetail {
+    let rights = bouteca_core::rights::derive(&item);
+    let usages = rights.usage_table().into_iter().map(|(usage, ok)| UsageRow { usage, label: usage.label(), ok }).collect();
+    RightsDetail { rights, usages }
+}
+
 #[tauri::command]
 pub fn suggestions(state: S, prefix: String) -> Vec<String> {
     let mut out = state.db.search_suggestions(&prefix, 5).unwrap_or_default();

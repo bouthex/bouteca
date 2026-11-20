@@ -54,7 +54,9 @@ async fn busqueda_federada_con_proveedor_caido_y_duplicados() {
             .with_base_override("archive", &s.uri()),
     );
     let (sink, events) = collect();
-    engine.search(SearchRequest { search_id: 1, query: "gato bailando".into(), filter: KindFilter::All, page: 1 }, sink).await;
+    engine
+        .search(SearchRequest { search_id: 1, query: "gato bailando".into(), filter: KindFilter::All, page: 1, rights: None, usage: None }, sink)
+        .await;
 
     let ev = events.lock();
     let SearchEvent::Plan { providers, variants, .. } = &ev[0] else { panic!("primero el plan") };
@@ -91,8 +93,9 @@ async fn cancelar_detiene_eventos() {
     );
     let (sink, events) = collect();
     let e2 = engine.clone();
-    let h =
-        tokio::spawn(async move { e2.search(SearchRequest { search_id: 7, query: "gato".into(), filter: KindFilter::All, page: 1 }, sink).await });
+    let h = tokio::spawn(async move {
+        e2.search(SearchRequest { search_id: 7, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None }, sink).await
+    });
     tokio::time::sleep(Duration::from_millis(100)).await;
     engine.cancel(7);
     h.await.unwrap();
@@ -118,10 +121,12 @@ async fn limite_429_pausa_al_proveedor_y_cachea_respuestas() {
     );
     let (sink, _) = collect();
     // "xqz" no tiene traducciones: una sola variante por proveedor.
-    engine.search(SearchRequest { search_id: 1, query: "xqz".into(), filter: KindFilter::Image, page: 1 }, sink.clone()).await;
+    engine
+        .search(SearchRequest { search_id: 1, query: "xqz".into(), filter: KindFilter::Image, page: 1, rights: None, usage: None }, sink.clone())
+        .await;
     assert!(matches!(engine.status_of("openverse"), bouteca_core::model::ProviderStatus::RateLimited(_)));
     let (sink2, ev2) = collect();
-    engine.search(SearchRequest { search_id: 2, query: "xqz".into(), filter: KindFilter::Image, page: 1 }, sink2).await;
+    engine.search(SearchRequest { search_id: 2, query: "xqz".into(), filter: KindFilter::Image, page: 1, rights: None, usage: None }, sink2).await;
     let ev2 = ev2.lock();
     let SearchEvent::Plan { providers, .. } = &ev2[0] else { panic!() };
     assert!(!providers.contains(&"openverse".to_string()), "pausado tras 429");
@@ -148,10 +153,89 @@ async fn paginacion_solo_consulta_proveedores_con_mas() {
             .with_base_override("archive", "http://127.0.0.1:9"),
     );
     let (sink, _) = collect();
-    engine.search(SearchRequest { search_id: 3, query: "xqz".into(), filter: KindFilter::Image, page: 1 }, sink).await;
+    engine.search(SearchRequest { search_id: 3, query: "xqz".into(), filter: KindFilter::Image, page: 1, rights: None, usage: None }, sink).await;
     let before = s.received_requests().await.unwrap().iter().filter(|r| r.url.path() == "/v1/images/").count();
     let (sink2, _) = collect();
-    engine.search(SearchRequest { search_id: 3, query: "xqz".into(), filter: KindFilter::Image, page: 2 }, sink2).await;
+    engine.search(SearchRequest { search_id: 3, query: "xqz".into(), filter: KindFilter::Image, page: 2, rights: None, usage: None }, sink2).await;
     let after = s.received_requests().await.unwrap().iter().filter(|r| r.url.path() == "/v1/images/").count();
     assert_eq!(before, after, "openverse dijo que no hay más páginas: no se vuelve a consultar");
+}
+
+#[tokio::test]
+async fn musica_por_contexto_con_filtro_de_derechos_verificado() {
+    let s = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v1/audio/"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw(fixture("openverse_music.json"), "application/json"))
+        .mount(&s)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/query"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw(fixture("ccmixter.json"), "application/json"))
+        .mount(&s)
+        .await;
+    let providers: Vec<DynProvider> = vec![
+        Arc::new(providers::openverse::Openverse::new()),
+        Arc::new(providers::openmedia::CcMixter::new()),
+        Arc::new(providers::openmedia::Nasa::new()), // no aporta música: no debe participar
+    ];
+    let engine = Arc::new(
+        SearchEngine::new(providers, build_test_client(), EngineSettings::default(), Arc::new(NoKeys))
+            .with_base_override("openverse", &s.uri())
+            .with_base_override("ccmixter", &s.uri()),
+    );
+    let (sink, events) = collect();
+    let req = SearchRequest {
+        search_id: 9,
+        query: "música de tensión para un video de terror sin atribución".into(),
+        filter: KindFilter::All,
+        page: 1,
+        rights: None,
+        usage: None,
+    };
+    engine.search(req, sink).await;
+    let ev = events.lock();
+    let SearchEvent::Plan { providers, filter, rights, intent, .. } = &ev[0] else { panic!() };
+    assert_eq!(*filter, KindFilter::Music, "el texto pide música");
+    assert_eq!(*rights, Some(bouteca_core::rights::RightsFilter::SinAtribucion));
+    assert!(intent.detected.iter().any(|d| d == "sin atribucion"));
+    assert!(!providers.contains(&"nasa".to_string()));
+    let items: Vec<_> =
+        ev.iter().filter_map(|e| if let SearchEvent::Batch { items, .. } = e { Some(items.clone()) } else { None }).flatten().collect();
+    assert_eq!(items.len(), 1, "solo queda la pista que cumple ambas condiciones: {:?}", items.iter().map(|i| &i.uid).collect::<Vec<_>>());
+    assert_eq!(items[0].uid, "openverse:m-1");
+    assert_eq!(items[0].kind, bouteca_core::model::MediaKind::Music);
+    assert!(items[0].rights.download && !items[0].rights.attribution_required);
+}
+
+#[tokio::test]
+async fn uso_monetizado_excluye_nc_y_desconocidas() {
+    let s = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v1/audio/"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw(fixture("openverse_music.json"), "application/json"))
+        .mount(&s)
+        .await;
+    let engine = Arc::new(
+        SearchEngine::new(vec![Arc::new(providers::openverse::Openverse::new())], build_test_client(), EngineSettings::default(), Arc::new(NoKeys))
+            .with_base_override("openverse", &s.uri()),
+    );
+    let (sink, events) = collect();
+    let req = SearchRequest {
+        search_id: 10,
+        query: "tension".into(),
+        filter: KindFilter::Music,
+        page: 1,
+        rights: None,
+        usage: Some(bouteca_core::rights::Usage::YouTubeMonetized),
+    };
+    engine.search(req, sink).await;
+    let ev = events.lock();
+    let mut uids: Vec<String> = ev
+        .iter()
+        .filter_map(|e| if let SearchEvent::Batch { items, .. } = e { Some(items.iter().map(|i| i.uid.clone()).collect::<Vec<_>>()) } else { None })
+        .flatten()
+        .collect();
+    uids.sort();
+    assert_eq!(uids, vec!["openverse:m-1", "openverse:m-2"], "la CC BY-NC no sirve para monetizar");
 }

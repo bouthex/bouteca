@@ -2,12 +2,13 @@
 //! - Art Institute of Chicago (api.artic.edu): obras de dominio público con imágenes CC0 vía IIIF.
 //! - The Metropolitan Museum of Art (collectionapi.metmuseum.org): Open Access CC0.
 //! - Cleveland Museum of Art (openaccess-api.clevelandart.org): Open Access CC0.
-//! - Library of Congress (loc.gov, `fo=json`): fotografías históricas. Los derechos varían por
-//!   documento, así que **no se ofrece descarga** (licencia no verificada) y se enlaza la fuente.
+//!
+//! La Library of Congress se evaluó y se descartó: su API JSON superó los 12 s de espera en
+//! las pruebas reales y no declara los derechos de forma estructurada (ver PROVIDERS.md).
 
 use super::*;
 use crate::http;
-use crate::model::{DownloadPolicy, Rendition};
+use crate::model::Rendition;
 use futures::StreamExt;
 use serde_json::Value;
 
@@ -185,16 +186,23 @@ impl Provider for Met {
     }
     async fn search(&self, ctx: &ProviderCtx, q: &ProviderQuery) -> Result<ProviderPage> {
         let base = ctx.base("https://collectionapi.metmuseum.org").to_string();
+        // /v1/search se retiró el 01/10/2026; /v1.1/search pagina con offset/limit (máx. 10 000).
+        let per = q.per_page.min(12);
+        let offset = q.page.saturating_sub(1) * per;
         let v: Value = http::get_json(
             "met",
-            ctx.client.get(format!("{base}/public/collection/v1/search")).query(&[("hasImages", "true"), ("q", q.text.as_str())]),
+            ctx.client.get(format!("{base}/public/collection/v1.1/search")).query(&[
+                ("hasImages", "true"),
+                ("q", q.text.as_str()),
+                ("offset", &offset.to_string()),
+                ("limit", &per.to_string()),
+            ]),
         )
         .await?;
-        let ids: Vec<u64> = v.get("objectIDs").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_u64).collect();
-        // La búsqueda devuelve solo IDs: se piden los detalles de una página chica (máx. 12), 6 a la vez.
-        let per = q.per_page.min(12) as usize;
-        let start = (q.page.saturating_sub(1) as usize) * per;
-        let slice: Vec<u64> = ids.iter().skip(start).take(per).copied().collect();
+        let total = v.get("total").and_then(Value::as_u64).unwrap_or(0);
+        // La búsqueda devuelve solo IDs: se piden los detalles de la página (máx. 12), 6 a la vez.
+        let slice: Vec<u64> =
+            v.get("objectIDs").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_u64).take(per as usize).collect();
         let items: Vec<MediaItem> = futures::stream::iter(slice)
             .map(|id| {
                 let c = ctx.client.clone();
@@ -208,7 +216,7 @@ impl Provider for Met {
             .filter_map(|x| async move { x })
             .collect()
             .await;
-        Ok(ProviderPage { items, has_more: start + per < ids.len(), total: Some(ids.len() as u64) })
+        Ok(ProviderPage { items, has_more: ((offset + per) as u64) < total.min(10_000), total: Some(total) })
     }
 }
 
@@ -289,73 +297,5 @@ impl Provider for Cleveland {
         ]);
         let v: Value = http::get_json("cleveland", req).await?;
         Ok(parse_cleveland(&v, q.page, per))
-    }
-}
-
-// ---------------- Library of Congress ----------------
-pub struct LibraryOfCongress(ProviderInfo);
-impl LibraryOfCongress {
-    pub fn new() -> Self {
-        Self(info(
-            "loc",
-            "Library of Congress",
-            "https://www.loc.gov",
-            "Uso razonable (≈20 por 10 s)",
-            "Fotografías históricas. Los derechos varían por documento: verificar en la fuente; sin descarga desde Bouteca.",
-        ))
-    }
-}
-impl Default for LibraryOfCongress {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-pub(crate) fn parse_loc(v: &Value) -> ProviderPage {
-    let items = v
-        .get("results")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(|r| {
-            let page = s(r, "url")?;
-            let id = page.trim_end_matches('/').rsplit('/').next()?.to_string();
-            let thumb = r.get("image_url").and_then(Value::as_array).and_then(|a| a.first()).and_then(Value::as_str).map(|x| {
-                let x = x.split('#').next().unwrap_or(x);
-                if x.starts_with("//") {
-                    format!("https:{x}")
-                } else {
-                    x.replacen("http://", "https://", 1)
-                }
-            })?;
-            let mut it = MediaItem::new("loc", &id, MediaKind::Image, s(r, "title").unwrap_or_else(|| "Sin título".into()));
-            it.thumbnail = Some(thumb.clone());
-            it.preview = Some(thumb);
-            it.page_url = Some(page.replacen("http://", "https://", 1));
-            it.tags = s(r, "date").into_iter().collect();
-            // Derechos no verificables de forma automática: nunca se presume permiso.
-            it.license = None;
-            it.download_policy = DownloadPolicy::PreviewOnly;
-            Some(it)
-        })
-        .collect();
-    let has_more = v.pointer("/pagination/next").map(|n| !n.is_null()).unwrap_or(false);
-    ProviderPage { items, has_more, total: v.pointer("/pagination/of").and_then(Value::as_u64) }
-}
-
-#[async_trait]
-impl Provider for LibraryOfCongress {
-    fn info(&self) -> &ProviderInfo {
-        &self.0
-    }
-    fn supports(&self, f: KindFilter) -> bool {
-        images_only(f)
-    }
-    async fn search(&self, ctx: &ProviderCtx, q: &ProviderQuery) -> Result<ProviderPage> {
-        let url = format!("{}/photos/", ctx.base("https://www.loc.gov"));
-        let req =
-            ctx.client.get(url).query(&[("q", q.text.as_str()), ("fo", "json"), ("c", &q.per_page.min(25).to_string()), ("sp", &q.page.to_string())]);
-        let v: Value = http::get_json("loc", req).await?;
-        Ok(parse_loc(&v))
     }
 }

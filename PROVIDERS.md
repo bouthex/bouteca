@@ -20,9 +20,8 @@ integran APIs oficiales; no hay scraping ni resultados simulados. Cada proveedor
 | **Pexels** | Fotos y videos | Sí, gratis | 200/hora, 20 000/mes | Foto original; MP4 en varias calidades | Licencia de Pexels. Mostrar enlace a Pexels. |
 | **NASA Image and Video Library** | Imágenes, videos y audios espaciales | No | Uso razonable | Original/alta/media/baja reales (lista de archivos `/asset/{id}` bajo demanda) | En general sin derechos de autor en EE. UU.; no usar logos de NASA ni implicar respaldo; revisar créditos de terceros en la descripción. |
 | **Art Institute of Chicago** | Obras de arte | No | ≈60/min | IIIF 843 / 1686 px | Solo obras `is_public_domain=true` (imágenes CC0). |
-| **The Met** | Obras de arte | No | 80/s | Imagen original | Open Access: solo `isPublicDomain` con imagen (CC0). Cada página consulta el detalle de ≤12 obras (6 en paralelo): se envía solo la consulta principal. |
+| **The Met** | Obras de arte | No | 80/s | Imagen original | Open Access: solo `isPublicDomain` con imagen (CC0). Usa `/v1.1/search` (la `/v1/search` se retiró el 01/10/2026; detectado por la prueba real). Cada página consulta el detalle de ≤12 obras (6 en paralelo): se envía solo la consulta principal. |
 | **Cleveland Museum of Art** | Obras de arte | No | Uso razonable | Completa (TIFF/JPEG), impresión y web, con dimensiones | Solo `cc0=1` y con imagen. |
-| **Library of Congress** | Fotos históricas | No | Uso razonable | **No**: solo vista previa y enlace | Los derechos varían por elemento y la API no los declara de forma estructurada: Bouteca no ofrece descarga (licencia desconocida ≠ permiso). |
 | **iNaturalist** | Fotos de naturaleza y animales | No | ≤1 solicitud/s recomendada (se envía una sola consulta) | Original y 1024 px | Solo fotos CC0, CC BY y CC BY-SA (se descartan NC/ND y reservadas). Atribución al autor. |
 | **ccMixter** | Música Creative Commons | No | Uso razonable | **No**: solo enlace | Sus archivos tienen protección anti-hotlink (403 sin su sitio como origen). Bouteca no falsifica el origen: se escucha y descarga en ccMixter. |
 | **PeerTube (SepiaSearch)** | Videos federados | No | Uso razonable (índice comunitario de Framasoft) | MP4 por resolución desde la instancia de origen, **solo si** la instancia tiene `downloadEnabled` y la licencia es libre y conocida | Licencias estándar de PeerTube (ids 1–8). Se descartan directos, NSFW con búsqueda segura, URLs no HTTPS, puertos e IP literales. |
@@ -30,8 +29,8 @@ integran APIs oficiales; no hay scraping ni resultados simulados. Cada proveedor
 
 ### Clasificación por necesidad de clave
 
-- **Sin clave (13):** Wikimedia, Openverse, Internet Archive, Imgflip, NASA, Art Institute of
-  Chicago, The Met, Cleveland, Library of Congress, iNaturalist, ccMixter, PeerTube, Dailymotion.
+- **Sin clave (12):** Wikimedia, Openverse, Internet Archive, Imgflip, NASA, Art Institute of
+  Chicago, The Met, Cleveland, iNaturalist, ccMixter, PeerTube, Dailymotion.
 - **Con clave gratuita del usuario (6):** GIPHY, KLIPY, YouTube, Freesound, Pixabay, Pexels. Las
   claves son personales: se cargan en la app instalada y se guardan en el Administrador de
   credenciales de Windows. Bouteca **no distribuye claves compartidas** en el instalador (cualquiera
@@ -69,6 +68,8 @@ del usuario. Nunca en `settings.json`, en registros ni en el repositorio. Se car
 | **Reddit** | La API requiere OAuth y sus términos restringen el uso de contenido de terceros. |
 | **Myinstants** | No tiene API oficial. |
 | **Imgflip `search_memes`** | Función paga (API Premium). |
+| **Library of Congress** | Integrada y retirada tras la prueba real en Windows: su API JSON superó los 12 s de espera y no declara derechos de forma estructurada (no se podría descargar nada). |
+| **Pixabay Music** | La API pública de Pixabay solo expone imágenes y videos; no hay endpoint de música. |
 | **Descarga desde ccMixter** | Protección anti-hotlink; evitarla exigiría falsificar cabeceras. Se integra como enlace. |
 | **Descarga desde Dailymotion** | Sus condiciones no la permiten. Solo reproductor oficial. |
 | **Europeana** | Requiere clave (gratuita) y su cobertura de imágenes abiertas se solapa con Openverse/Wikimedia. Candidato futuro opcional. |

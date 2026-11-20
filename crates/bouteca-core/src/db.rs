@@ -122,7 +122,11 @@ impl Db {
     }
 
     fn from_json(s: &str) -> Option<MediaItem> {
-        serde_json::from_str(s).ok()
+        // Los permisos se recalculan al leer: elementos guardados con versiones anteriores (o
+        // con criterios de licencia más viejos) quedan con la evaluación vigente.
+        let mut it: MediaItem = serde_json::from_str(s).ok()?;
+        it.rights = crate::rights::derive(&it);
+        Some(it)
     }
 
     // ---------- favoritos ----------

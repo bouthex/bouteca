@@ -60,6 +60,9 @@ pub struct ProviderQuery {
     pub page: u32,
     pub per_page: u32,
     pub safe: bool,
+    /// Filtro de derechos activo: las fuentes que lo soportan lo aplican en origen (más
+    /// resultados útiles por consulta); el motor igual vuelve a verificar cada resultado.
+    pub rights: Option<crate::rights::RightsFilter>,
 }
 
 /// Contexto compartido (cliente HTTP, clave, opciones, base URL para pruebas).
@@ -120,7 +123,6 @@ pub fn registry() -> Vec<DynProvider> {
         Arc::new(museums::Artic::new()),
         Arc::new(museums::Met::new()),
         Arc::new(museums::Cleveland::new()),
-        Arc::new(museums::LibraryOfCongress::new()),
         Arc::new(openmedia::INaturalist::new()),
         Arc::new(openmedia::CcMixter::new()),
         Arc::new(videos::PeerTube::new()),

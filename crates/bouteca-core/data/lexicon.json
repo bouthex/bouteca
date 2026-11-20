@@ -2887,6 +2887,781 @@
      "сус"
     ]
    }
+  },
+  {
+   "id": "calm",
+   "terms": {
+    "es": [
+     "tranquilo",
+     "tranquila",
+     "calma",
+     "relajante",
+     "relajado",
+     "sereno"
+    ],
+    "en": [
+     "calm",
+     "relaxing",
+     "peaceful",
+     "soothing"
+    ],
+    "pt": [
+     "calmo",
+     "tranquilo",
+     "relaxante"
+    ],
+    "tr": [
+     "sakin",
+     "rahatlatıcı"
+    ],
+    "ja": [
+     "穏やか",
+     "リラックス"
+    ],
+    "ru": [
+     "спокойный",
+     "расслабляющий"
+    ]
+   },
+   "pos": "adj"
+  },
+  {
+   "id": "energetic",
+   "terms": {
+    "es": [
+     "enérgico",
+     "enérgica",
+     "energético",
+     "movido",
+     "animado"
+    ],
+    "en": [
+     "energetic",
+     "upbeat",
+     "lively",
+     "driving"
+    ],
+    "pt": [
+     "enérgico",
+     "animado",
+     "agitado"
+    ],
+    "tr": [
+     "enerjik",
+     "hareketli"
+    ],
+    "ja": [
+     "エネルギッシュ",
+     "アップビート"
+    ],
+    "ru": [
+     "энергичный",
+     "бодрый"
+    ]
+   },
+   "pos": "adj"
+  },
+  {
+   "id": "romantic",
+   "terms": {
+    "es": [
+     "romántico",
+     "romántica",
+     "amoroso"
+    ],
+    "en": [
+     "romantic",
+     "love song"
+    ],
+    "pt": [
+     "romântico",
+     "romântica"
+    ],
+    "tr": [
+     "romantik"
+    ],
+    "ja": [
+     "ロマンチック"
+    ],
+    "ru": [
+     "романтичный",
+     "романтика"
+    ]
+   },
+   "pos": "adj"
+  },
+  {
+   "id": "mysterious",
+   "terms": {
+    "es": [
+     "misterioso",
+     "misteriosa",
+     "misterio",
+     "enigmático"
+    ],
+    "en": [
+     "mysterious",
+     "mystery",
+     "enigmatic"
+    ],
+    "pt": [
+     "misterioso",
+     "mistério"
+    ],
+    "tr": [
+     "gizemli",
+     "gizem"
+    ],
+    "ja": [
+     "神秘的",
+     "ミステリアス"
+    ],
+    "ru": [
+     "таинственный",
+     "загадочный"
+    ]
+   },
+   "pos": "adj"
+  },
+  {
+   "id": "dark",
+   "terms": {
+    "es": [
+     "oscuro",
+     "oscura",
+     "sombrío",
+     "siniestro",
+     "lúgubre"
+    ],
+    "en": [
+     "dark",
+     "sinister",
+     "ominous",
+     "eerie"
+    ],
+    "pt": [
+     "sombrio",
+     "sinistro",
+     "obscuro"
+    ],
+    "tr": [
+     "karanlık",
+     "uğursuz"
+    ],
+    "ja": [
+     "ダーク",
+     "不気味"
+    ],
+    "ru": [
+     "мрачный",
+     "зловещий"
+    ]
+   },
+   "pos": "adj"
+  },
+  {
+   "id": "melancholic",
+   "terms": {
+    "es": [
+     "melancólico",
+     "melancólica",
+     "nostálgico",
+     "nostalgia"
+    ],
+    "en": [
+     "melancholic",
+     "melancholy",
+     "nostalgic",
+     "wistful"
+    ],
+    "pt": [
+     "melancólico",
+     "nostálgico",
+     "saudade"
+    ],
+    "tr": [
+     "melankolik",
+     "nostaljik"
+    ],
+    "ja": [
+     "メランコリック",
+     "ノスタルジック"
+    ],
+    "ru": [
+     "меланхоличный",
+     "ностальгия"
+    ]
+   },
+   "pos": "adj"
+  },
+  {
+   "id": "action",
+   "terms": {
+    "es": [
+     "acción",
+     "persecución",
+     "pelea"
+    ],
+    "en": [
+     "action",
+     "chase",
+     "fight"
+    ],
+    "pt": [
+     "ação",
+     "perseguição"
+    ],
+    "tr": [
+     "aksiyon",
+     "kovalamaca"
+    ],
+    "ja": [
+     "アクション"
+    ],
+    "ru": [
+     "экшен",
+     "погоня"
+    ]
+   }
+  },
+  {
+   "id": "adventure",
+   "terms": {
+    "es": [
+     "aventura",
+     "aventurero"
+    ],
+    "en": [
+     "adventure"
+    ],
+    "pt": [
+     "aventura"
+    ],
+    "tr": [
+     "macera"
+    ],
+    "ja": [
+     "冒険"
+    ],
+    "ru": [
+     "приключение"
+    ]
+   }
+  },
+  {
+   "id": "inspirational",
+   "terms": {
+    "es": [
+     "inspirador",
+     "inspiradora",
+     "motivador",
+     "emotivo",
+     "esperanzador"
+    ],
+    "en": [
+     "inspirational",
+     "inspiring",
+     "motivational",
+     "uplifting",
+     "hopeful"
+    ],
+    "pt": [
+     "inspirador",
+     "motivacional",
+     "emocionante"
+    ],
+    "tr": [
+     "ilham verici",
+     "motivasyon"
+    ],
+    "ja": [
+     "感動的",
+     "インスピレーション"
+    ],
+    "ru": [
+     "вдохновляющий",
+     "мотивирующий"
+    ]
+   },
+   "pos": "adj"
+  },
+  {
+   "id": "triumphant",
+   "terms": {
+    "es": [
+     "triunfal",
+     "victorioso",
+     "heroico"
+    ],
+    "en": [
+     "triumphant",
+     "victorious",
+     "heroic"
+    ],
+    "pt": [
+     "triunfante",
+     "heroico"
+    ],
+    "tr": [
+     "zafer",
+     "kahramanca"
+    ],
+    "ja": [
+     "勝利",
+     "英雄的"
+    ],
+    "ru": [
+     "триумфальный",
+     "героический"
+    ]
+   },
+   "pos": "adj"
+  },
+  {
+   "id": "cinematic",
+   "terms": {
+    "es": [
+     "cinemático",
+     "cinematográfico",
+     "de película",
+     "banda sonora"
+    ],
+    "en": [
+     "cinematic",
+     "soundtrack",
+     "score",
+     "film score"
+    ],
+    "pt": [
+     "cinematográfico",
+     "trilha sonora"
+    ],
+    "tr": [
+     "sinematik",
+     "film müziği"
+    ],
+    "ja": [
+     "シネマティック",
+     "サウンドトラック"
+    ],
+    "ru": [
+     "кинематографичный",
+     "саундтрек"
+    ]
+   },
+   "pos": "adj"
+  },
+  {
+   "id": "ambient",
+   "terms": {
+    "es": [
+     "ambiental",
+     "ambiente",
+     "atmosférico",
+     "atmósfera"
+    ],
+    "en": [
+     "ambient",
+     "atmospheric",
+     "drone",
+     "soundscape"
+    ],
+    "pt": [
+     "ambiente",
+     "atmosférico"
+    ],
+    "tr": [
+     "ambiyans",
+     "atmosferik"
+    ],
+    "ja": [
+     "アンビエント"
+    ],
+    "ru": [
+     "эмбиент",
+     "атмосферный"
+    ]
+   }
+  },
+  {
+   "id": "chill",
+   "terms": {
+    "es": [
+     "chill",
+     "lofi",
+     "lo-fi",
+     "relax"
+    ],
+    "en": [
+     "chill",
+     "lofi",
+     "lo-fi",
+     "chillhop"
+    ],
+    "pt": [
+     "chill",
+     "lofi"
+    ],
+    "tr": [
+     "chill",
+     "lofi"
+    ],
+    "ja": [
+     "チル",
+     "ローファイ"
+    ],
+    "ru": [
+     "чилл",
+     "лоуфай"
+    ]
+   },
+   "pos": "adj"
+  },
+  {
+   "id": "background",
+   "terms": {
+    "es": [
+     "fondo",
+     "de fondo"
+    ],
+    "en": [
+     "background",
+     "underscore"
+    ],
+    "pt": [
+     "fundo",
+     "de fundo"
+    ],
+    "tr": [
+     "arka plan",
+     "fon müziği"
+    ],
+    "ja": [
+     "BGM",
+     "背景"
+    ],
+    "ru": [
+     "фоновый",
+     "фон"
+    ]
+   }
+  },
+  {
+   "id": "intro",
+   "terms": {
+    "es": [
+     "intro",
+     "introducción",
+     "outro",
+     "cierre"
+    ],
+    "en": [
+     "intro",
+     "outro",
+     "opener"
+    ],
+    "pt": [
+     "intro",
+     "abertura",
+     "encerramento"
+    ],
+    "tr": [
+     "intro",
+     "giriş"
+    ],
+    "ja": [
+     "イントロ",
+     "オープニング"
+    ],
+    "ru": [
+     "интро",
+     "заставка"
+    ]
+   }
+  },
+  {
+   "id": "piano",
+   "terms": {
+    "es": [
+     "piano"
+    ],
+    "en": [
+     "piano"
+    ],
+    "pt": [
+     "piano"
+    ],
+    "tr": [
+     "piyano"
+    ],
+    "ja": [
+     "ピアノ"
+    ],
+    "ru": [
+     "пианино",
+     "фортепиано"
+    ]
+   }
+  },
+  {
+   "id": "guitar",
+   "terms": {
+    "es": [
+     "guitarra"
+    ],
+    "en": [
+     "guitar"
+    ],
+    "pt": [
+     "violão",
+     "guitarra"
+    ],
+    "tr": [
+     "gitar"
+    ],
+    "ja": [
+     "ギター"
+    ],
+    "ru": [
+     "гитара"
+    ]
+   }
+  },
+  {
+   "id": "orchestral",
+   "terms": {
+    "es": [
+     "orquestal",
+     "orquesta",
+     "sinfónico",
+     "sinfonía"
+    ],
+    "en": [
+     "orchestral",
+     "orchestra",
+     "symphonic",
+     "symphony"
+    ],
+    "pt": [
+     "orquestral",
+     "orquestra",
+     "sinfônico"
+    ],
+    "tr": [
+     "orkestral",
+     "senfonik"
+    ],
+    "ja": [
+     "オーケストラ",
+     "交響"
+    ],
+    "ru": [
+     "оркестровый",
+     "симфонический"
+    ]
+   },
+   "pos": "adj"
+  },
+  {
+   "id": "electronic",
+   "terms": {
+    "es": [
+     "electrónica",
+     "electrónico",
+     "synth",
+     "sintetizador"
+    ],
+    "en": [
+     "electronic",
+     "electro",
+     "synth",
+     "edm"
+    ],
+    "pt": [
+     "eletrônica",
+     "eletrônico"
+    ],
+    "tr": [
+     "elektronik"
+    ],
+    "ja": [
+     "エレクトロ",
+     "シンセ"
+    ],
+    "ru": [
+     "электронная",
+     "синт"
+    ]
+   },
+   "pos": "adj"
+  },
+  {
+   "id": "rock",
+   "terms": {
+    "es": [
+     "rock"
+    ],
+    "en": [
+     "rock"
+    ],
+    "pt": [
+     "rock"
+    ],
+    "tr": [
+     "rock"
+    ],
+    "ja": [
+     "ロック"
+    ],
+    "ru": [
+     "рок"
+    ]
+   }
+  },
+  {
+   "id": "jazz",
+   "terms": {
+    "es": [
+     "jazz"
+    ],
+    "en": [
+     "jazz"
+    ],
+    "pt": [
+     "jazz"
+    ],
+    "tr": [
+     "caz"
+    ],
+    "ja": [
+     "ジャズ"
+    ],
+    "ru": [
+     "джаз"
+    ]
+   }
+  },
+  {
+   "id": "hiphop",
+   "terms": {
+    "es": [
+     "hip hop",
+     "rap",
+     "trap"
+    ],
+    "en": [
+     "hip hop",
+     "hip-hop",
+     "rap",
+     "trap"
+    ],
+    "pt": [
+     "hip hop",
+     "rap"
+    ],
+    "tr": [
+     "hip hop",
+     "rap"
+    ],
+    "ja": [
+     "ヒップホップ"
+    ],
+    "ru": [
+     "хип-хоп",
+     "рэп"
+    ]
+   }
+  },
+  {
+   "id": "chiptune",
+   "terms": {
+    "es": [
+     "8 bits",
+     "8-bit",
+     "chiptune",
+     "retro"
+    ],
+    "en": [
+     "8-bit",
+     "8 bit",
+     "chiptune",
+     "retro game"
+    ],
+    "pt": [
+     "8 bits",
+     "chiptune"
+    ],
+    "tr": [
+     "8 bit",
+     "chiptune"
+    ],
+    "ja": [
+     "8ビット",
+     "チップチューン"
+    ],
+    "ru": [
+     "8-бит",
+     "чиптюн"
+    ]
+   }
+  },
+  {
+   "id": "classical",
+   "terms": {
+    "es": [
+     "clásica",
+     "música clásica",
+     "barroco"
+    ],
+    "en": [
+     "classical",
+     "baroque"
+    ],
+    "pt": [
+     "clássica",
+     "barroco"
+    ],
+    "tr": [
+     "klasik"
+    ],
+    "ja": [
+     "クラシック"
+    ],
+    "ru": [
+     "классическая"
+    ]
+   }
+  },
+  {
+   "id": "folk",
+   "terms": {
+    "es": [
+     "folk",
+     "folclore",
+     "acústico",
+     "acústica"
+    ],
+    "en": [
+     "folk",
+     "acoustic"
+    ],
+    "pt": [
+     "folk",
+     "acústico"
+    ],
+    "tr": [
+     "folk",
+     "akustik"
+    ],
+    "ja": [
+     "フォーク",
+     "アコースティック"
+    ],
+    "ru": [
+     "фолк",
+     "акустика"
+    ]
+   }
   }
  ],
  "entities": [

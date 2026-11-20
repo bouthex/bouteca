@@ -17,7 +17,7 @@ fn ctx(server: &MockServer, key: Option<&str>) -> ProviderCtx {
 }
 
 fn q(text: &str, filter: KindFilter) -> ProviderQuery {
-    ProviderQuery { text: text.into(), lang: LangCode::Es, filter, page: 1, per_page: 24, safe: true }
+    ProviderQuery { text: text.into(), lang: LangCode::Es, filter, page: 1, per_page: 24, safe: true, rights: None }
 }
 
 async fn json(server: &MockServer, p: &str, body: String) {
@@ -360,7 +360,7 @@ async fn artic_solo_dominio_publico_con_iiif() {
 #[tokio::test]
 async fn met_filtra_dominio_publico_e_imagen() {
     let s = MockServer::start().await;
-    json(&s, "/public/collection/v1/search", fixture("met_search.json")).await;
+    json(&s, "/public/collection/v1.1/search", fixture("met_search.json")).await;
     for id in ["436535", "1", "2"] {
         json(&s, &format!("/public/collection/v1/objects/{id}"), fixture(&format!("met_{id}.json"))).await;
     }
@@ -379,18 +379,6 @@ async fn cleveland_cc0_con_resoluciones_reales() {
     assert_eq!(it.renditions.len(), 3);
     assert_eq!(it.width, Some(8000), "anchos que llegan como texto se interpretan");
     assert_eq!(it.author.as_deref(), Some("Frederic Edwin Church"));
-}
-
-#[tokio::test]
-async fn library_of_congress_solo_vista_previa() {
-    let s = MockServer::start().await;
-    json(&s, "/photos/", fixture("loc.json")).await;
-    let page = museums::LibraryOfCongress::new().search(&ctx(&s, None), &q("gato", KindFilter::Image)).await.unwrap();
-    let it = &page.items[0];
-    assert!(it.thumbnail.as_deref().unwrap().starts_with("https://tile.loc.gov/"));
-    assert_eq!(it.download_policy, bouteca_core::model::DownloadPolicy::PreviewOnly);
-    assert!(!bouteca_core::rights::derive(it).download, "derechos sin verificar: no se descarga");
-    assert!(page.has_more);
 }
 
 #[tokio::test]

@@ -57,6 +57,8 @@ export interface Rights {
   derivatives: boolean | null;
   share_alike: boolean;
   summary: string;
+  indicator: Indicator;
+  attribution: string;
 }
 
 export interface Variant {
@@ -71,6 +73,24 @@ export interface Variant {
   duration_secs: number | null;
   download: boolean;
   thumbnail: string | null;
+}
+
+export type RightsFilter = "sin_atribucion" | "con_atribucion" | "libre" | "licencia_comercial" | "restringido";
+export type Usage = "personal" | "you_tube" | "you_tube_monetized" | "social" | "stream" | "game" | "film" | "commercial";
+export type Indicator = "sin_atribucion" | "requiere_atribucion" | "licencia_comercial" | "uso_restringido" | "desconocida";
+
+export interface Intent {
+  cleaned: string;
+  kind: KindFilter | null;
+  rights: RightsFilter | null;
+  usage: Usage | null;
+  duration_secs: number | null;
+  detected: string[];
+}
+
+export interface RightsDetail {
+  rights: Rights;
+  usages: { usage: Usage; label: string; ok: boolean | null }[];
 }
 
 export const isAudioKind = (k: MediaKind) => k === "audio" || k === "music";
@@ -90,7 +110,10 @@ export type ProviderStatus =
   | { state: "error"; detail: string };
 
 export type SearchEvent =
-  | { type: "plan"; search_id: number; variants: QueryVariant[]; concepts: string[]; entities: string[]; providers: string[] }
+  | {
+      type: "plan"; search_id: number; variants: QueryVariant[]; concepts: string[]; entities: string[]; providers: string[];
+      intent: Intent; filter: KindFilter; rights: RightsFilter | null; usage: Usage | null;
+    }
   | { type: "batch"; search_id: number; provider: string; items: MediaItem[] }
   | { type: "alternate"; search_id: number; dedupe_key: string; provider: string; uid: string; renditions: Rendition[] }
   | { type: "provider_error"; search_id: number; provider: string; message: string; status: ProviderStatus }

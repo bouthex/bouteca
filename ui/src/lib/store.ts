@@ -23,6 +23,11 @@ export const hasMore = signal(false);
 export const lastSearched = signal("");
 export const userScrolled = signal(false);
 export const elapsedMs = signal<number | null>(null);
+/** Filtros de derechos y de uso elegidos en la interfaz (null = sin filtro). */
+export const rightsFilter = signal<T.RightsFilter | null>(null);
+export const usageFilter = signal<T.Usage | null>(null);
+/** Lo que el motor entendió del texto y los filtros efectivos de la búsqueda en curso. */
+export const understood = signal<{ intent: T.Intent; rights: T.RightsFilter | null; usage: T.Usage | null } | null>(null);
 
 let searchSeq = Date.now() % 1_000_000;
 let currentId = 0;
@@ -39,6 +44,7 @@ export function runSearch(q = query.value, f = filter.value) {
     results.value = [];
     alternates.value = new Map();
     plan.value = null;
+    understood.value = null;
     providerState.value = {};
     providerErrors.value = {};
     searching.value = true;
@@ -48,7 +54,7 @@ export function runSearch(q = query.value, f = filter.value) {
     elapsedMs.value = null;
     view.value = "search";
   });
-  api.search(currentId, text, f).catch((e) => {
+  api.search(currentId, text, f, 1, rightsFilter.value, usageFilter.value).catch((e) => {
     searching.value = false;
     toast(errText(e), "error");
   });
@@ -58,7 +64,7 @@ export function loadMore() {
   if (!hasMore.value || loadingMore.value || searching.value || !lastSearched.value) return;
   page += 1;
   loadingMore.value = true;
-  api.search(currentId, lastSearched.value, filter.value, page).catch((e) => {
+  api.search(currentId, lastSearched.value, filter.value, page, rightsFilter.value, usageFilter.value).catch((e) => {
     loadingMore.value = false;
     toast(errText(e), "error");
   });
@@ -69,6 +75,9 @@ function handleSearchEvent(e: T.SearchEvent) {
   switch (e.type) {
     case "plan": {
       plan.value = { variants: e.variants, providers: e.providers };
+      understood.value = { intent: e.intent, rights: e.rights, usage: e.usage };
+      // Si el texto pedía un tipo ("música de…"), la pestaña refleja el filtro efectivo.
+      if (e.filter !== filter.value) filter.value = e.filter;
       const st: Record<string, "pending"> = {};
       e.providers.forEach((p) => (st[p] = "pending"));
       providerState.value = st;

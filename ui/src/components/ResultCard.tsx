@@ -4,7 +4,15 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { duration, isVideoUrl, kindLabel, providerName, resolution } from "../lib/format";
 import * as Icon from "../lib/icons";
 import { favoriteUids, openPreview, selected, settings, startDownload, toggleFavorite, visual } from "../lib/store";
-import type { MediaItem } from "../lib/types";
+import type { Indicator, MediaItem } from "../lib/types";
+
+export const INDICATOR_LABEL: Record<Indicator, string> = {
+  sin_atribucion: "Sin atribución",
+  requiere_atribucion: "Requiere atribución",
+  licencia_comercial: "Licencia comercial necesaria",
+  uso_restringido: "Uso restringido",
+  desconocida: "Licencia desconocida",
+};
 
 /** Tarjeta de resultado. La vista previa animada solo existe mientras el mouse está encima. */
 export const ResultCard = memo(function ResultCard({ item, style }: { item: MediaItem; style?: string }) {
@@ -34,7 +42,7 @@ export const ResultCard = memo(function ResultCard({ item, style }: { item: Medi
       onMouseEnter={() => { timer.current = window.setTimeout(() => setHover(true), 220); }}
       onMouseLeave={() => { clearTimeout(timer.current); setHover(false); }}
     >
-      <div class={`thumb ${isAudioKind(item.kind) ? "audio" : ""}`}>
+      <div class={`thumb ${isAudioKind(item.kind) ? "audio" : ""}`} data-k={item.kind}>
         {isAudioKind(item.kind) ? (
           item.thumbnail && !broken ? <img src={item.thumbnail} loading="lazy" decoding="async" alt="" onError={() => setBroken(true)} /> : <Icon.Music size={34} class="wave" />
         ) : wantPreview && previewUrl ? (
@@ -50,13 +58,13 @@ export const ResultCard = memo(function ResultCard({ item, style }: { item: Medi
         )}
         <span class="kind" data-k={item.kind} data-src={item.provider}>{item.provider === "youtube" ? "YouTube" : kindLabel[item.kind]}</span>
         {visual.value?.scores.has(item.uid) && <span class="sim" title="Parecido con tu imagen">{Math.round((visual.value.scores.get(item.uid) ?? 0) * 100)}%</span>}
-        {item.download_policy === "preview_only" && !item.duration_secs && <span class="stream-only">Solo ver</span>}
+        {(item.download_policy === "preview_only" || item.rights?.download === false) && !item.duration_secs && <span class="stream-only">Solo ver</span>}
         {item.duration_secs && !visual.value?.scores.has(item.uid) ? <span class="dur">{duration(item.duration_secs)}</span> : null}
         <div class={`card-actions ${fav ? "on" : ""}`} onClick={(e) => e.stopPropagation()}>
           <button class={`icon-btn ${fav ? "fav-on" : ""}`} title={fav ? "Quitar de favoritos" : "Guardar en favoritos"} onClick={() => toggleFavorite(item)}>
             {fav ? <Icon.HeartFill size={16} /> : <Icon.Heart size={16} />}
           </button>
-          {item.download_policy !== "preview_only" && (
+          {item.download_policy !== "preview_only" && item.rights?.download !== false && (
             <button class="icon-btn" title="Descargar" onClick={() => startDownload(item)}>
               <Icon.Download size={16} />
             </button>
@@ -66,6 +74,7 @@ export const ResultCard = memo(function ResultCard({ item, style }: { item: Medi
       <div class="meta">
         <span class="title" title={item.title}>{item.title}</span>
         <span class="sub">{sub}</span>
+        {item.rights && <span class="lic" data-i={item.rights.indicator} title={item.rights.summary}>{INDICATOR_LABEL[item.rights.indicator]}</span>}
       </div>
     </div>
   );

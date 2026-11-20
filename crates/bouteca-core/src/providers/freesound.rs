@@ -160,7 +160,16 @@ impl Provider for Freesound {
             ("page_size", q.per_page.min(150).to_string()),
             ("fields", FIELDS.to_string()),
         ];
-        params.push(("filter", if music { "tag:music".to_string() } else { "-tag:music".to_string() }));
+        let mut filter = if music { "tag:music".to_string() } else { "-tag:music".to_string() };
+        // Filtro de derechos en origen (valores de licencia documentados por Freesound).
+        use crate::rights::RightsFilter as R;
+        match q.rights {
+            Some(R::SinAtribucion) => filter.push_str(" license:\"Creative Commons 0\""),
+            Some(R::ConAtribucion) => filter.push_str(" license:\"Attribution\""),
+            Some(R::LicenciaComercial) => filter.push_str(" license:\"Attribution NonCommercial\""),
+            _ => {}
+        }
+        params.push(("filter", filter));
         // La clave va en la cabecera (no en la URL), así nunca aparece en registros.
         let auth = format!("Token {key}");
         let resp = match http::send("freesound", ctx.client.get(format!("{base}/apiv2/search/")).header("Authorization", &auth).query(&params)).await

@@ -27,10 +27,10 @@ Corrida del commit `ab616e7` (2026-11-20):
   secretos del repo (`BOUTECA_KEY_GIPHY`, `BOUTECA_KEY_KLIPY`, `BOUTECA_KEY_YOUTUBE`,
   `BOUTECA_KEY_FREESOUND`, `BOUTECA_KEY_PIXABAY`, `BOUTECA_KEY_PEXELS`).
 
-## Implementado y con pruebas automáticas (Auto: 60 Rust + 5 interfaz)
+## Implementado y con pruebas automáticas (Auto: 67 Rust + 5 interfaz)
 - Motor federado progresivo, cancelable, caché acotada, pausa por límites, paginación.
 - Consultas multilingües (léxico es/en/pt/tr/ja/ru, entidades), ranking, duplicados.
-- 19 proveedores (incluye YouTube y Dailymotion: reproductor oficial, **sin descarga**).
+- 18 proveedores (incluye YouTube y Dailymotion: reproductor oficial, **sin descarga**).
 - Biblioteca: favoritos, colecciones, historial.
 - Descargas validadas por contenido, sin duplicados, reanudables, Mark of the Web.
 - Seguridad: anti-SSRF/DNS rebinding, URLs validadas, tamaños máximos, SVG bloqueado, descargas
@@ -45,13 +45,22 @@ Corrida del commit `ab616e7` (2026-11-20):
   plataforma, restringida, desconocida; usos personal/YouTube/monetizado/redes/stream/comercial;
   texto de atribución). Lo aplica el motor a cada resultado y el gestor de descargas lo recalcula
   (licencia desconocida o restringida = sin descarga). Tipo **Música** separado de **Sonidos**
-  (Archive, Openverse, Wikimedia, Freesound, ccMixter). **9 fuentes nuevas sin clave**: NASA,
-  Art Institute of Chicago, The Met, Cleveland, Library of Congress, iNaturalist, ccMixter,
-  PeerTube (SepiaSearch) y Dailymotion (reproductor oficial). Total: 19 fuentes (13 sin clave).
-  Pruebas con respuestas simuladas para cada una; pruebas en vivo agregadas (**Real: pendiente
-  de la corrida de CI**).
-- ⏳ Etapa 2: sección Música (estados de ánimo, filtros de derechos A–D, usos por plataforma,
-  texto de atribución copiable, reproductor con avance/retroceso).
+  (Archive, Openverse, Wikimedia, Freesound, ccMixter). **8 fuentes nuevas sin clave**: NASA,
+  Art Institute of Chicago, The Met, Cleveland, iNaturalist, ccMixter, PeerTube (SepiaSearch) y
+  Dailymotion (reproductor oficial). Total: 18 fuentes (12 sin clave). **Real (CI, commit
+  9b56354)**: NASA (+3/3 archivos), PeerTube (+3/3 archivos), AIC, Cleveland, iNaturalist,
+  Dailymotion respondieron en la prueba de humo de Windows. Fallaron y se corrigieron: The Met
+  (retiró `/v1/search` el 01/10/2026 → `/v1.1`), Openverse sonidos (la categoría
+  `sound_effect` dejaba afuera casi todo) y Library of Congress (más de 12 s: retirada).
+- ✅ **Etapa 2 (Auto)**: pestaña **Música**; consultas en lenguaje natural (`intent.rs`):
+  tipo ("música", "efecto de sonido"), derechos ("sin atribución", "libre de derechos", "con
+  atribución"), uso ("para YouTube monetizado", "para un stream", "para un juego"…) y duración
+  ("de dos minutos", orienta el orden). 25 estados de ánimo/géneros nuevos en el léxico
+  (6 idiomas). Filtros de derechos A–D + "libres" y de uso (8 usos) en la interfaz; se aplican
+  en origen donde la API lo permite (Openverse, Freesound, Archive) y el motor verifica cada
+  resultado (lo dudoso queda afuera). Indicador en cada tarjeta, panel de derechos con
+  compatibilidad por uso y créditos listos para copiar; reproductor con ±10 s, teclado y una
+  sola reproducción con sonido a la vez.
 - ⏳ Etapa 3: deduplicación por niveles con variantes legítimas y selección de calidad.
 - ⏳ Etapa 4: filtros avanzados, preferencias persistentes, gestor de descargas (pausa/progreso
   global), actualizador firmado con canales estable/beta.

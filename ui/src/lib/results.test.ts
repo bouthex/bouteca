@@ -8,7 +8,7 @@ const item = (uid: string, score: number, key = uid): MediaItem => ({
   page_url: null, author: null, license: null, license_url: null, width: null, height: null, duration_secs: null,
   popularity: null, renditions: [{ label: "o", url: `https://x/${uid}`, mime: null, width: null, height: null, size_bytes: null, original: true }],
   needs_resolve: false, download_policy: "free", score, dedupe_key: key, variants: [],
-  rights: { license: "cc0", label: "CC0", play: true, download: true, attribution_required: false, commercial: true, derivatives: true, share_alike: false, summary: "" },
+  rights: { license: "cc0", label: "CC0", play: true, download: true, attribution_required: false, commercial: true, derivatives: true, share_alike: false, summary: "", indicator: "sin_atribucion", attribution: "" },
 });
 
 describe("mergeBatch", () => {
