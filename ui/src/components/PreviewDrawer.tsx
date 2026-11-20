@@ -1,3 +1,4 @@
+import { isAudioKind } from "../lib/types";
 import { useEffect, useState } from "preact/hooks";
 import { api, errText } from "../lib/api";
 import { bytes, duration, isVideoUrl, kindLabel, providerName, resolution } from "../lib/format";
@@ -8,11 +9,23 @@ import type { MediaItem } from "../lib/types";
 import { CollectionPicker } from "./CollectionPicker";
 import { Player } from "./Player";
 
+/** Reproductores oficiales permitidos (deben coincidir con `frame-src` de la CSP). */
+const OFFICIAL_EMBEDS: { prefix: string; name: string; params: string }[] = [
+  { prefix: "https://www.youtube-nocookie.com/embed/", name: "YouTube", params: "?rel=0&playsinline=1" },
+  { prefix: "https://geo.dailymotion.com/player.html?video=", name: "Dailymotion", params: "" },
+];
+
+export function officialEmbed(url: string | null | undefined) {
+  if (!url) return null;
+  const e = OFFICIAL_EMBEDS.find((x) => url.startsWith(x.prefix) && /^[A-Za-z0-9_-]+$/.test(url.slice(x.prefix.length)));
+  return e ? { src: url + e.params, name: e.name } : null;
+}
+
 /**
- * Reproductor oficial de YouTube (youtube-nocookie). Se respeta tal cual: controles, publicidad,
- * restricciones de edad/región. Se monta solo con el panel abierto y se destruye al cerrarlo.
+ * Reproductor oficial del proveedor (YouTube, Dailymotion). Se respeta tal cual: controles,
+ * publicidad, restricciones de edad/región. Se monta solo con el panel abierto y se destruye al cerrarlo.
  */
-function YouTubeEmbed({ src, title }: { src: string; title: string }) {
+function OfficialEmbed({ src, name, title }: { src: string; name: string; title: string }) {
   useEffect(() => {
     playerMounted();
     return () => playerUnmounted();
@@ -21,8 +34,8 @@ function YouTubeEmbed({ src, title }: { src: string; title: string }) {
     <div class="stage">
       <iframe
         class="yt-frame"
-        src={`${src}?rel=0&playsinline=1`}
-        title={`Reproductor de YouTube: ${title}`}
+        src={src}
+        title={`Reproductor de ${name}: ${title}`}
         allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
         allowFullScreen
         referrerpolicy="strict-origin-when-cross-origin"
@@ -69,11 +82,12 @@ export function PreviewDrawer({ item: initial }: { item: MediaItem }) {
   const media = item.preview ?? item.renditions.find((r) => r.mime?.startsWith("video") || r.mime?.startsWith("audio"))?.url ?? null;
 
   let stage;
-  if (item.embed_url?.startsWith("https://www.youtube-nocookie.com/embed/")) {
-    stage = <YouTubeEmbed src={item.embed_url} title={item.title} />;
+  const embed = officialEmbed(item.embed_url);
+  if (embed) {
+    stage = <OfficialEmbed src={embed.src} name={embed.name} title={item.title} />;
   } else if (resolving) {
     stage = <div class="stage skeleton" style="height:240px" />;
-  } else if (item.kind === "audio" && media) {
+  } else if (isAudioKind(item.kind) && media) {
     stage = <Player key={media} src={media} kind="audio" wave={item.thumbnail} />;
   } else if ((item.kind === "video" || (item.kind === "gif" && isVideoUrl(media))) && media) {
     stage = <Player key={media} src={media} kind="video" poster={item.thumbnail} />;

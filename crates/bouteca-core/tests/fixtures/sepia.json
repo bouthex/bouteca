@@ -1,0 +1,5 @@
+{"total":42,"data":[
+{"uuid":"9c9de5e8-0a1e-484a-b099-e80766180a6d","name":"What is PeerTube?","url":"https://framatube.org/videos/watch/9c9de5e8-0a1e-484a-b099-e80766180a6d","thumbnailUrl":"https://framatube.org/static/thumbnails/a.jpg","duration":113,"views":5000,"licence":{"id":2,"label":"Attribution - Share Alike"},"channel":{"displayName":"Framasoft"},"tags":["peertube"],"isLive":false,"nsfw":false},
+{"uuid":"11111111-2222-3333-4444-555555555555","name":"Sin licencia","url":"https://videos.example.org/w/1","thumbnailUrl":"https://videos.example.org/t.jpg","duration":20,"licence":{"id":null,"label":"Unknown"}},
+{"uuid":"22222222-2222-3333-4444-555555555555","name":"Directo","url":"https://videos.example.org/w/2","isLive":true},
+{"uuid":"33333333-2222-3333-4444-555555555555","name":"IP","url":"https://10.0.0.1/w/3"}]}

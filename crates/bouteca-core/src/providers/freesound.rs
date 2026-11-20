@@ -23,7 +23,7 @@ impl Freesound {
             info: ProviderInfo {
                 id: "freesound",
                 name: "Freesound",
-                kinds: &[MediaKind::Audio],
+                kinds: &[MediaKind::Audio, MediaKind::Music],
                 needs_key: true,
                 key_url: Some("https://freesound.org/apiv2/apply/"),
                 homepage: "https://freesound.org",
@@ -134,6 +134,8 @@ pub(crate) fn parse(body: &[u8]) -> Result<ProviderPage> {
                 needs_resolve: false,
                 download_policy: DownloadPolicy::Free,
                 embed_url: None,
+                rights: Default::default(),
+                variants: vec![],
                 score: 0.0,
                 dedupe_key: String::new(),
             })
@@ -151,8 +153,14 @@ impl Provider for Freesound {
     async fn search(&self, ctx: &ProviderCtx, q: &ProviderQuery) -> Result<ProviderPage> {
         let key = ctx.api_key.as_deref().ok_or_else(|| crate::CoreError::MissingKey("Freesound".into()))?;
         let base = ctx.base("https://freesound.org");
-        let params =
-            [("query", q.text.clone()), ("page", q.page.to_string()), ("page_size", q.per_page.min(150).to_string()), ("fields", FIELDS.to_string())];
+        let music = q.filter == KindFilter::Music;
+        let mut params = vec![
+            ("query", q.text.clone()),
+            ("page", q.page.to_string()),
+            ("page_size", q.per_page.min(150).to_string()),
+            ("fields", FIELDS.to_string()),
+        ];
+        params.push(("filter", if music { "tag:music".to_string() } else { "-tag:music".to_string() }));
         // La clave va en la cabecera (no en la URL), así nunca aparece en registros.
         let auth = format!("Token {key}");
         let resp = match http::send("freesound", ctx.client.get(format!("{base}/apiv2/search/")).header("Authorization", &auth).query(&params)).await
@@ -163,6 +171,10 @@ impl Provider for Freesound {
             other => other?,
         };
         let body = http::body(resp).await?;
-        parse(&body)
+        let mut page = parse(&body)?;
+        if music {
+            page.items.iter_mut().for_each(|i| i.kind = MediaKind::Music);
+        }
+        Ok(page)
     }
 }

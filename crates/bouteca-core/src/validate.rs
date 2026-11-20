@@ -54,7 +54,7 @@ pub fn allowed_ext(kind: MediaKind, ext: &str) -> bool {
         MediaKind::Gif => &["gif", "mp4", "webm", "webp"],
         MediaKind::Video => &["mp4", "webm", "mov", "m4v", "mkv", "ogv", "gif"],
         MediaKind::Image => &["jpg", "jpeg", "png", "gif", "webp", "avif", "bmp", "tif", "tiff"],
-        MediaKind::Audio => &["mp3", "ogg", "oga", "opus", "wav", "flac", "m4a", "aac", "webm"],
+        MediaKind::Audio | MediaKind::Music => &["mp3", "ogg", "oga", "opus", "wav", "flac", "m4a", "aac", "webm"],
     };
     ok.contains(&e.as_str())
 }
@@ -111,7 +111,7 @@ pub fn mime_matches_kind(kind: MediaKind, mime: &str) -> bool {
         MediaKind::Gif => mime == "image/gif" || mime == "image/webp" || top == "video",
         MediaKind::Video => top == "video" || mime == "image/gif" || mime == "audio/ogg",
         MediaKind::Image => top == "image",
-        MediaKind::Audio => top == "audio" || mime == "video/webm" || mime == "video/mp4",
+        MediaKind::Audio | MediaKind::Music => top == "audio" || mime == "video/webm" || mime == "video/mp4" || mime == "video/ogg",
     }
 }
 
@@ -121,7 +121,7 @@ pub fn max_bytes(kind: MediaKind) -> u64 {
     match kind {
         MediaKind::Image => 100 * MB,
         MediaKind::Gif => 300 * MB,
-        MediaKind::Audio => 1024 * MB,
+        MediaKind::Audio | MediaKind::Music => 1024 * MB,
         MediaKind::Video => 4096 * MB,
     }
 }

@@ -1,3 +1,4 @@
+import { isAudioKind } from "../lib/types";
 import { memo } from "preact/compat";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { duration, isVideoUrl, kindLabel, providerName, resolution } from "../lib/format";
@@ -14,7 +15,7 @@ export const ResultCard = memo(function ResultCard({ item, style }: { item: Medi
   const s = settings.value;
   const animatedAlways = s?.autoplay_gifs && item.kind === "gif";
   const wantPreview = (hover && s?.hover_previews !== false) || animatedAlways;
-  const previewUrl = item.kind === "image" || item.kind === "audio" ? null : item.preview;
+  const previewUrl = item.kind === "image" || isAudioKind(item.kind) ? null : item.preview;
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -33,8 +34,8 @@ export const ResultCard = memo(function ResultCard({ item, style }: { item: Medi
       onMouseEnter={() => { timer.current = window.setTimeout(() => setHover(true), 220); }}
       onMouseLeave={() => { clearTimeout(timer.current); setHover(false); }}
     >
-      <div class={`thumb ${item.kind === "audio" ? "audio" : ""}`}>
-        {item.kind === "audio" ? (
+      <div class={`thumb ${isAudioKind(item.kind) ? "audio" : ""}`}>
+        {isAudioKind(item.kind) ? (
           item.thumbnail && !broken ? <img src={item.thumbnail} loading="lazy" decoding="async" alt="" onError={() => setBroken(true)} /> : <Icon.Music size={34} class="wave" />
         ) : wantPreview && previewUrl ? (
           isVideoUrl(previewUrl) ? (

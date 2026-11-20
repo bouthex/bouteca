@@ -106,6 +106,8 @@ fn map(m: Meme) -> MediaItem {
         needs_resolve: false,
         download_policy: DownloadPolicy::Personal,
         embed_url: None,
+        rights: Default::default(),
+        variants: vec![],
         score: 0.0,
         dedupe_key: String::new(),
     }

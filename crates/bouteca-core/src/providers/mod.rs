@@ -9,9 +9,12 @@ pub mod freesound;
 pub mod giphy;
 pub mod imgflip;
 pub mod klipy;
+pub mod museums;
+pub mod openmedia;
 pub mod openverse;
 pub mod pexels;
 pub mod pixabay;
+pub mod videos;
 pub mod wikimedia;
 pub mod youtube;
 
@@ -113,6 +116,15 @@ pub fn registry() -> Vec<DynProvider> {
         Arc::new(freesound::Freesound::new()),
         Arc::new(pixabay::Pixabay::new()),
         Arc::new(pexels::Pexels::new()),
+        Arc::new(openmedia::Nasa::new()),
+        Arc::new(museums::Artic::new()),
+        Arc::new(museums::Met::new()),
+        Arc::new(museums::Cleveland::new()),
+        Arc::new(museums::LibraryOfCongress::new()),
+        Arc::new(openmedia::INaturalist::new()),
+        Arc::new(openmedia::CcMixter::new()),
+        Arc::new(videos::PeerTube::new()),
+        Arc::new(videos::Dailymotion::new()),
     ]
 }
 

@@ -141,6 +141,8 @@ pub(crate) fn map_item(v: &Value, endpoint: &str) -> Option<MediaItem> {
         needs_resolve: false,
         download_policy: DownloadPolicy::Personal,
         embed_url: None,
+        rights: Default::default(),
+        variants: vec![],
         score: 0.0,
         dedupe_key: String::new(),
     })
@@ -186,7 +188,7 @@ impl Provider for Klipy {
             KindFilter::Gif => self.search_endpoint(ctx, q, key, "gifs").await,
             KindFilter::Meme | KindFilter::Image => self.search_endpoint(ctx, q, key, "memes").await,
             KindFilter::Video => self.search_endpoint(ctx, q, key, "clips").await,
-            KindFilter::Audio => Ok(ProviderPage::default()),
+            KindFilter::Audio | KindFilter::Music => Ok(ProviderPage::default()),
             KindFilter::All => {
                 // GIFs + clips en paralelo; si uno falla, devolvemos el otro.
                 let (a, b) = tokio::join!(self.search_endpoint(ctx, q, key, "gifs"), self.search_endpoint(ctx, q, key, "clips"));

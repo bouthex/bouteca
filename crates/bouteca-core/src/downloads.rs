@@ -101,6 +101,12 @@ impl DownloadManager {
         if item.download_policy == crate::model::DownloadPolicy::PreviewOnly {
             return Err(CoreError::Permission("este proveedor solo permite previsualizar".into()));
         }
+        // Los permisos se recalculan aquí (no se confía en lo que llegue de la interfaz):
+        // una licencia desconocida o restringida nunca equivale a permiso de descarga.
+        let rights = crate::rights::derive(item);
+        if !rights.download && !item.renditions.is_empty() {
+            return Err(CoreError::Permission(format!("descarga no permitida: {}", rights.summary)));
+        }
         let rendition = match rendition_url {
             Some(u) => item.renditions.iter().find(|r| r.url == u).ok_or_else(|| CoreError::NotFound("variante".into()))?,
             None => item.best_rendition().ok_or_else(|| CoreError::NotFound("el recurso no tiene archivos descargables".into()))?,

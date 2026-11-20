@@ -43,6 +43,8 @@ fn item(uid: &str, url: &str, kind: MediaKind) -> MediaItem {
         needs_resolve: false,
         download_policy: DownloadPolicy::Free,
         embed_url: None,
+        rights: Default::default(),
+        variants: vec![],
         score: 0.0,
         dedupe_key: String::new(),
     }
@@ -228,4 +230,20 @@ async fn interrumpidas_al_reiniciar() {
     let id = db.insert_download(&row).unwrap();
     assert_eq!(db.mark_interrupted().unwrap(), 1);
     assert_eq!(db.get_download(id).unwrap().unwrap().status, "interrupted");
+}
+
+#[tokio::test]
+async fn licencia_desconocida_o_restringida_no_se_descarga() {
+    let dir = tempfile::tempdir().unwrap();
+    let (m, _db, _ev) = manager(dir.path());
+    let mut it = item("u", "https://example.com/a.gif", MediaKind::Gif);
+    it.license = None;
+    it.license_url = None;
+    let e = m.enqueue(&it, None).unwrap_err();
+    assert!(matches!(e, bouteca_core::CoreError::Permission(_)), "sin licencia no hay permiso: {e:?}");
+    it.license = Some("All rights reserved".into());
+    assert!(matches!(m.enqueue(&it, None).unwrap_err(), bouteca_core::CoreError::Permission(_)));
+    // Aunque la interfaz envíe permisos falsos, se recalculan.
+    it.rights.download = true;
+    assert!(m.enqueue(&it, None).is_err());
 }

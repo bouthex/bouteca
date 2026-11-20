@@ -24,6 +24,7 @@ pub mod model;
 pub mod providers;
 pub mod query;
 pub mod rank;
+pub mod rights;
 pub mod settings;
 pub mod validate;
 pub mod visual;

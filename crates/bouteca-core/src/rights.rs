@@ -1,0 +1,267 @@
+//! Licencias, permisos y atribución.
+//!
+//! Regla de oro: **la ausencia de información de licencia nunca se interpreta como permiso**.
+//! Una licencia desconocida implica: se puede ver (si la fuente lo permite), no se descarga.
+
+use crate::model::{DownloadPolicy, MediaItem};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum LicenseKind {
+    Cc0,
+    PublicDomain,
+    CcBy,
+    CcBySa,
+    CcByNd,
+    CcByNc,
+    CcByNcSa,
+    CcByNcNd,
+    /// Licencia propia del proveedor que permite uso libre (Pixabay, Pexels).
+    ProviderFree,
+    /// Contenido de terceros bajo términos de la plataforma (GIPHY, KLIPY, Imgflip): uso personal.
+    PlatformTerms,
+    /// Con derechos de autor: solo ver/escuchar en la fuente (YouTube, Dailymotion…).
+    Restricted,
+    #[default]
+    Unknown,
+}
+
+/// Uso previsto (filtro "compatibilidad con plataformas").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Usage {
+    Personal,
+    YouTube,
+    YouTubeMonetized,
+    Social,
+    Stream,
+    Commercial,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct Rights {
+    pub license: LicenseKind,
+    /// Etiqueta legible: "CC BY 4.0", "Dominio público"…
+    pub label: String,
+    pub play: bool,
+    pub download: bool,
+    pub attribution_required: bool,
+    /// `None` = no verificado.
+    pub commercial: Option<bool>,
+    pub derivatives: Option<bool>,
+    pub share_alike: bool,
+    /// Explicación breve en lenguaje simple.
+    pub summary: String,
+}
+
+impl LicenseKind {
+    pub fn simple_class(&self) -> &'static str {
+        match self {
+            LicenseKind::Cc0 | LicenseKind::PublicDomain => "sin_atribucion",
+            LicenseKind::CcBy | LicenseKind::CcBySa | LicenseKind::CcByNd | LicenseKind::CcByNc | LicenseKind::CcByNcSa | LicenseKind::CcByNcNd => {
+                "con_atribucion"
+            }
+            LicenseKind::ProviderFree => "sin_atribucion",
+            LicenseKind::PlatformTerms => "uso_personal",
+            LicenseKind::Restricted => "restringido",
+            LicenseKind::Unknown => "desconocida",
+        }
+    }
+}
+
+/// Clasifica a partir de la URL o el nombre de la licencia que informa la fuente.
+pub fn classify(license: Option<&str>, license_url: Option<&str>) -> LicenseKind {
+    let s = format!("{} {}", license.unwrap_or(""), license_url.unwrap_or(""))
+        .to_lowercase()
+        .replace(['_', ' '], "-")
+        .replace('ú', "u")
+        .replace('í', "i");
+    if s.trim_matches('-').is_empty() {
+        return LicenseKind::Unknown;
+    }
+    if s.contains("zero") || s.contains("cc0") || s.contains("cczero") {
+        return LicenseKind::Cc0;
+    }
+    if s.contains("publicdomain") || s.contains("public-domain") || s.contains("dominio-publico") || s.contains("pdm") || s.contains("pd-") {
+        return LicenseKind::PublicDomain;
+    }
+    let nc = s.contains("-nc") || s.contains("noncommercial") || s.contains("non-commercial");
+    let nd = s.contains("-nd") || s.contains("noderiv") || s.contains("no-deriv");
+    let sa = s.contains("-sa") || s.contains("sharealike") || s.contains("share-alike");
+    let by = s.contains("cc-by")
+        || s.contains("/by")
+        || s.contains("attribution")
+        || s.contains("creativecommons")
+        || s.starts_with("by")
+        || s.contains("-by-")
+        || s.contains("cc-");
+    if by {
+        return match (nc, nd, sa) {
+            (true, true, _) => LicenseKind::CcByNcNd,
+            (true, false, true) => LicenseKind::CcByNcSa,
+            (true, false, false) => LicenseKind::CcByNc,
+            (false, true, _) => LicenseKind::CcByNd,
+            (false, false, true) => LicenseKind::CcBySa,
+            (false, false, false) => LicenseKind::CcBy,
+        };
+    }
+    if s.contains("pixabay") || s.contains("pexels") {
+        return LicenseKind::ProviderFree;
+    }
+    if s.contains("giphy") || s.contains("klipy") || s.contains("imgflip") {
+        return LicenseKind::PlatformTerms;
+    }
+    if s.contains("youtube") || s.contains("dailymotion") || s.contains("copyright") || s.contains("all-rights") || s.contains("todos-los-derechos") {
+        return LicenseKind::Restricted;
+    }
+    LicenseKind::Unknown
+}
+
+/// Deriva los permisos completos de un recurso. Se aplica a todos los resultados en el motor.
+pub fn derive(item: &MediaItem) -> Rights {
+    let kind = classify(item.license.as_deref(), item.license_url.as_deref());
+    let mut r = Rights { license: kind, play: true, ..Default::default() };
+    let provider_allows = item.download_policy != DownloadPolicy::PreviewOnly;
+    match kind {
+        LicenseKind::Cc0 => {
+            r.label = "CC0 (dominio público)".into();
+            r.commercial = Some(true);
+            r.derivatives = Some(true);
+            r.summary = "Uso libre, también comercial. No hace falta dar créditos.".into();
+        }
+        LicenseKind::PublicDomain => {
+            r.label = "Dominio público".into();
+            r.commercial = Some(true);
+            r.derivatives = Some(true);
+            r.summary = "Sin derechos de autor conocidos. No hace falta dar créditos (recomendado igual).".into();
+        }
+        LicenseKind::CcBy | LicenseKind::CcBySa | LicenseKind::CcByNd | LicenseKind::CcByNc | LicenseKind::CcByNcSa | LicenseKind::CcByNcNd => {
+            let (nc, nd, sa) = match kind {
+                LicenseKind::CcBySa => (false, false, true),
+                LicenseKind::CcByNd => (false, true, false),
+                LicenseKind::CcByNc => (true, false, false),
+                LicenseKind::CcByNcSa => (true, false, true),
+                LicenseKind::CcByNcNd => (true, true, false),
+                _ => (false, false, false),
+            };
+            r.attribution_required = true;
+            r.commercial = Some(!nc);
+            r.derivatives = Some(!nd);
+            r.share_alike = sa;
+            r.label = item
+                .license
+                .clone()
+                .filter(|l| !l.is_empty())
+                .unwrap_or_else(|| format!("CC BY{}{}{}", if nc { "-NC" } else { "" }, if nd { "-ND" } else { "" }, if sa { "-SA" } else { "" }));
+            let mut parts = vec!["Hay que dar créditos al autor".to_string()];
+            if nc {
+                parts.push("no se permite uso comercial ni monetizado".into());
+            }
+            if nd {
+                parts.push("no se permite modificarlo (ni recortarlo en un montaje)".into());
+            }
+            if sa {
+                parts.push("las obras derivadas deben usar la misma licencia".into());
+            }
+            r.summary = format!("{}.", parts.join("; "));
+        }
+        LicenseKind::ProviderFree => {
+            r.label = item.license.clone().unwrap_or_else(|| "Licencia del proveedor".into());
+            r.commercial = Some(true);
+            r.derivatives = Some(true);
+            r.summary = "Uso libre según la licencia del proveedor, sin créditos obligatorios. No se puede revender sin modificar.".into();
+        }
+        LicenseKind::PlatformTerms => {
+            r.label = item.license.clone().unwrap_or_else(|| "Términos de la plataforma".into());
+            r.commercial = Some(false);
+            r.derivatives = None;
+            r.summary = "Contenido de terceros bajo los términos de la plataforma: uso personal. Los derechos son de sus autores.".into();
+        }
+        LicenseKind::Restricted => {
+            r.label = item.license.clone().unwrap_or_else(|| "Con derechos de autor".into());
+            r.commercial = Some(false);
+            r.derivatives = Some(false);
+            r.summary = "Con derechos de autor: se puede ver o escuchar en la fuente, no reutilizar sin permiso del titular.".into();
+        }
+        LicenseKind::Unknown => {
+            r.label = "Licencia desconocida".into();
+            r.summary = "No se pudo verificar la licencia: no se ofrece descarga. Consultá la fuente antes de usarlo.".into();
+        }
+    }
+    r.download =
+        provider_allows && !matches!(kind, LicenseKind::Unknown | LicenseKind::Restricted) && (!item.renditions.is_empty() || item.needs_resolve);
+    r
+}
+
+impl Rights {
+    /// ¿Es compatible con el uso indicado? `None` = no se puede verificar.
+    pub fn allows(&self, usage: Usage) -> Option<bool> {
+        match usage {
+            Usage::Personal => Some(!matches!(self.license, LicenseKind::Unknown | LicenseKind::Restricted)),
+            Usage::YouTube | Usage::Social | Usage::Stream => match self.license {
+                LicenseKind::PlatformTerms => None, // depende de la plataforma de destino
+                LicenseKind::Unknown | LicenseKind::Restricted => Some(false),
+                _ => Some(true),
+            },
+            Usage::YouTubeMonetized | Usage::Commercial => match self.license {
+                LicenseKind::Unknown | LicenseKind::Restricted | LicenseKind::PlatformTerms => Some(false),
+                _ => self.commercial,
+            },
+        }
+    }
+}
+
+/// Texto de atribución listo para pegar (formato TASL: título, autor, fuente, licencia).
+pub fn attribution_text(item: &MediaItem, rights: &Rights) -> String {
+    let title = if item.title.trim().is_empty() { "Sin título" } else { item.title.trim() };
+    let mut s = format!("\"{title}\"");
+    if let Some(a) = item.author.as_deref().filter(|a| !a.trim().is_empty()) {
+        s.push_str(&format!(" de {}", a.trim()));
+    }
+    if let Some(p) = &item.page_url {
+        s.push_str(&format!(" ({p})"));
+    }
+    match rights.license {
+        LicenseKind::Cc0 | LicenseKind::PublicDomain => s.push_str(&format!(" — {}.", rights.label)),
+        _ => {
+            s.push_str(&format!(" — licencia {}", rights.label));
+            if let Some(u) = &item.license_url {
+                s.push_str(&format!(" ({u})"));
+            }
+            s.push('.');
+        }
+    }
+    s
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clasifica_licencias() {
+        assert_eq!(classify(None, Some("https://creativecommons.org/publicdomain/zero/1.0/")), LicenseKind::Cc0);
+        assert_eq!(classify(Some("PDM"), None), LicenseKind::PublicDomain);
+        assert_eq!(classify(Some("CC BY 4.0"), None), LicenseKind::CcBy);
+        assert_eq!(classify(Some("CC BY-SA 4.0"), None), LicenseKind::CcBySa);
+        assert_eq!(classify(None, Some("http://creativecommons.org/licenses/by-nc/3.0/")), LicenseKind::CcByNc);
+        assert_eq!(classify(Some("Attribution Noncommercial  (3.0)"), None), LicenseKind::CcByNc);
+        assert_eq!(classify(Some("CC BY-NC-ND"), None), LicenseKind::CcByNcNd);
+        assert_eq!(classify(Some("Licencia de Pixabay"), None), LicenseKind::ProviderFree);
+        assert_eq!(classify(Some("Términos de GIPHY"), None), LicenseKind::PlatformTerms);
+        assert_eq!(classify(Some("Términos de YouTube"), None), LicenseKind::Restricted);
+        assert_eq!(classify(None, None), LicenseKind::Unknown);
+        assert_eq!(classify(Some("Licencia declarada"), None), LicenseKind::Unknown);
+    }
+
+    #[test]
+    fn usos() {
+        let by_nc = Rights { license: LicenseKind::CcByNc, commercial: Some(false), ..Default::default() };
+        assert_eq!(by_nc.allows(Usage::YouTube), Some(true));
+        assert_eq!(by_nc.allows(Usage::YouTubeMonetized), Some(false));
+        let unk = Rights::default();
+        assert_eq!(unk.allows(Usage::Personal), Some(false));
+        assert_eq!(unk.allows(Usage::Commercial), Some(false));
+    }
+}

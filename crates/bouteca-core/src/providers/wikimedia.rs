@@ -21,7 +21,7 @@ impl Wikimedia {
             info: ProviderInfo {
                 id: "wikimedia",
                 name: "Wikimedia Commons",
-                kinds: &[MediaKind::Image, MediaKind::Gif, MediaKind::Video, MediaKind::Audio],
+                kinds: &[MediaKind::Image, MediaKind::Gif, MediaKind::Video, MediaKind::Audio, MediaKind::Music],
                 needs_key: false,
                 key_url: None,
                 homepage: "https://commons.wikimedia.org",
@@ -112,7 +112,8 @@ fn filter_clause(f: KindFilter) -> &'static str {
     match f {
         KindFilter::Gif => " filemime:image/gif",
         KindFilter::Video => " filetype:video",
-        KindFilter::Audio => " filetype:audio",
+        KindFilter::Audio => " filetype:audio -music -song",
+        KindFilter::Music => " filetype:audio music",
         KindFilter::Image | KindFilter::Meme => " filetype:bitmap",
         KindFilter::All => "",
     }
@@ -184,7 +185,7 @@ fn map_page(p: Page) -> Option<MediaItem> {
             .min_by_key(|d| d.height.unwrap_or(u32::MAX))
             .map(|d| d.src.clone())
             .or_else(|| Some(url.clone())),
-        MediaKind::Audio | MediaKind::Gif => Some(url.clone()),
+        MediaKind::Audio | MediaKind::Music | MediaKind::Gif => Some(url.clone()),
         MediaKind::Image => info.thumburl.clone(),
     };
     let id = p.pageid.map(|i| i.to_string()).unwrap_or_else(|| p.title.clone());
@@ -209,6 +210,8 @@ fn map_page(p: Page) -> Option<MediaItem> {
         needs_resolve: false,
         download_policy: DownloadPolicy::Free,
         embed_url: None,
+        rights: Default::default(),
+        variants: vec![],
         score: 0.0,
         dedupe_key: String::new(),
     })
@@ -244,7 +247,17 @@ impl Provider for Wikimedia {
         let has_more = resp.cont.map(|c| c.contains_key("gsroffset")).unwrap_or(false);
         let mut pages = resp.query.map(|q| q.pages).unwrap_or_default();
         pages.sort_by_key(|p| p.index.unwrap_or(u32::MAX));
-        let items = pages.into_iter().filter_map(map_page).filter(|i| q.filter.accepts(i.kind)).collect();
+        let items = pages
+            .into_iter()
+            .filter_map(map_page)
+            .map(|mut i| {
+                if q.filter == KindFilter::Music && i.kind == MediaKind::Audio {
+                    i.kind = MediaKind::Music;
+                }
+                i
+            })
+            .filter(|i| q.filter.accepts(i.kind))
+            .collect();
         Ok(ProviderPage { items, has_more, total: None })
     }
 }

@@ -9,7 +9,7 @@
 use bouteca_core::db::Db;
 use bouteca_core::downloads::*;
 use bouteca_core::http::{build_client, build_download_client};
-use bouteca_core::model::{KindFilter, MediaKind};
+use bouteca_core::model::KindFilter;
 use bouteca_core::providers::{self, Provider, ProviderCtx, ProviderQuery};
 use bouteca_core::query::LangCode;
 use std::sync::Arc;
@@ -36,7 +36,7 @@ async fn check(id: &str, text: &str, filter: KindFilter) -> usize {
     assert!(!page.items.is_empty(), "LIVE {id}: sin resultados para '{text}'");
     for it in &page.items {
         assert!(!it.title.is_empty(), "{id}: título vacío");
-        assert!(it.thumbnail.is_some() || it.kind == MediaKind::Audio, "{id}: sin miniatura en {}", it.uid);
+        assert!(it.thumbnail.is_some() || it.kind.is_audio(), "{id}: sin miniatura en {}", it.uid);
         if it.download_policy != bouteca_core::model::DownloadPolicy::PreviewOnly && !it.needs_resolve {
             assert!(!it.renditions.is_empty(), "{id}: {} sin variantes descargables", it.uid);
             for r in &it.renditions {
@@ -149,4 +149,67 @@ async fn live_bloquea_destinos_locales() {
         assert!(bouteca_core::http::check_external_url(u).is_err(), "{u} debería bloquearse");
     }
     println!("LIVE|ssrf|OK|destinos locales bloqueados");
+}
+
+async fn check_resolve(id: &str, text: &str, filter: KindFilter) {
+    let p = providers::registry().into_iter().find(|p| p.info().id == id).unwrap();
+    let page = p.search(&ctx(None), &q(text, filter)).await.unwrap();
+    let mut ok = 0;
+    for it in page.items.into_iter().take(3) {
+        match p.resolve(&ctx(None), it).await {
+            Ok(r) => {
+                assert!(!r.renditions.is_empty());
+                assert!(r.renditions.iter().all(|x| x.url.starts_with("https://")));
+                ok += 1;
+            }
+            Err(e) => println!("LIVE|{id}-resolve|WARN|{e}"),
+        }
+    }
+    assert!(ok > 0, "{id}: ningún elemento se pudo resolver");
+    println!("LIVE|{id}-resolve|OK|{ok} de 3 resueltos");
+}
+
+#[tokio::test]
+#[ignore]
+async fn live_nasa() {
+    check("nasa", "moon", KindFilter::Image).await;
+    check("nasa", "launch", KindFilter::Video).await;
+    check_resolve("nasa", "nebula", KindFilter::Image).await;
+}
+
+#[tokio::test]
+#[ignore]
+async fn live_museos() {
+    check("artic", "cat", KindFilter::Image).await;
+    check("met", "horse", KindFilter::Image).await;
+    check("cleveland", "landscape", KindFilter::Image).await;
+    check("loc", "train", KindFilter::Image).await;
+}
+
+#[tokio::test]
+#[ignore]
+async fn live_inaturalist() {
+    check("inaturalist", "fox", KindFilter::Image).await;
+}
+
+#[tokio::test]
+#[ignore]
+async fn live_ccmixter() {
+    check("ccmixter", "ambient", KindFilter::Music).await;
+}
+
+#[tokio::test]
+#[ignore]
+async fn live_video_federado_y_dailymotion() {
+    check("dailymotion", "cat", KindFilter::Video).await;
+    check("peertube", "linux", KindFilter::Video).await;
+    check_resolve("peertube", "blender", KindFilter::Video).await;
+}
+
+#[tokio::test]
+#[ignore]
+async fn live_musica_abierta() {
+    check("archive", "piano", KindFilter::Music).await;
+    check("openverse", "piano", KindFilter::Music).await;
+    check("wikimedia", "symphony", KindFilter::Music).await;
 }

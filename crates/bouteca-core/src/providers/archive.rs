@@ -20,7 +20,7 @@ impl InternetArchive {
             info: ProviderInfo {
                 id: "archive",
                 name: "Internet Archive",
-                kinds: &[MediaKind::Video, MediaKind::Audio, MediaKind::Image],
+                kinds: &[MediaKind::Video, MediaKind::Audio, MediaKind::Music, MediaKind::Image],
                 needs_key: false,
                 key_url: None,
                 homepage: "https://archive.org",
@@ -101,6 +101,8 @@ pub(crate) fn map_doc(d: &Value) -> Option<MediaItem> {
         needs_resolve: true,
         download_policy: if license_url.is_some() { DownloadPolicy::Free } else { DownloadPolicy::Personal },
         embed_url: None,
+        rights: Default::default(),
+        variants: vec![],
         score: 0.0,
         dedupe_key: String::new(),
     })
@@ -159,7 +161,7 @@ fn format_rank(kind: MediaKind, format: &str) -> Option<u8> {
             "animated gif" => Some(4),
             _ => None,
         },
-        MediaKind::Audio => match f.as_str() {
+        MediaKind::Audio | MediaKind::Music => match f.as_str() {
             "flac" | "wave" | "24bit flac" => Some(0),
             "vbr mp3" | "mp3" => Some(1),
             "128kbps mp3" | "64kbps mp3" => Some(2),
@@ -233,6 +235,7 @@ impl Provider for InternetArchive {
         let media = match q.filter {
             KindFilter::Video => "movies",
             KindFilter::Audio => "audio",
+            KindFilter::Music => "audio AND (subject:music OR collection:(netlabels OR opensource_audio OR audio_music))",
             KindFilter::Image | KindFilter::Meme | KindFilter::Gif => "image",
             KindFilter::All => "(movies OR audio)",
         };
@@ -258,7 +261,11 @@ impl Provider for InternetArchive {
             ("output", "json"),
         ]);
         let v: Value = http::get_json("archive", req).await?;
-        Ok(parse_search(&v, q.page, rows))
+        let mut page = parse_search(&v, q.page, rows);
+        if q.filter == KindFilter::Music {
+            page.items.iter_mut().for_each(|i| i.kind = MediaKind::Music);
+        }
+        Ok(page)
     }
 
     async fn resolve(&self, ctx: &ProviderCtx, item: MediaItem) -> Result<MediaItem> {

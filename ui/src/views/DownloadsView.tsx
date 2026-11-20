@@ -5,7 +5,7 @@ import * as Icon from "../lib/icons";
 import { downloads, progress, refreshDownloads, toast } from "../lib/store";
 import type { DownloadRow } from "../lib/types";
 
-const KIND_ICON = { gif: Icon.Gif, video: Icon.Film, image: Icon.Image, audio: Icon.Music };
+const KIND_ICON = { gif: Icon.Gif, video: Icon.Film, image: Icon.Image, audio: Icon.Pulse, music: Icon.Music };
 
 const run = (p: Promise<unknown>) => p.catch((e) => toast(errText(e), "error"));
 

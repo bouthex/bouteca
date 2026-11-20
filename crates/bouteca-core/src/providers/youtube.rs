@@ -198,6 +198,8 @@ pub(crate) fn map_search(body: &[u8]) -> Result<(Vec<MediaItem>, Option<String>,
                 needs_resolve: false,
                 download_policy: DownloadPolicy::PreviewOnly,
                 embed_url: Some(format!("https://www.youtube-nocookie.com/embed/{id}")),
+                rights: Default::default(),
+                variants: vec![],
                 score: 0.0,
                 dedupe_key: String::new(),
             })

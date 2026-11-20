@@ -9,7 +9,10 @@ pub enum MediaKind {
     Gif,
     Video,
     Image,
+    /// Sonidos: efectos, voces, ambientes.
     Audio,
+    /// Música: canciones, pistas instrumentales, bandas sonoras.
+    Music,
 }
 
 impl MediaKind {
@@ -19,7 +22,12 @@ impl MediaKind {
             MediaKind::Video => "video",
             MediaKind::Image => "image",
             MediaKind::Audio => "audio",
+            MediaKind::Music => "music",
         }
+    }
+
+    pub fn is_audio(&self) -> bool {
+        matches!(self, MediaKind::Audio | MediaKind::Music)
     }
 
     pub fn parse(s: &str) -> Option<Self> {
@@ -28,6 +36,7 @@ impl MediaKind {
             "video" => Some(MediaKind::Video),
             "image" => Some(MediaKind::Image),
             "audio" => Some(MediaKind::Audio),
+            "music" => Some(MediaKind::Music),
             _ => None,
         }
     }
@@ -38,7 +47,8 @@ impl MediaKind {
             MediaKind::Gif => "GIFs",
             MediaKind::Video => "Videos",
             MediaKind::Image => "Imágenes",
-            MediaKind::Audio => "Audios",
+            MediaKind::Audio => "Sonidos",
+            MediaKind::Music => "Música",
         }
     }
 }
@@ -55,6 +65,7 @@ pub enum KindFilter {
     Audio,
     /// Memes: imágenes/GIFs de fuentes de memes y consultas con sesgo "meme".
     Meme,
+    Music,
 }
 
 impl KindFilter {
@@ -66,6 +77,7 @@ impl KindFilter {
             KindFilter::Image => kind == MediaKind::Image,
             KindFilter::Audio => kind == MediaKind::Audio,
             KindFilter::Meme => matches!(kind, MediaKind::Image | MediaKind::Gif),
+            KindFilter::Music => kind == MediaKind::Music,
         }
     }
 }
@@ -130,6 +142,12 @@ pub struct MediaItem {
     /// ese reproductor y no hay descarga.
     #[serde(default)]
     pub embed_url: Option<String>,
+    /// Permisos derivados de la licencia (los calcula el motor).
+    #[serde(default)]
+    pub rights: crate::rights::Rights,
+    /// Versiones del mismo contenido en otras fuentes o formatos (deduplicación).
+    #[serde(default)]
+    pub variants: Vec<Variant>,
     /// Puntuación de relevancia calculada por el motor (0–100 aprox.).
     #[serde(default)]
     pub score: f32,
@@ -138,7 +156,55 @@ pub struct MediaItem {
     pub dedupe_key: String,
 }
 
+/// Otra versión del mismo contenido (duplicado agrupado) o variante relacionada.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Variant {
+    pub uid: String,
+    pub provider: String,
+    pub kind: MediaKind,
+    pub title: String,
+    /// "exacto" | "visual" | "metadatos"
+    pub reason: String,
+    /// 0–1: certeza de que es el mismo contenido.
+    pub confidence: f32,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub duration_secs: Option<f64>,
+    pub download: bool,
+    pub thumbnail: Option<String>,
+}
+
 impl MediaItem {
+    /// Recurso con valores neutros; cada proveedor completa lo que conoce.
+    pub fn new(provider: &str, provider_id: &str, kind: MediaKind, title: impl Into<String>) -> Self {
+        MediaItem {
+            uid: format!("{provider}:{provider_id}"),
+            provider: provider.into(),
+            provider_id: provider_id.into(),
+            kind,
+            title: title.into(),
+            tags: vec![],
+            thumbnail: None,
+            preview: None,
+            page_url: None,
+            author: None,
+            license: None,
+            license_url: None,
+            width: None,
+            height: None,
+            duration_secs: None,
+            popularity: None,
+            renditions: vec![],
+            needs_resolve: false,
+            download_policy: DownloadPolicy::Free,
+            embed_url: None,
+            rights: Default::default(),
+            variants: vec![],
+            score: 0.0,
+            dedupe_key: String::new(),
+        }
+    }
+
     /// Mejor variante para descargar: original si existe, si no la de mayor resolución/tamaño.
     pub fn best_rendition(&self) -> Option<&Rendition> {
         if let Some(r) = self.renditions.iter().find(|r| r.original) {

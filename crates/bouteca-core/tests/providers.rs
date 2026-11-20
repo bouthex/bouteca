@@ -279,3 +279,159 @@ async fn respuesta_gigante_se_corta() {
     let e = openverse::Openverse::new().search(&ctx(&s, None), &q("x", KindFilter::All)).await.unwrap_err();
     assert!(matches!(e, CoreError::InvalidFile(_)), "{e:?}");
 }
+
+// ---------- Fuentes abiertas sin clave (etapa 1 de la ampliación) ----------
+
+#[tokio::test]
+async fn nasa_busca_descarta_tipos_raros_y_resuelve_archivos() {
+    let s = MockServer::start().await;
+    json(&s, "/search", fixture("nasa_search.json")).await;
+    json(&s, "/asset/as11-40-5874", fixture("nasa_asset.json")).await;
+    let p = openmedia::Nasa::new();
+    let page = p.search(&ctx(&s, None), &q("luna", KindFilter::All)).await.unwrap();
+    assert_eq!(page.items.len(), 2, "el tipo 'model' se descarta");
+    assert!(page.has_more);
+    let img = &page.items[0];
+    assert_eq!(img.kind, MediaKind::Image);
+    assert!(img.thumbnail.as_deref().unwrap().starts_with("https://"), "miniatura forzada a HTTPS");
+    assert!(img.needs_resolve);
+    assert_eq!(page.items[1].kind, MediaKind::Video);
+    assert!(page.items[1].thumbnail.as_deref().unwrap().contains("%20"), "espacios codificados");
+    let r = p.resolve(&ctx(&s, None), img.clone()).await.unwrap();
+    assert_eq!(r.renditions.len(), 4);
+    assert!(r.renditions[0].original && r.renditions[0].url.ends_with("~orig.jpg"));
+    assert!(r.renditions.iter().all(|x| x.url.starts_with("https://") && !x.url.ends_with(".json")));
+    assert_eq!(r.preview.as_deref(), Some("https://images-assets.nasa.gov/image/as11-40-5874/as11-40-5874~large.jpg"));
+    let rights = bouteca_core::rights::derive(&r);
+    assert!(rights.download && !rights.attribution_required);
+}
+
+#[tokio::test]
+async fn inaturalist_solo_licencias_reutilizables() {
+    let s = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v1/observations"))
+        .and(query_param("photo_license", "cc0,cc-by,cc-by-sa"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw(fixture("inaturalist.json"), "application/json"))
+        .mount(&s)
+        .await;
+    let page = openmedia::INaturalist::new().search(&ctx(&s, None), &q("zorro", KindFilter::Image)).await.unwrap();
+    assert_eq!(page.items.len(), 1, "la foto CC BY-NC se descarta");
+    let it = &page.items[0];
+    assert_eq!(it.title, "Red Fox (Vulpes vulpes)");
+    assert_eq!(it.license.as_deref(), Some("CC BY 4.0"));
+    assert_eq!(it.author.as_deref(), Some("Ana P."));
+    assert!(it.renditions[0].url.ends_with("/original.jpg") && it.renditions[0].original);
+    assert_eq!(it.page_url.as_deref(), Some("https://www.inaturalist.org/observations/11"));
+    let rights = bouteca_core::rights::derive(it);
+    assert!(rights.attribution_required && rights.download);
+    assert!(page.has_more);
+}
+
+#[tokio::test]
+async fn ccmixter_es_musica_solo_enlace() {
+    let s = MockServer::start().await;
+    json(&s, "/api/query", fixture("ccmixter.json")).await;
+    let p = openmedia::CcMixter::new();
+    assert!(p.supports(KindFilter::Music) && !p.supports(KindFilter::All) && !p.supports(KindFilter::Audio));
+    let page = p.search(&ctx(&s, None), &q("tension", KindFilter::Music)).await.unwrap();
+    let it = &page.items[0];
+    assert_eq!(it.kind, MediaKind::Music);
+    assert_eq!(it.uid, "ccmixter:4321");
+    assert_eq!(it.download_policy, bouteca_core::model::DownloadPolicy::PreviewOnly);
+    assert!(it.renditions.is_empty() && it.preview.is_none(), "no se enlazan archivos con protección anti-hotlink");
+    assert!(it.tags.contains(&"dark".to_string()));
+    assert!(!bouteca_core::rights::derive(it).download);
+}
+
+#[tokio::test]
+async fn artic_solo_dominio_publico_con_iiif() {
+    let s = MockServer::start().await;
+    json(&s, "/api/v1/artworks/search", fixture("artic.json")).await;
+    let page = museums::Artic::new().search(&ctx(&s, None), &q("gato", KindFilter::Image)).await.unwrap();
+    assert_eq!(page.items.len(), 1);
+    let it = &page.items[0];
+    assert_eq!(it.license.as_deref(), Some("CC0"));
+    assert!(it.thumbnail.as_deref().unwrap().starts_with("https://www.artic.edu/iiif/2/2d484387"));
+    assert!(!it.renditions.is_empty() && it.renditions.iter().all(|r| r.url.starts_with("https://")));
+    assert!(page.has_more);
+}
+
+#[tokio::test]
+async fn met_filtra_dominio_publico_e_imagen() {
+    let s = MockServer::start().await;
+    json(&s, "/public/collection/v1/search", fixture("met_search.json")).await;
+    for id in ["436535", "1", "2"] {
+        json(&s, &format!("/public/collection/v1/objects/{id}"), fixture(&format!("met_{id}.json"))).await;
+    }
+    let page = museums::Met::new().search(&ctx(&s, None), &q("trigo", KindFilter::Image)).await.unwrap();
+    assert_eq!(page.items.len(), 1, "se descartan las obras con derechos o sin imagen");
+    assert_eq!(page.items[0].author.as_deref(), Some("Vincent van Gogh"));
+    assert!(page.items[0].renditions[0].original);
+}
+
+#[tokio::test]
+async fn cleveland_cc0_con_resoluciones_reales() {
+    let s = MockServer::start().await;
+    json(&s, "/api/artworks/", fixture("cleveland.json")).await;
+    let page = museums::Cleveland::new().search(&ctx(&s, None), &q("crepúsculo", KindFilter::Image)).await.unwrap();
+    let it = &page.items[0];
+    assert_eq!(it.renditions.len(), 3);
+    assert_eq!(it.width, Some(8000), "anchos que llegan como texto se interpretan");
+    assert_eq!(it.author.as_deref(), Some("Frederic Edwin Church"));
+}
+
+#[tokio::test]
+async fn library_of_congress_solo_vista_previa() {
+    let s = MockServer::start().await;
+    json(&s, "/photos/", fixture("loc.json")).await;
+    let page = museums::LibraryOfCongress::new().search(&ctx(&s, None), &q("gato", KindFilter::Image)).await.unwrap();
+    let it = &page.items[0];
+    assert!(it.thumbnail.as_deref().unwrap().starts_with("https://tile.loc.gov/"));
+    assert_eq!(it.download_policy, bouteca_core::model::DownloadPolicy::PreviewOnly);
+    assert!(!bouteca_core::rights::derive(it).download, "derechos sin verificar: no se descarga");
+    assert!(page.has_more);
+}
+
+#[tokio::test]
+async fn dailymotion_solo_reproductor_oficial_sin_descarga() {
+    let s = MockServer::start().await;
+    json(&s, "/videos", fixture("dailymotion.json")).await;
+    let page = videos::Dailymotion::new().search(&ctx(&s, None), &q("gato", KindFilter::Video)).await.unwrap();
+    assert_eq!(page.items.len(), 2, "id inválido descartado");
+    let a = &page.items[0];
+    assert_eq!(a.embed_url.as_deref(), Some("https://geo.dailymotion.com/player.html?video=x8abc12"));
+    assert_eq!(a.author.as_deref(), Some("Canal X"));
+    assert!(a.renditions.is_empty());
+    assert_eq!(a.download_policy, bouteca_core::model::DownloadPolicy::PreviewOnly);
+    assert!(page.items[1].embed_url.is_none(), "si el autor no permite incrustar, solo enlace");
+    let r = bouteca_core::rights::derive(a);
+    assert!(!r.download);
+    assert_eq!(r.license, bouteca_core::rights::LicenseKind::Restricted);
+}
+
+#[tokio::test]
+async fn peertube_busca_resuelve_y_respeta_permisos() {
+    let s = MockServer::start().await;
+    json(&s, "/api/v1/search/videos", fixture("sepia.json")).await;
+    json(&s, "/api/v1/videos/9c9de5e8-0a1e-484a-b099-e80766180a6d", fixture("peertube_video.json")).await;
+    json(&s, "/api/v1/videos/11111111-2222-3333-4444-555555555555", fixture("peertube_video_nodl.json")).await;
+    let p = videos::PeerTube::new();
+    let page = p.search(&ctx(&s, None), &q("peertube", KindFilter::Video)).await.unwrap();
+    assert_eq!(page.items.len(), 2, "se descartan directos e instancias con IP literal");
+    let a = &page.items[0];
+    assert_eq!(a.uid, "peertube:framatube.org/9c9de5e8-0a1e-484a-b099-e80766180a6d");
+    assert_eq!(a.license.as_deref(), Some("CC BY-SA 4.0"));
+    assert!(page.items[1].license.is_none(), "licencia desconocida no se inventa");
+    let r = p.resolve(&ctx(&s, None), a.clone()).await.unwrap();
+    assert_eq!(r.renditions.len(), 2, "pista de solo audio omitida");
+    assert_eq!(r.renditions[0].height, Some(1080));
+    assert!(r.renditions[0].original);
+    assert!(r.preview.as_deref().unwrap().contains("480"));
+    let rights = bouteca_core::rights::derive(&r);
+    assert!(rights.download && rights.attribution_required && rights.share_alike);
+    let b = p.resolve(&ctx(&s, None), page.items[1].clone()).await.unwrap();
+    assert_eq!(b.renditions.len(), 1, "usa los MP4 de HLS si no hay archivos web");
+    assert_eq!(b.download_policy, bouteca_core::model::DownloadPolicy::PreviewOnly, "la instancia deshabilitó descargas");
+    assert!(!bouteca_core::rights::derive(&b).download);
+}

@@ -18,7 +18,7 @@ impl Openverse {
             info: ProviderInfo {
                 id: "openverse",
                 name: "Openverse",
-                kinds: &[MediaKind::Image, MediaKind::Gif, MediaKind::Audio],
+                kinds: &[MediaKind::Image, MediaKind::Gif, MediaKind::Audio, MediaKind::Music],
                 needs_key: false,
                 key_url: None,
                 homepage: "https://openverse.org",
@@ -75,10 +75,12 @@ struct Tag {
     name: String,
 }
 
-fn map(i: Item, audio: bool) -> Option<MediaItem> {
+fn map(i: Item, audio: bool, music: bool) -> Option<MediaItem> {
     let url = i.url?;
     let ft = i.filetype.clone().unwrap_or_default().to_lowercase();
-    let kind = if audio {
+    let kind = if music {
+        MediaKind::Music
+    } else if audio {
         MediaKind::Audio
     } else if ft == "gif" || url.to_lowercase().ends_with(".gif") {
         MediaKind::Gif
@@ -124,15 +126,17 @@ fn map(i: Item, audio: bool) -> Option<MediaItem> {
         needs_resolve: false,
         download_policy: DownloadPolicy::Free,
         embed_url: None,
+        rights: Default::default(),
+        variants: vec![],
         score: 0.0,
         dedupe_key: String::new(),
     })
 }
 
-pub(crate) fn parse(body: &[u8], audio: bool) -> Result<ProviderPage> {
+pub(crate) fn parse_kind(body: &[u8], audio: bool, music: bool) -> Result<ProviderPage> {
     let r: Resp = serde_json::from_slice(body).map_err(|e| crate::CoreError::Parse(format!("openverse: {e}")))?;
     let has_more = r.page.unwrap_or(1) < r.page_count.unwrap_or(0);
-    Ok(ProviderPage { items: r.results.into_iter().filter_map(|i| map(i, audio)).collect(), has_more, total: r.result_count })
+    Ok(ProviderPage { items: r.results.into_iter().filter_map(|i| map(i, audio, music)).collect(), has_more, total: r.result_count })
 }
 
 #[async_trait]
@@ -142,7 +146,8 @@ impl Provider for Openverse {
     }
 
     async fn search(&self, ctx: &ProviderCtx, q: &ProviderQuery) -> Result<ProviderPage> {
-        let audio = q.filter == KindFilter::Audio;
+        let music = q.filter == KindFilter::Music;
+        let audio = q.filter == KindFilter::Audio || music;
         if q.filter == KindFilter::Video {
             return Ok(ProviderPage::default());
         }
@@ -156,11 +161,16 @@ impl Provider for Openverse {
         if q.safe {
             params.push(("mature", "false".into()));
         }
+        if music {
+            params.push(("category", "music".into()));
+        } else if audio {
+            params.push(("category", "sound_effect".into()));
+        }
         if q.filter == KindFilter::Gif {
             params.push(("extension", "gif".into()));
         }
         let resp = http::send("openverse", ctx.client.get(url).query(&params)).await?;
         let body = http::body(resp).await?;
-        parse(&body, audio)
+        parse_kind(&body, audio, music)
     }
 }

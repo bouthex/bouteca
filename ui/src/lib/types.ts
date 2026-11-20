@@ -1,7 +1,7 @@
 // Tipos espejo de bouteca-core (serde, snake_case).
 
-export type MediaKind = "gif" | "video" | "image" | "audio";
-export type KindFilter = "all" | "gif" | "video" | "image" | "audio" | "meme";
+export type MediaKind = "gif" | "video" | "image" | "audio" | "music";
+export type KindFilter = "all" | "gif" | "video" | "image" | "audio" | "music" | "meme";
 export type DownloadPolicy = "free" | "personal" | "preview_only";
 export type Lang = "es" | "en" | "pt" | "tr" | "ja" | "ru";
 
@@ -36,9 +36,44 @@ export interface MediaItem {
   needs_resolve: boolean;
   download_policy: DownloadPolicy;
   embed_url?: string | null;
+  rights: Rights;
+  variants: Variant[];
   score: number;
   dedupe_key: string;
 }
+
+export type LicenseKind =
+  | "cc0" | "public_domain" | "cc_by" | "cc_by_sa" | "cc_by_nd" | "cc_by_nc" | "cc_by_nc_sa" | "cc_by_nc_nd"
+  | "provider_free" | "platform_terms" | "restricted" | "unknown";
+
+/** Permisos derivados por el motor (`bouteca-core::rights`). */
+export interface Rights {
+  license: LicenseKind;
+  label: string;
+  play: boolean;
+  download: boolean;
+  attribution_required: boolean;
+  commercial: boolean | null;
+  derivatives: boolean | null;
+  share_alike: boolean;
+  summary: string;
+}
+
+export interface Variant {
+  uid: string;
+  provider: string;
+  kind: MediaKind;
+  title: string;
+  reason: string;
+  confidence: number;
+  width: number | null;
+  height: number | null;
+  duration_secs: number | null;
+  download: boolean;
+  thumbnail: string | null;
+}
+
+export const isAudioKind = (k: MediaKind) => k === "audio" || k === "music";
 
 export interface QueryVariant {
   text: string;

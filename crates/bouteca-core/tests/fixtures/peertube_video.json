@@ -1,0 +1,4 @@
+{"uuid":"9c9de5e8-0a1e-484a-b099-e80766180a6d","downloadEnabled":true,"licence":{"id":2},"files":[
+{"resolution":{"id":480,"label":"480p"},"fileUrl":"https://framatube.org/static/web-videos/a-480.mp4","fileDownloadUrl":"https://framatube.org/download/web-videos/a-480.mp4","size":9000000},
+{"resolution":{"id":1080,"label":"1080p"},"fileUrl":"https://framatube.org/static/web-videos/a-1080.mp4","fileDownloadUrl":"https://framatube.org/download/web-videos/a-1080.mp4","size":40000000},
+{"resolution":{"id":0,"label":"Audio"},"fileUrl":"https://framatube.org/static/web-videos/a-0.mp4"}],"streamingPlaylists":[]}

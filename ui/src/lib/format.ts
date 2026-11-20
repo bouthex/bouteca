@@ -35,7 +35,8 @@ export const kindLabel: Record<MediaKind, string> = {
   gif: "GIF",
   video: "Video",
   image: "Imagen",
-  audio: "Audio",
+  audio: "Sonido",
+  music: "Música",
 };
 
 export function relTime(unix: number): string {

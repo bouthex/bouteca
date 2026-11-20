@@ -18,11 +18,40 @@ integran APIs oficiales; no hay scraping ni resultados simulados. Cada proveedor
 | **Pixabay** | Imágenes y videos | Sí, gratis | 100 solicitudes/60 s | Imagen 1280 px; video large/medium/tiny | Licencia de Pixabay. Exige cachear respuestas 24 h (implementado) y mostrar la fuente. Entiende es/tr/ja/ru/pt nativamente. |
 | **YouTube** | Videos (categoría Videos) | Sí, gratis (Google Cloud → habilitar "YouTube Data API v3" → credencial "Clave de API") | `search.list`: 100 llamadas/día (cubo propio); `videos.list`: 1 unidad de 10 000/día. Bouteca hace **1 búsqueda por consulta** y cachea | **No** (las condiciones de YouTube no lo permiten). Reproductor oficial incrustado, copiar enlace, abrir en YouTube, favoritos/colecciones | Controles, publicidad y restricciones del reproductor intactos. Solo videos incrustables (`videoEmbeddable=true`); se excluyen transmisiones en vivo. Pendiente: refrescar metadatos guardados de más de 30 días (política de datos de la API). |
 | **Pexels** | Fotos y videos | Sí, gratis | 200/hora, 20 000/mes | Foto original; MP4 en varias calidades | Licencia de Pexels. Mostrar enlace a Pexels. |
+| **NASA Image and Video Library** | Imágenes, videos y audios espaciales | No | Uso razonable | Original/alta/media/baja reales (lista de archivos `/asset/{id}` bajo demanda) | En general sin derechos de autor en EE. UU.; no usar logos de NASA ni implicar respaldo; revisar créditos de terceros en la descripción. |
+| **Art Institute of Chicago** | Obras de arte | No | ≈60/min | IIIF 843 / 1686 px | Solo obras `is_public_domain=true` (imágenes CC0). |
+| **The Met** | Obras de arte | No | 80/s | Imagen original | Open Access: solo `isPublicDomain` con imagen (CC0). Cada página consulta el detalle de ≤12 obras (6 en paralelo): se envía solo la consulta principal. |
+| **Cleveland Museum of Art** | Obras de arte | No | Uso razonable | Completa (TIFF/JPEG), impresión y web, con dimensiones | Solo `cc0=1` y con imagen. |
+| **Library of Congress** | Fotos históricas | No | Uso razonable | **No**: solo vista previa y enlace | Los derechos varían por elemento y la API no los declara de forma estructurada: Bouteca no ofrece descarga (licencia desconocida ≠ permiso). |
+| **iNaturalist** | Fotos de naturaleza y animales | No | ≤1 solicitud/s recomendada (se envía una sola consulta) | Original y 1024 px | Solo fotos CC0, CC BY y CC BY-SA (se descartan NC/ND y reservadas). Atribución al autor. |
+| **ccMixter** | Música Creative Commons | No | Uso razonable | **No**: solo enlace | Sus archivos tienen protección anti-hotlink (403 sin su sitio como origen). Bouteca no falsifica el origen: se escucha y descarga en ccMixter. |
+| **PeerTube (SepiaSearch)** | Videos federados | No | Uso razonable (índice comunitario de Framasoft) | MP4 por resolución desde la instancia de origen, **solo si** la instancia tiene `downloadEnabled` y la licencia es libre y conocida | Licencias estándar de PeerTube (ids 1–8). Se descartan directos, NSFW con búsqueda segura, URLs no HTTPS, puertos e IP literales. |
+| **Dailymotion** | Videos | No (datos públicos) | Uso razonable | **No** | Videos de sus autores: solo reproductor oficial incrustado (`geo.dailymotion.com`, permitido en la CSP) y enlace. |
+
+### Clasificación por necesidad de clave
+
+- **Sin clave (13):** Wikimedia, Openverse, Internet Archive, Imgflip, NASA, Art Institute of
+  Chicago, The Met, Cleveland, Library of Congress, iNaturalist, ccMixter, PeerTube, Dailymotion.
+- **Con clave gratuita del usuario (6):** GIPHY, KLIPY, YouTube, Freesound, Pixabay, Pexels. Las
+  claves son personales: se cargan en la app instalada y se guardan en el Administrador de
+  credenciales de Windows. Bouteca **no distribuye claves compartidas** en el instalador (cualquiera
+  podría extraerlas y agotarían el cupo de todos). Los secretos `BOUTECA_KEY_*` de GitHub
+  Actions sirven solo para las pruebas de CI y nunca llegan al instalador.
+- Solo vale la pena pedir clave para GIPHY/KLIPY (GIFs de reacción), YouTube (video popular) y
+  Freesound/Pixabay/Pexels (más efectos y stock): no hay alternativas sin clave de ese contenido.
+
+### Permisos (todas las fuentes)
+
+El motor calcula `rights` para cada resultado (`crates/bouteca-core/src/rights.rs`): tipo de
+licencia, reproducción, descarga, atribución, uso comercial, obras derivadas y "compartir igual".
+**Una licencia ausente o desconocida nunca equivale a permiso**: esos resultados se muestran con
+enlace a la fuente pero no se descargan. El gestor de descargas recalcula el permiso al encolar
+(no confía en lo que envía la interfaz).
 
 ### Costos
 
 Ninguno. Todas las integraciones son gratuitas. Las que piden clave requieren crear una cuenta
-gratuita en el sitio del proveedor; Bouteca funciona sin ellas con las cuatro fuentes sin clave.
+gratuita en el sitio del proveedor; Bouteca funciona sin ellas con las fuentes sin clave.
 
 ### Dónde se guardan las claves
 
@@ -40,6 +69,13 @@ del usuario. Nunca en `settings.json`, en registros ni en el repositorio. Se car
 | **Reddit** | La API requiere OAuth y sus términos restringen el uso de contenido de terceros. |
 | **Myinstants** | No tiene API oficial. |
 | **Imgflip `search_memes`** | Función paga (API Premium). |
+| **Descarga desde ccMixter** | Protección anti-hotlink; evitarla exigiría falsificar cabeceras. Se integra como enlace. |
+| **Descarga desde Dailymotion** | Sus condiciones no la permiten. Solo reproductor oficial. |
+| **Europeana** | Requiere clave (gratuita) y su cobertura de imágenes abiertas se solapa con Openverse/Wikimedia. Candidato futuro opcional. |
+| **Smithsonian Open Access** | Requiere clave de api.data.gov. Candidato futuro opcional (con clave del usuario). |
+| **Jamendo** | Requiere `client_id`; su catálogo CC ya aparece parcialmente vía Openverse. Candidato futuro opcional. |
+| **Unsplash / Flickr** | Requieren clave; Flickr CC ya llega vía Openverse. |
+| **Bibliotecas de sonido/música "gratis" sin API** (Mixkit, Uppbeat, etc.) | Sin API oficial; integrarlas exigiría scraping. |
 
 ## Verificación en vivo
 
@@ -47,10 +83,10 @@ del usuario. Nunca en `settings.json`, en registros ni en el repositorio. Se car
 ejecuta en GitHub Actions en Linux y en Windows en cada push. Los resultados de cada corrida
 aparecen como anotaciones del workflow y se resumen en `TESTING.md`.
 
-- [ ] Wikimedia Commons — `prop=videoinfo` con `derivatives`.
-- [ ] Openverse — formato actual de `results`.
-- [ ] Internet Archive — `advancedsearch` + `metadata`.
-- [ ] Imgflip — `get_memes`.
+- [x] Wikimedia Commons, Openverse, Internet Archive, Imgflip (código 0 en Linux y Windows).
+- [ ] NASA (+ archivos), museos (AIC, Met, Cleveland, LoC), iNaturalist, ccMixter, PeerTube
+  (+ archivos), Dailymotion y música en Archive/Openverse/Wikimedia — pruebas en vivo agregadas;
+  resultado en la próxima corrida de CI (el entorno de desarrollo no tiene salida a esas APIs).
 - [ ] GIPHY, KLIPY, YouTube, Freesound, Pixabay, Pexels — con clave. CI las prueba automáticamente si se cargan como secretos del repositorio (`BOUTECA_KEY_GIPHY`, `BOUTECA_KEY_YOUTUBE`, …).
   KLIPY tiene la documentación de formato menos explícita: el parser es tolerante a variantes.
 

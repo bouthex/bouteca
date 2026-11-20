@@ -231,6 +231,8 @@ impl SearchEngine {
         let r = tokio::time::timeout(PROVIDER_TIMEOUT, p.resolve(&ctx, item))
             .await
             .map_err(|_| CoreError::Network("tiempo de espera agotado".into()))??;
+        let mut r = r;
+        r.rights = crate::rights::derive(&r);
         self.remember(&r);
         Ok(r)
     }
@@ -374,6 +376,7 @@ impl SearchEngine {
                             if !filter.accepts(item.kind) {
                                 continue;
                             }
+                            item.rights = crate::rights::derive(&item);
                             item.score = rank::score(&item, &plan, variant.weight, pos);
                             item.dedupe_key = rank::dedupe_key(&item);
                             let dup = {
