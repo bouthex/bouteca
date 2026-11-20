@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permisos mínimos de la ventana principal. Todo acceso a disco, red, diálogos y atajos ocurre en Rust mediante comandos propios validados.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

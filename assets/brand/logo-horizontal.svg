@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 320" width="1180" height="320">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF5468"/><stop offset="1" stop-color="#FF8A4C"/></linearGradient>
+  </defs>
+  <g transform="translate(20 20) scale(0.27)">
+    <rect x="32" y="32" width="960" height="960" rx="232" fill="url(#bg)"/>
+    <rect x="276" y="196" width="138" height="628" rx="69" fill="#fff"/>
+    <path d="M345 404 H562 A210 210 0 0 1 562 824 H345 Z" fill="#fff"/>
+    <path d="M488 520 Q488 494 511 506 L641 584 Q662 597 641 610 L511 688 Q488 700 488 674 Z" fill="#FF6457"/>
+    <path d="M742 196 C752 250 766 264 820 274 C766 284 752 298 742 352 C732 298 718 284 664 274 C718 264 732 250 742 196 Z" fill="#fff"/>
+  </g>
+  <text x="330" y="205" font-family="Outfit, 'Segoe UI Variable Display', 'Segoe UI', sans-serif" font-size="150" font-weight="700" letter-spacing="-4" fill="#ECEEF3">bouteca</text>
+</svg>

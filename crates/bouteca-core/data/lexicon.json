@@ -1,0 +1,3229 @@
+{
+ "_comment": "Léxico multilingüe de Bouteca. Cada concepto agrupa sinónimos (todos los términos de un idioma son equivalentes) y su traducción. El primer término de cada idioma es el que se usa al construir la consulta traducida. pos=adj marca adjetivos (cambian de orden en en/tr/ja/ru). Las entidades son personajes/memes conocidos: sus alias apuntan a una búsqueda canónica.",
+ "concepts": [
+  {
+   "id": "meme",
+   "terms": {
+    "es": [
+     "meme",
+     "memes",
+     "momo"
+    ],
+    "en": [
+     "meme",
+     "memes"
+    ],
+    "pt": [
+     "meme",
+     "memes"
+    ],
+    "tr": [
+     "meme",
+     "caps"
+    ],
+    "ja": [
+     "ミーム",
+     "ネタ"
+    ],
+    "ru": [
+     "мем",
+     "мемы"
+    ]
+   }
+  },
+  {
+   "id": "reaction",
+   "terms": {
+    "es": [
+     "reacción",
+     "reacciones",
+     "reaccionando"
+    ],
+    "en": [
+     "reaction",
+     "reacting"
+    ],
+    "pt": [
+     "reação",
+     "reagindo"
+    ],
+    "tr": [
+     "tepki"
+    ],
+    "ja": [
+     "リアクション",
+     "反応"
+    ],
+    "ru": [
+     "реакция"
+    ]
+   }
+  },
+  {
+   "id": "funny",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "gracioso",
+     "graciosa",
+     "chistoso",
+     "divertido",
+     "cómico"
+    ],
+    "en": [
+     "funny",
+     "hilarious",
+     "lol"
+    ],
+    "pt": [
+     "engraçado",
+     "divertido",
+     "cômico"
+    ],
+    "tr": [
+     "komik"
+    ],
+    "ja": [
+     "面白い",
+     "おもしろ"
+    ],
+    "ru": [
+     "смешной",
+     "прикол"
+    ]
+   }
+  },
+  {
+   "id": "laugh",
+   "terms": {
+    "es": [
+     "reír",
+     "riendo",
+     "carcajada",
+     "jaja",
+     "jajaja"
+    ],
+    "en": [
+     "laugh",
+     "laughing"
+    ],
+    "pt": [
+     "rir",
+     "rindo",
+     "risada",
+     "kkkk"
+    ],
+    "tr": [
+     "gülmek",
+     "kahkaha"
+    ],
+    "ja": [
+     "笑う",
+     "爆笑"
+    ],
+    "ru": [
+     "смех",
+     "ржач"
+    ]
+   }
+  },
+  {
+   "id": "cry",
+   "terms": {
+    "es": [
+     "llorar",
+     "llorando",
+     "llanto",
+     "lágrimas"
+    ],
+    "en": [
+     "cry",
+     "crying",
+     "tears"
+    ],
+    "pt": [
+     "chorar",
+     "chorando"
+    ],
+    "tr": [
+     "ağlamak",
+     "ağlıyor"
+    ],
+    "ja": [
+     "泣く",
+     "号泣"
+    ],
+    "ru": [
+     "плакать",
+     "плач"
+    ]
+   }
+  },
+  {
+   "id": "sad",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "triste",
+     "tristeza",
+     "deprimido"
+    ],
+    "en": [
+     "sad",
+     "sadness",
+     "depressed"
+    ],
+    "pt": [
+     "triste",
+     "tristeza"
+    ],
+    "tr": [
+     "üzgün",
+     "hüzünlü"
+    ],
+    "ja": [
+     "悲しい"
+    ],
+    "ru": [
+     "грустный",
+     "грусть"
+    ]
+   }
+  },
+  {
+   "id": "happy",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "feliz",
+     "contento",
+     "alegre",
+     "alegría"
+    ],
+    "en": [
+     "happy",
+     "joy"
+    ],
+    "pt": [
+     "feliz",
+     "alegre"
+    ],
+    "tr": [
+     "mutlu",
+     "sevinçli"
+    ],
+    "ja": [
+     "嬉しい",
+     "幸せ"
+    ],
+    "ru": [
+     "счастливый",
+     "радость"
+    ]
+   }
+  },
+  {
+   "id": "angry",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "enojado",
+     "enojo",
+     "furioso",
+     "enfadado",
+     "bronca",
+     "rabia"
+    ],
+    "en": [
+     "angry",
+     "mad",
+     "rage"
+    ],
+    "pt": [
+     "bravo",
+     "irritado",
+     "raiva"
+    ],
+    "tr": [
+     "kızgın",
+     "sinirli",
+     "öfke"
+    ],
+    "ja": [
+     "怒り",
+     "怒る"
+    ],
+    "ru": [
+     "злой",
+     "ярость"
+    ]
+   }
+  },
+  {
+   "id": "surprised",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "sorprendido",
+     "sorpresa",
+     "asombrado",
+     "impactado",
+     "shock"
+    ],
+    "en": [
+     "surprised",
+     "shocked",
+     "shock",
+     "wow"
+    ],
+    "pt": [
+     "surpreso",
+     "chocado"
+    ],
+    "tr": [
+     "şaşkın",
+     "şok"
+    ],
+    "ja": [
+     "驚き",
+     "びっくり"
+    ],
+    "ru": [
+     "удивление",
+     "шок"
+    ]
+   }
+  },
+  {
+   "id": "scared",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "asustado",
+     "miedo",
+     "susto"
+    ],
+    "en": [
+     "scared",
+     "fear",
+     "afraid"
+    ],
+    "pt": [
+     "assustado",
+     "medo"
+    ],
+    "tr": [
+     "korkmuş",
+     "korku"
+    ],
+    "ja": [
+     "怖い",
+     "恐怖"
+    ],
+    "ru": [
+     "испуг",
+     "страх"
+    ]
+   }
+  },
+  {
+   "id": "horror",
+   "terms": {
+    "es": [
+     "terror",
+     "horror",
+     "terrorífico",
+     "aterrador"
+    ],
+    "en": [
+     "horror",
+     "scary",
+     "creepy"
+    ],
+    "pt": [
+     "terror",
+     "assustador"
+    ],
+    "tr": [
+     "korku",
+     "dehşet"
+    ],
+    "ja": [
+     "ホラー"
+    ],
+    "ru": [
+     "ужас",
+     "хоррор"
+    ]
+   }
+  },
+  {
+   "id": "jumpscare",
+   "terms": {
+    "es": [
+     "jumpscare",
+     "susto repentino"
+    ],
+    "en": [
+     "jumpscare",
+     "jump scare"
+    ],
+    "pt": [
+     "jumpscare"
+    ],
+    "tr": [
+     "jumpscare"
+    ],
+    "ja": [
+     "ジャンプスケア"
+    ],
+    "ru": [
+     "скример"
+    ]
+   }
+  },
+  {
+   "id": "confused",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "confundido",
+     "confusión"
+    ],
+    "en": [
+     "confused",
+     "what",
+     "huh"
+    ],
+    "pt": [
+     "confuso"
+    ],
+    "tr": [
+     "kafası karışık",
+     "ne"
+    ],
+    "ja": [
+     "困惑",
+     "混乱"
+    ],
+    "ru": [
+     "недоумение",
+     "что"
+    ]
+   }
+  },
+  {
+   "id": "facepalm",
+   "terms": {
+    "es": [
+     "facepalm",
+     "palma en la cara",
+     "vergüenza ajena"
+    ],
+    "en": [
+     "facepalm",
+     "cringe"
+    ],
+    "pt": [
+     "facepalm",
+     "vergonha alheia"
+    ],
+    "tr": [
+     "facepalm",
+     "utanç"
+    ],
+    "ja": [
+     "顔面",
+     "あきれる"
+    ],
+    "ru": [
+     "фейспалм",
+     "кринж"
+    ]
+   }
+  },
+  {
+   "id": "cringe",
+   "terms": {
+    "es": [
+     "cringe",
+     "vergüenza",
+     "incómodo"
+    ],
+    "en": [
+     "cringe",
+     "awkward"
+    ],
+    "pt": [
+     "cringe",
+     "constrangedor"
+    ],
+    "tr": [
+     "cringe",
+     "utanç verici"
+    ],
+    "ja": [
+     "痛い",
+     "気まずい"
+    ],
+    "ru": [
+     "кринж",
+     "неловко"
+    ]
+   }
+  },
+  {
+   "id": "dance",
+   "terms": {
+    "es": [
+     "bailar",
+     "baile",
+     "bailando"
+    ],
+    "en": [
+     "dance",
+     "dancing"
+    ],
+    "pt": [
+     "dançar",
+     "dança",
+     "dançando"
+    ],
+    "tr": [
+     "dans",
+     "dans etmek"
+    ],
+    "ja": [
+     "ダンス",
+     "踊る"
+    ],
+    "ru": [
+     "танец",
+     "танцует"
+    ]
+   }
+  },
+  {
+   "id": "celebrate",
+   "terms": {
+    "es": [
+     "celebrar",
+     "festejo",
+     "festejar",
+     "celebración",
+     "fiesta"
+    ],
+    "en": [
+     "celebrate",
+     "celebration",
+     "party"
+    ],
+    "pt": [
+     "comemorar",
+     "festa"
+    ],
+    "tr": [
+     "kutlama",
+     "parti"
+    ],
+    "ja": [
+     "お祝い",
+     "パーティー"
+    ],
+    "ru": [
+     "праздник",
+     "вечеринка"
+    ]
+   }
+  },
+  {
+   "id": "applause",
+   "terms": {
+    "es": [
+     "aplausos",
+     "aplaudir",
+     "aplauso"
+    ],
+    "en": [
+     "applause",
+     "clapping",
+     "clap"
+    ],
+    "pt": [
+     "aplausos",
+     "palmas"
+    ],
+    "tr": [
+     "alkış"
+    ],
+    "ja": [
+     "拍手"
+    ],
+    "ru": [
+     "аплодисменты"
+    ]
+   }
+  },
+  {
+   "id": "yes",
+   "terms": {
+    "es": [
+     "sí",
+     "claro",
+     "obvio",
+     "afirmativo"
+    ],
+    "en": [
+     "yes",
+     "yeah",
+     "of course"
+    ],
+    "pt": [
+     "sim",
+     "claro"
+    ],
+    "tr": [
+     "evet"
+    ],
+    "ja": [
+     "はい",
+     "そう"
+    ],
+    "ru": [
+     "да"
+    ]
+   }
+  },
+  {
+   "id": "no",
+   "terms": {
+    "es": [
+     "no",
+     "nope",
+     "negativo"
+    ],
+    "en": [
+     "no",
+     "nope"
+    ],
+    "pt": [
+     "não"
+    ],
+    "tr": [
+     "hayır"
+    ],
+    "ja": [
+     "いいえ",
+     "ダメ"
+    ],
+    "ru": [
+     "нет"
+    ]
+   }
+  },
+  {
+   "id": "ok",
+   "terms": {
+    "es": [
+     "ok",
+     "okey",
+     "dale",
+     "bueno"
+    ],
+    "en": [
+     "ok",
+     "okay",
+     "fine"
+    ],
+    "pt": [
+     "ok",
+     "beleza"
+    ],
+    "tr": [
+     "tamam"
+    ],
+    "ja": [
+     "オッケー"
+    ],
+    "ru": [
+     "окей",
+     "ладно"
+    ]
+   }
+  },
+  {
+   "id": "thanks",
+   "terms": {
+    "es": [
+     "gracias",
+     "agradecido"
+    ],
+    "en": [
+     "thanks",
+     "thank you"
+    ],
+    "pt": [
+     "obrigado",
+     "valeu"
+    ],
+    "tr": [
+     "teşekkürler",
+     "sağol"
+    ],
+    "ja": [
+     "ありがとう"
+    ],
+    "ru": [
+     "спасибо"
+    ]
+   }
+  },
+  {
+   "id": "hello",
+   "terms": {
+    "es": [
+     "hola",
+     "saludo",
+     "saludar",
+     "buenas"
+    ],
+    "en": [
+     "hello",
+     "hi",
+     "wave"
+    ],
+    "pt": [
+     "olá",
+     "oi"
+    ],
+    "tr": [
+     "merhaba",
+     "selam"
+    ],
+    "ja": [
+     "こんにちは",
+     "やあ"
+    ],
+    "ru": [
+     "привет"
+    ]
+   }
+  },
+  {
+   "id": "bye",
+   "terms": {
+    "es": [
+     "chau",
+     "adiós",
+     "chao",
+     "nos vemos"
+    ],
+    "en": [
+     "bye",
+     "goodbye"
+    ],
+    "pt": [
+     "tchau",
+     "adeus"
+    ],
+    "tr": [
+     "hoşça kal",
+     "güle güle"
+    ],
+    "ja": [
+     "バイバイ",
+     "さようなら"
+    ],
+    "ru": [
+     "пока",
+     "до свидания"
+    ]
+   }
+  },
+  {
+   "id": "love",
+   "terms": {
+    "es": [
+     "amor",
+     "te quiero",
+     "enamorado",
+     "corazón"
+    ],
+    "en": [
+     "love",
+     "heart",
+     "in love"
+    ],
+    "pt": [
+     "amor",
+     "coração"
+    ],
+    "tr": [
+     "aşk",
+     "sevgi",
+     "kalp"
+    ],
+    "ja": [
+     "愛",
+     "ハート"
+    ],
+    "ru": [
+     "любовь",
+     "сердце"
+    ]
+   }
+  },
+  {
+   "id": "kiss",
+   "terms": {
+    "es": [
+     "beso",
+     "besar",
+     "besando"
+    ],
+    "en": [
+     "kiss",
+     "kissing"
+    ],
+    "pt": [
+     "beijo",
+     "beijar"
+    ],
+    "tr": [
+     "öpücük",
+     "öpmek"
+    ],
+    "ja": [
+     "キス"
+    ],
+    "ru": [
+     "поцелуй"
+    ]
+   }
+  },
+  {
+   "id": "hug",
+   "terms": {
+    "es": [
+     "abrazo",
+     "abrazar"
+    ],
+    "en": [
+     "hug",
+     "hugging"
+    ],
+    "pt": [
+     "abraço"
+    ],
+    "tr": [
+     "sarılmak",
+     "kucaklama"
+    ],
+    "ja": [
+     "ハグ"
+    ],
+    "ru": [
+     "обнимашки",
+     "объятия"
+    ]
+   }
+  },
+  {
+   "id": "sleep",
+   "terms": {
+    "es": [
+     "dormir",
+     "durmiendo",
+     "sueño",
+     "cansado"
+    ],
+    "en": [
+     "sleep",
+     "sleeping",
+     "tired"
+    ],
+    "pt": [
+     "dormir",
+     "cansado"
+    ],
+    "tr": [
+     "uyku",
+     "uyumak",
+     "yorgun"
+    ],
+    "ja": [
+     "寝る",
+     "眠い"
+    ],
+    "ru": [
+     "сон",
+     "спать"
+    ]
+   }
+  },
+  {
+   "id": "bored",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "aburrido",
+     "aburrimiento",
+     "embole"
+    ],
+    "en": [
+     "bored",
+     "boring"
+    ],
+    "pt": [
+     "entediado",
+     "tédio"
+    ],
+    "tr": [
+     "sıkılmış",
+     "sıkıcı"
+    ],
+    "ja": [
+     "退屈"
+    ],
+    "ru": [
+     "скучно",
+     "скука"
+    ]
+   }
+  },
+  {
+   "id": "fail",
+   "terms": {
+    "es": [
+     "fail",
+     "fallo",
+     "fracaso",
+     "caida",
+     "sé cae"
+    ],
+    "en": [
+     "fail",
+     "epic fail",
+     "falling"
+    ],
+    "pt": [
+     "falha",
+     "fail",
+     "caindo"
+    ],
+    "tr": [
+     "başarısızlık",
+     "düşme"
+    ],
+    "ja": [
+     "失敗"
+    ],
+    "ru": [
+     "фейл",
+     "провал"
+    ]
+   }
+  },
+  {
+   "id": "win",
+   "terms": {
+    "es": [
+     "ganar",
+     "victoria",
+     "ganador",
+     "triunfo"
+    ],
+    "en": [
+     "win",
+     "victory",
+     "winner"
+    ],
+    "pt": [
+     "vitória",
+     "ganhar"
+    ],
+    "tr": [
+     "kazanmak",
+     "zafer"
+    ],
+    "ja": [
+     "勝利"
+    ],
+    "ru": [
+     "победа"
+    ]
+   }
+  },
+  {
+   "id": "explosion",
+   "terms": {
+    "es": [
+     "explosión",
+     "explotar",
+     "boom"
+    ],
+    "en": [
+     "explosion",
+     "explode",
+     "boom"
+    ],
+    "pt": [
+     "explosão"
+    ],
+    "tr": [
+     "patlama"
+    ],
+    "ja": [
+     "爆発"
+    ],
+    "ru": [
+     "взрыв"
+    ]
+   }
+  },
+  {
+   "id": "thinking",
+   "terms": {
+    "es": [
+     "pensando",
+     "pensar",
+     "pensativo",
+     "hmm"
+    ],
+    "en": [
+     "thinking",
+     "hmm"
+    ],
+    "pt": [
+     "pensando"
+    ],
+    "tr": [
+     "düşünmek",
+     "düşünceli"
+    ],
+    "ja": [
+     "考える"
+    ],
+    "ru": [
+     "думает",
+     "хмм"
+    ]
+   }
+  },
+  {
+   "id": "wait",
+   "terms": {
+    "es": [
+     "espera",
+     "esperando",
+     "esperar"
+    ],
+    "en": [
+     "wait",
+     "waiting"
+    ],
+    "pt": [
+     "espera",
+     "esperando"
+    ],
+    "tr": [
+     "bekle",
+     "beklemek"
+    ],
+    "ja": [
+     "待つ"
+    ],
+    "ru": [
+     "жди",
+     "ожидание"
+    ]
+   }
+  },
+  {
+   "id": "run",
+   "terms": {
+    "es": [
+     "correr",
+     "corriendo",
+     "huir",
+     "escapar"
+    ],
+    "en": [
+     "run",
+     "running",
+     "run away"
+    ],
+    "pt": [
+     "correr",
+     "correndo",
+     "fugir"
+    ],
+    "tr": [
+     "koşmak",
+     "kaçmak"
+    ],
+    "ja": [
+     "走る",
+     "逃げる"
+    ],
+    "ru": [
+     "бежать",
+     "убегает"
+    ]
+   }
+  },
+  {
+   "id": "eat",
+   "terms": {
+    "es": [
+     "comer",
+     "comiendo",
+     "comida",
+     "hambre"
+    ],
+    "en": [
+     "eat",
+     "eating",
+     "food",
+     "hungry"
+    ],
+    "pt": [
+     "comer",
+     "comida",
+     "fome"
+    ],
+    "tr": [
+     "yemek",
+     "aç"
+    ],
+    "ja": [
+     "食べる",
+     "食べ物"
+    ],
+    "ru": [
+     "еда",
+     "есть"
+    ]
+   }
+  },
+  {
+   "id": "money",
+   "terms": {
+    "es": [
+     "plata",
+     "dinero",
+     "guita",
+     "billetes"
+    ],
+    "en": [
+     "money",
+     "cash"
+    ],
+    "pt": [
+     "dinheiro",
+     "grana"
+    ],
+    "tr": [
+     "para"
+    ],
+    "ja": [
+     "お金"
+    ],
+    "ru": [
+     "деньги"
+    ]
+   }
+  },
+  {
+   "id": "cool",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "genial",
+     "copado",
+     "chido",
+     "piola"
+    ],
+    "en": [
+     "cool",
+     "awesome"
+    ],
+    "pt": [
+     "legal",
+     "massa"
+    ],
+    "tr": [
+     "havalı",
+     "harika"
+    ],
+    "ja": [
+     "かっこいい"
+    ],
+    "ru": [
+     "круто",
+     "классно"
+    ]
+   }
+  },
+  {
+   "id": "crazy",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "loco",
+     "locura",
+     "demente"
+    ],
+    "en": [
+     "crazy",
+     "insane"
+    ],
+    "pt": [
+     "louco",
+     "loucura"
+    ],
+    "tr": [
+     "deli",
+     "çılgın"
+    ],
+    "ja": [
+     "クレイジー",
+     "狂った"
+    ],
+    "ru": [
+     "безумный",
+     "псих"
+    ]
+   }
+  },
+  {
+   "id": "stupid",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "tonto",
+     "estúpido",
+     "boludo",
+     "pelotudo",
+     "idiota"
+    ],
+    "en": [
+     "stupid",
+     "dumb",
+     "idiot"
+    ],
+    "pt": [
+     "burro",
+     "idiota"
+    ],
+    "tr": [
+     "aptal",
+     "salak"
+    ],
+    "ja": [
+     "バカ"
+    ],
+    "ru": [
+     "тупой",
+     "глупый"
+    ]
+   }
+  },
+  {
+   "id": "weird",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "raro",
+     "extraño",
+     "bizarro"
+    ],
+    "en": [
+     "weird",
+     "strange",
+     "cursed"
+    ],
+    "pt": [
+     "estranho",
+     "bizarro"
+    ],
+    "tr": [
+     "garip",
+     "tuhaf"
+    ],
+    "ja": [
+     "変な"
+    ],
+    "ru": [
+     "странный"
+    ]
+   }
+  },
+  {
+   "id": "cute",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "tierno",
+     "lindo",
+     "adorable",
+     "cute"
+    ],
+    "en": [
+     "cute",
+     "adorable"
+    ],
+    "pt": [
+     "fofo",
+     "fofinho"
+    ],
+    "tr": [
+     "sevimli",
+     "tatlı"
+    ],
+    "ja": [
+     "かわいい"
+    ],
+    "ru": [
+     "милый"
+    ]
+   }
+  },
+  {
+   "id": "epic",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "épico",
+     "épica",
+     "legendario"
+    ],
+    "en": [
+     "epic",
+     "legendary"
+    ],
+    "pt": [
+     "épico",
+     "lendário"
+    ],
+    "tr": [
+     "efsane",
+     "epik"
+    ],
+    "ja": [
+     "壮大"
+    ],
+    "ru": [
+     "эпичный",
+     "легендарный"
+    ]
+   }
+  },
+  {
+   "id": "classic",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "clásico",
+     "clásicos",
+     "viejo",
+     "antiguo"
+    ],
+    "en": [
+     "classic",
+     "old",
+     "retro"
+    ],
+    "pt": [
+     "clássico",
+     "antigo"
+    ],
+    "tr": [
+     "klasik",
+     "eski"
+    ],
+    "ja": [
+     "定番",
+     "昔の"
+    ],
+    "ru": [
+     "классика",
+     "старый"
+    ]
+   }
+  },
+  {
+   "id": "viral",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "viral",
+     "virales",
+     "tendencia",
+     "trending"
+    ],
+    "en": [
+     "viral",
+     "trending"
+    ],
+    "pt": [
+     "viral",
+     "tendência"
+    ],
+    "tr": [
+     "viral",
+     "trend"
+    ],
+    "ja": [
+     "バズ",
+     "話題"
+    ],
+    "ru": [
+     "вирусный",
+     "тренд"
+    ]
+   }
+  },
+  {
+   "id": "yellow",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "amarillo",
+     "amarilla",
+     "amarillos"
+    ],
+    "en": [
+     "yellow"
+    ],
+    "pt": [
+     "amarelo",
+     "amarela"
+    ],
+    "tr": [
+     "sarı"
+    ],
+    "ja": [
+     "黄色",
+     "黄色い"
+    ],
+    "ru": [
+     "желтый",
+     "жёлтый"
+    ]
+   }
+  },
+  {
+   "id": "red",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "rojo",
+     "roja"
+    ],
+    "en": [
+     "red"
+    ],
+    "pt": [
+     "vermelho"
+    ],
+    "tr": [
+     "kırmızı"
+    ],
+    "ja": [
+     "赤",
+     "赤い"
+    ],
+    "ru": [
+     "красный"
+    ]
+   }
+  },
+  {
+   "id": "blue",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "azul"
+    ],
+    "en": [
+     "blue"
+    ],
+    "pt": [
+     "azul"
+    ],
+    "tr": [
+     "mavi"
+    ],
+    "ja": [
+     "青",
+     "青い"
+    ],
+    "ru": [
+     "синий"
+    ]
+   }
+  },
+  {
+   "id": "green",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "verde"
+    ],
+    "en": [
+     "green"
+    ],
+    "pt": [
+     "verde"
+    ],
+    "tr": [
+     "yeşil"
+    ],
+    "ja": [
+     "緑"
+    ],
+    "ru": [
+     "зеленый",
+     "зелёный"
+    ]
+   }
+  },
+  {
+   "id": "black",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "negro",
+     "negra"
+    ],
+    "en": [
+     "black"
+    ],
+    "pt": [
+     "preto"
+    ],
+    "tr": [
+     "siyah"
+    ],
+    "ja": [
+     "黒"
+    ],
+    "ru": [
+     "черный",
+     "чёрный"
+    ]
+   }
+  },
+  {
+   "id": "white",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "blanco",
+     "blanca"
+    ],
+    "en": [
+     "white"
+    ],
+    "pt": [
+     "branco"
+    ],
+    "tr": [
+     "beyaz"
+    ],
+    "ja": [
+     "白"
+    ],
+    "ru": [
+     "белый"
+    ]
+   }
+  },
+  {
+   "id": "pink",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "rosa",
+     "rosado"
+    ],
+    "en": [
+     "pink"
+    ],
+    "pt": [
+     "rosa"
+    ],
+    "tr": [
+     "pembe"
+    ],
+    "ja": [
+     "ピンク"
+    ],
+    "ru": [
+     "розовый"
+    ]
+   }
+  },
+  {
+   "id": "big",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "grande",
+     "gigante",
+     "enorme"
+    ],
+    "en": [
+     "big",
+     "giant",
+     "huge"
+    ],
+    "pt": [
+     "grande",
+     "gigante"
+    ],
+    "tr": [
+     "büyük",
+     "dev"
+    ],
+    "ja": [
+     "大きい",
+     "巨大"
+    ],
+    "ru": [
+     "большой",
+     "огромный"
+    ]
+   }
+  },
+  {
+   "id": "small",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "chico",
+     "pequeño",
+     "chiquito",
+     "mini"
+    ],
+    "en": [
+     "small",
+     "tiny",
+     "little"
+    ],
+    "pt": [
+     "pequeno"
+    ],
+    "tr": [
+     "küçük"
+    ],
+    "ja": [
+     "小さい"
+    ],
+    "ru": [
+     "маленький"
+    ]
+   }
+  },
+  {
+   "id": "fat",
+   "pos": "adj",
+   "terms": {
+    "es": [
+     "gordo",
+     "gorda",
+     "gordito"
+    ],
+    "en": [
+     "fat",
+     "chubby"
+    ],
+    "pt": [
+     "gordo"
+    ],
+    "tr": [
+     "şişman"
+    ],
+    "ja": [
+     "太った"
+    ],
+    "ru": [
+     "толстый"
+    ]
+   }
+  },
+  {
+   "id": "guy",
+   "terms": {
+    "es": [
+     "tipo",
+     "chabón",
+     "flaco",
+     "hombre",
+     "señor",
+     "pibe"
+    ],
+    "en": [
+     "guy",
+     "man",
+     "dude"
+    ],
+    "pt": [
+     "cara",
+     "homem"
+    ],
+    "tr": [
+     "adam",
+     "herif"
+    ],
+    "ja": [
+     "男"
+    ],
+    "ru": [
+     "парень",
+     "мужик"
+    ]
+   }
+  },
+  {
+   "id": "girl",
+   "terms": {
+    "es": [
+     "chica",
+     "mina",
+     "mujer",
+     "piba"
+    ],
+    "en": [
+     "girl",
+     "woman"
+    ],
+    "pt": [
+     "garota",
+     "mulher"
+    ],
+    "tr": [
+     "kız",
+     "kadın"
+    ],
+    "ja": [
+     "女の子",
+     "女性"
+    ],
+    "ru": [
+     "девушка",
+     "женщина"
+    ]
+   }
+  },
+  {
+   "id": "kid",
+   "terms": {
+    "es": [
+     "nene",
+     "niño",
+     "nena"
+    ],
+    "en": [
+     "kid",
+     "child",
+     "boy"
+    ],
+    "pt": [
+     "criança",
+     "menino"
+    ],
+    "tr": [
+     "çocuk"
+    ],
+    "ja": [
+     "子供"
+    ],
+    "ru": [
+     "ребенок",
+     "мальчик"
+    ]
+   }
+  },
+  {
+   "id": "baby",
+   "terms": {
+    "es": [
+     "bebé",
+     "bebés"
+    ],
+    "en": [
+     "baby"
+    ],
+    "pt": [
+     "bebê"
+    ],
+    "tr": [
+     "bebek"
+    ],
+    "ja": [
+     "赤ちゃん"
+    ],
+    "ru": [
+     "малыш",
+     "младенец"
+    ]
+   }
+  },
+  {
+   "id": "old_man",
+   "terms": {
+    "es": [
+     "abuelo",
+     "anciano"
+    ],
+    "en": [
+     "old man",
+     "grandpa"
+    ],
+    "pt": [
+     "velho",
+     "vovô"
+    ],
+    "tr": [
+     "yaşlı adam",
+     "dede"
+    ],
+    "ja": [
+     "おじいさん"
+    ],
+    "ru": [
+     "старик",
+     "дед"
+    ]
+   }
+  },
+  {
+   "id": "character",
+   "terms": {
+    "es": [
+     "personaje",
+     "personajes",
+     "monito",
+     "dibujo"
+    ],
+    "en": [
+     "character",
+     "cartoon"
+    ],
+    "pt": [
+     "personagem",
+     "desenho"
+    ],
+    "tr": [
+     "karakter",
+     "çizgi film"
+    ],
+    "ja": [
+     "キャラクター",
+     "キャラ"
+    ],
+    "ru": [
+     "персонаж",
+     "мультик"
+    ]
+   }
+  },
+  {
+   "id": "ball",
+   "terms": {
+    "es": [
+     "bola",
+     "pelota",
+     "esfera"
+    ],
+    "en": [
+     "ball",
+     "sphere"
+    ],
+    "pt": [
+     "bola"
+    ],
+    "tr": [
+     "top"
+    ],
+    "ja": [
+     "ボール",
+     "玉"
+    ],
+    "ru": [
+     "мяч",
+     "шар"
+    ]
+   }
+  },
+  {
+   "id": "face",
+   "terms": {
+    "es": [
+     "cara",
+     "rostro",
+     "carita"
+    ],
+    "en": [
+     "face"
+    ],
+    "pt": [
+     "cara",
+     "rosto"
+    ],
+    "tr": [
+     "yüz",
+     "surat"
+    ],
+    "ja": [
+     "顔"
+    ],
+    "ru": [
+     "лицо"
+    ]
+   }
+  },
+  {
+   "id": "eyes",
+   "terms": {
+    "es": [
+     "ojos",
+     "mirada",
+     "mirando"
+    ],
+    "en": [
+     "eyes",
+     "stare",
+     "staring",
+     "looking"
+    ],
+    "pt": [
+     "olhos",
+     "olhando"
+    ],
+    "tr": [
+     "gözler",
+     "bakış"
+    ],
+    "ja": [
+     "目",
+     "見つめる"
+    ],
+    "ru": [
+     "глаза",
+     "взгляд"
+    ]
+   }
+  },
+  {
+   "id": "smile",
+   "terms": {
+    "es": [
+     "sonrisa",
+     "sonriendo",
+     "sonreír"
+    ],
+    "en": [
+     "smile",
+     "smiling",
+     "grin"
+    ],
+    "pt": [
+     "sorriso",
+     "sorrindo"
+    ],
+    "tr": [
+     "gülümseme"
+    ],
+    "ja": [
+     "笑顔"
+    ],
+    "ru": [
+     "улыбка"
+    ]
+   }
+  },
+  {
+   "id": "cat",
+   "terms": {
+    "es": [
+     "gato",
+     "gatos",
+     "gatito",
+     "michi"
+    ],
+    "en": [
+     "cat",
+     "cats",
+     "kitten"
+    ],
+    "pt": [
+     "gato",
+     "gatinho"
+    ],
+    "tr": [
+     "kedi"
+    ],
+    "ja": [
+     "猫",
+     "ネコ"
+    ],
+    "ru": [
+     "кот",
+     "кошка"
+    ]
+   }
+  },
+  {
+   "id": "dog",
+   "terms": {
+    "es": [
+     "perro",
+     "perros",
+     "perrito",
+     "firulais"
+    ],
+    "en": [
+     "dog",
+     "dogs",
+     "puppy"
+    ],
+    "pt": [
+     "cachorro",
+     "cão"
+    ],
+    "tr": [
+     "köpek"
+    ],
+    "ja": [
+     "犬",
+     "イヌ"
+    ],
+    "ru": [
+     "собака",
+     "пес"
+    ]
+   }
+  },
+  {
+   "id": "frog",
+   "terms": {
+    "es": [
+     "rana",
+     "sapo"
+    ],
+    "en": [
+     "frog",
+     "toad"
+    ],
+    "pt": [
+     "sapo",
+     "rã"
+    ],
+    "tr": [
+     "kurbağa"
+    ],
+    "ja": [
+     "カエル"
+    ],
+    "ru": [
+     "лягушка"
+    ]
+   }
+  },
+  {
+   "id": "monkey",
+   "terms": {
+    "es": [
+     "mono",
+     "chango",
+     "simio"
+    ],
+    "en": [
+     "monkey",
+     "ape"
+    ],
+    "pt": [
+     "macaco"
+    ],
+    "tr": [
+     "maymun"
+    ],
+    "ja": [
+     "猿",
+     "サル"
+    ],
+    "ru": [
+     "обезьяна"
+    ]
+   }
+  },
+  {
+   "id": "bird",
+   "terms": {
+    "es": [
+     "pájaro",
+     "ave",
+     "pajarito"
+    ],
+    "en": [
+     "bird"
+    ],
+    "pt": [
+     "pássaro"
+    ],
+    "tr": [
+     "kuş"
+    ],
+    "ja": [
+     "鳥"
+    ],
+    "ru": [
+     "птица"
+    ]
+   }
+  },
+  {
+   "id": "duck",
+   "terms": {
+    "es": [
+     "pato"
+    ],
+    "en": [
+     "duck"
+    ],
+    "pt": [
+     "pato"
+    ],
+    "tr": [
+     "ördek"
+    ],
+    "ja": [
+     "アヒル"
+    ],
+    "ru": [
+     "утка"
+    ]
+   }
+  },
+  {
+   "id": "car",
+   "terms": {
+    "es": [
+     "auto",
+     "coche",
+     "carro"
+    ],
+    "en": [
+     "car"
+    ],
+    "pt": [
+     "carro"
+    ],
+    "tr": [
+     "araba"
+    ],
+    "ja": [
+     "車"
+    ],
+    "ru": [
+     "машина"
+    ]
+   }
+  },
+  {
+   "id": "game",
+   "terms": {
+    "es": [
+     "juego",
+     "videojuego",
+     "gaming",
+     "gamer"
+    ],
+    "en": [
+     "game",
+     "video game",
+     "gaming"
+    ],
+    "pt": [
+     "jogo",
+     "videogame"
+    ],
+    "tr": [
+     "oyun"
+    ],
+    "ja": [
+     "ゲーム"
+    ],
+    "ru": [
+     "игра"
+    ]
+   }
+  },
+  {
+   "id": "movie",
+   "terms": {
+    "es": [
+     "película",
+     "peli",
+     "cine"
+    ],
+    "en": [
+     "movie",
+     "film"
+    ],
+    "pt": [
+     "filme"
+    ],
+    "tr": [
+     "film"
+    ],
+    "ja": [
+     "映画"
+    ],
+    "ru": [
+     "фильм"
+    ]
+   }
+  },
+  {
+   "id": "series",
+   "terms": {
+    "es": [
+     "serie",
+     "series"
+    ],
+    "en": [
+     "series",
+     "tv show"
+    ],
+    "pt": [
+     "série"
+    ],
+    "tr": [
+     "dizi"
+    ],
+    "ja": [
+     "ドラマ"
+    ],
+    "ru": [
+     "сериал"
+    ]
+   }
+  },
+  {
+   "id": "anime",
+   "terms": {
+    "es": [
+     "anime"
+    ],
+    "en": [
+     "anime"
+    ],
+    "pt": [
+     "anime"
+    ],
+    "tr": [
+     "anime"
+    ],
+    "ja": [
+     "アニメ"
+    ],
+    "ru": [
+     "аниме"
+    ]
+   }
+  },
+  {
+   "id": "sound",
+   "terms": {
+    "es": [
+     "sonido",
+     "sonidos",
+     "efecto de sonido",
+     "efecto",
+     "sfx"
+    ],
+    "en": [
+     "sound effect",
+     "sound",
+     "sfx"
+    ],
+    "pt": [
+     "efeito sonoro",
+     "som"
+    ],
+    "tr": [
+     "ses efekti",
+     "ses"
+    ],
+    "ja": [
+     "効果音"
+    ],
+    "ru": [
+     "звуковой эффект",
+     "звук"
+    ]
+   }
+  },
+  {
+   "id": "music",
+   "terms": {
+    "es": [
+     "música",
+     "canción",
+     "tema"
+    ],
+    "en": [
+     "music",
+     "song"
+    ],
+    "pt": [
+     "música"
+    ],
+    "tr": [
+     "müzik",
+     "şarkı"
+    ],
+    "ja": [
+     "音楽",
+     "曲"
+    ],
+    "ru": [
+     "музыка",
+     "песня"
+    ]
+   }
+  },
+  {
+   "id": "scream",
+   "terms": {
+    "es": [
+     "grito",
+     "gritar",
+     "gritando"
+    ],
+    "en": [
+     "scream",
+     "screaming",
+     "yell"
+    ],
+    "pt": [
+     "grito",
+     "gritando"
+    ],
+    "tr": [
+     "çığlık",
+     "bağırmak"
+    ],
+    "ja": [
+     "叫び"
+    ],
+    "ru": [
+     "крик"
+    ]
+   }
+  },
+  {
+   "id": "fart",
+   "terms": {
+    "es": [
+     "pedo",
+     "flatulencia"
+    ],
+    "en": [
+     "fart"
+    ],
+    "pt": [
+     "peido"
+    ],
+    "tr": [
+     "osuruk"
+    ],
+    "ja": [
+     "おなら"
+    ],
+    "ru": [
+     "пердеж"
+    ]
+   }
+  },
+  {
+   "id": "door",
+   "terms": {
+    "es": [
+     "puerta",
+     "portazo"
+    ],
+    "en": [
+     "door",
+     "door slam"
+    ],
+    "pt": [
+     "porta"
+    ],
+    "tr": [
+     "kapı"
+    ],
+    "ja": [
+     "ドア"
+    ],
+    "ru": [
+     "дверь"
+    ]
+   }
+  },
+  {
+   "id": "knock",
+   "terms": {
+    "es": [
+     "golpe",
+     "golpear",
+     "tocar la puerta"
+    ],
+    "en": [
+     "knock",
+     "hit",
+     "punch"
+    ],
+    "pt": [
+     "batida",
+     "soco"
+    ],
+    "tr": [
+     "vurmak",
+     "yumruk"
+    ],
+    "ja": [
+     "ノック",
+     "パンチ"
+    ],
+    "ru": [
+     "стук",
+     "удар"
+    ]
+   }
+  },
+  {
+   "id": "bell",
+   "terms": {
+    "es": [
+     "campana",
+     "timbre",
+     "notificación"
+    ],
+    "en": [
+     "bell",
+     "ding",
+     "notification"
+    ],
+    "pt": [
+     "sino",
+     "campainha"
+    ],
+    "tr": [
+     "zil",
+     "bildirim"
+    ],
+    "ja": [
+     "ベル",
+     "通知"
+    ],
+    "ru": [
+     "звонок",
+     "колокол"
+    ]
+   }
+  },
+  {
+   "id": "drum",
+   "terms": {
+    "es": [
+     "redoble",
+     "tambor",
+     "badum tss"
+    ],
+    "en": [
+     "drum roll",
+     "drum",
+     "rimshot"
+    ],
+    "pt": [
+     "tambor",
+     "rufar"
+    ],
+    "tr": [
+     "davul"
+    ],
+    "ja": [
+     "ドラム"
+    ],
+    "ru": [
+     "барабан"
+    ]
+   }
+  },
+  {
+   "id": "airhorn",
+   "terms": {
+    "es": [
+     "bocina",
+     "corneta",
+     "airhorn"
+    ],
+    "en": [
+     "airhorn",
+     "air horn",
+     "horn"
+    ],
+    "pt": [
+     "buzina"
+    ],
+    "tr": [
+     "korna"
+    ],
+    "ja": [
+     "エアホーン"
+    ],
+    "ru": [
+     "гудок"
+    ]
+   }
+  },
+  {
+   "id": "gun",
+   "terms": {
+    "es": [
+     "disparo",
+     "balazo",
+     "tiro"
+    ],
+    "en": [
+     "gunshot",
+     "shot"
+    ],
+    "pt": [
+     "tiro",
+     "disparo"
+    ],
+    "tr": [
+     "silah sesi",
+     "ateş"
+    ],
+    "ja": [
+     "銃声"
+    ],
+    "ru": [
+     "выстрел"
+    ]
+   }
+  },
+  {
+   "id": "rain",
+   "terms": {
+    "es": [
+     "lluvia",
+     "lloviendo",
+     "tormenta"
+    ],
+    "en": [
+     "rain",
+     "storm"
+    ],
+    "pt": [
+     "chuva",
+     "tempestade"
+    ],
+    "tr": [
+     "yağmur",
+     "fırtına"
+    ],
+    "ja": [
+     "雨"
+    ],
+    "ru": [
+     "дождь"
+    ]
+   }
+  },
+  {
+   "id": "fire",
+   "terms": {
+    "es": [
+     "fuego",
+     "incendio",
+     "llamas"
+    ],
+    "en": [
+     "fire",
+     "flames"
+    ],
+    "pt": [
+     "fogo"
+    ],
+    "tr": [
+     "ateş",
+     "yangın"
+    ],
+    "ja": [
+     "火",
+     "炎"
+    ],
+    "ru": [
+     "огонь"
+    ]
+   }
+  },
+  {
+   "id": "night",
+   "terms": {
+    "es": [
+     "noche",
+     "medianoche"
+    ],
+    "en": [
+     "night",
+     "midnight"
+    ],
+    "pt": [
+     "noite",
+     "meia-noite"
+    ],
+    "tr": [
+     "gece",
+     "gece yarısı"
+    ],
+    "ja": [
+     "夜",
+     "真夜中"
+    ],
+    "ru": [
+     "ночь",
+     "полночь"
+    ]
+   }
+  },
+  {
+   "id": "space",
+   "terms": {
+    "es": [
+     "espacio",
+     "cohete",
+     "astronauta"
+    ],
+    "en": [
+     "space",
+     "rocket",
+     "astronaut"
+    ],
+    "pt": [
+     "espaço",
+     "foguete"
+    ],
+    "tr": [
+     "uzay",
+     "roket"
+    ],
+    "ja": [
+     "宇宙"
+    ],
+    "ru": [
+     "космос"
+    ]
+   }
+  },
+  {
+   "id": "sport_football",
+   "terms": {
+    "es": [
+     "fútbol",
+     "gol",
+     "golazo"
+    ],
+    "en": [
+     "football",
+     "soccer",
+     "goal"
+    ],
+    "pt": [
+     "futebol",
+     "gol"
+    ],
+    "tr": [
+     "futbol",
+     "gol"
+    ],
+    "ja": [
+     "サッカー",
+     "ゴール"
+    ],
+    "ru": [
+     "футбол",
+     "гол"
+    ]
+   }
+  },
+  {
+   "id": "stream",
+   "terms": {
+    "es": [
+     "stream",
+     "streamer",
+     "directo",
+     "en vivo"
+    ],
+    "en": [
+     "stream",
+     "streamer",
+     "live"
+    ],
+    "pt": [
+     "live",
+     "transmissão"
+    ],
+    "tr": [
+     "yayın",
+     "canlı"
+    ],
+    "ja": [
+     "配信"
+    ],
+    "ru": [
+     "стрим"
+    ]
+   }
+  },
+  {
+   "id": "transition",
+   "terms": {
+    "es": [
+     "transición",
+     "transiciones"
+    ],
+    "en": [
+     "transition"
+    ],
+    "pt": [
+     "transição"
+    ],
+    "tr": [
+     "geçiş"
+    ],
+    "ja": [
+     "トランジション"
+    ],
+    "ru": [
+     "переход"
+    ]
+   }
+  },
+  {
+   "id": "green_screen",
+   "terms": {
+    "es": [
+     "pantalla verde",
+     "chroma",
+     "croma"
+    ],
+    "en": [
+     "green screen",
+     "chroma key"
+    ],
+    "pt": [
+     "tela verde"
+    ],
+    "tr": [
+     "yeşil ekran"
+    ],
+    "ja": [
+     "グリーンバック"
+    ],
+    "ru": [
+     "хромакей",
+     "зеленый экран"
+    ]
+   }
+  },
+  {
+   "id": "suspense",
+   "terms": {
+    "es": [
+     "suspenso",
+     "tensión",
+     "dramático"
+    ],
+    "en": [
+     "suspense",
+     "dramatic",
+     "tension"
+    ],
+    "pt": [
+     "suspense",
+     "dramático"
+    ],
+    "tr": [
+     "gerilim",
+     "dramatik"
+    ],
+    "ja": [
+     "緊張",
+     "ドラマチック"
+    ],
+    "ru": [
+     "саспенс",
+     "драматичный"
+    ]
+   }
+  },
+  {
+   "id": "sigh",
+   "terms": {
+    "es": [
+     "suspiro",
+     "suspirar"
+    ],
+    "en": [
+     "sigh"
+    ],
+    "pt": [
+     "suspiro"
+    ],
+    "tr": [
+     "iç çekmek"
+    ],
+    "ja": [
+     "ため息"
+    ],
+    "ru": [
+     "вздох"
+    ]
+   }
+  },
+  {
+   "id": "shrug",
+   "terms": {
+    "es": [
+     "encogerse de hombros",
+     "ni idea",
+     "no sé"
+    ],
+    "en": [
+     "shrug",
+     "i dont know",
+     "idk"
+    ],
+    "pt": [
+     "sei lá",
+     "dar de ombros"
+    ],
+    "tr": [
+     "omuz silkmek",
+     "bilmiyorum"
+    ],
+    "ja": [
+     "肩をすくめる"
+    ],
+    "ru": [
+     "пожать плечами",
+     "не знаю"
+    ]
+   }
+  },
+  {
+   "id": "thumbs_up",
+   "terms": {
+    "es": [
+     "pulgar arriba",
+     "like",
+     "aprobado"
+    ],
+    "en": [
+     "thumbs up",
+     "like",
+     "approved"
+    ],
+    "pt": [
+     "joinha",
+     "curtir"
+    ],
+    "tr": [
+     "başparmak",
+     "beğen"
+    ],
+    "ja": [
+     "いいね"
+    ],
+    "ru": [
+     "палец вверх",
+     "лайк"
+    ]
+   }
+  },
+  {
+   "id": "sus",
+   "terms": {
+    "es": [
+     "sospechoso",
+     "sus"
+    ],
+    "en": [
+     "sus",
+     "suspicious"
+    ],
+    "pt": [
+     "suspeito",
+     "sus"
+    ],
+    "tr": [
+     "şüpheli"
+    ],
+    "ja": [
+     "怪しい"
+    ],
+    "ru": [
+     "подозрительный",
+     "сус"
+    ]
+   }
+  }
+ ],
+ "entities": [
+  {
+   "id": "spongebob",
+   "search": "spongebob",
+   "aliases": [
+    "bob esponja",
+    "spongebob",
+    "sponge bob",
+    "esponja amarilla",
+    "bob l eponge",
+    "sunger bob",
+    "スポンジボブ",
+    "губка боб"
+   ]
+  },
+  {
+   "id": "patrick",
+   "search": "patrick star",
+   "aliases": [
+    "patricio",
+    "patricio estrella",
+    "patrick star",
+    "patrick estrela",
+    "estrella rosa"
+   ]
+  },
+  {
+   "id": "yellow_guy",
+   "search": "yellow guy don't hug me i'm scared",
+   "aliases": [
+    "yellow guy",
+    "tipo amarillo",
+    "chico amarillo",
+    "personaje amarillo",
+    "muneco amarillo",
+    "dont hug me im scared",
+    "dhmis"
+   ]
+  },
+  {
+   "id": "homer",
+   "search": "homer simpson",
+   "aliases": [
+    "homero",
+    "homero simpson",
+    "homer",
+    "homer simpson",
+    "los simpson",
+    "simpsons",
+    "the simpsons"
+   ]
+  },
+  {
+   "id": "minions",
+   "search": "minions",
+   "aliases": [
+    "minion",
+    "minions",
+    "minios",
+    "minions amarillos"
+   ]
+  },
+  {
+   "id": "pikachu",
+   "search": "pikachu",
+   "aliases": [
+    "pikachu",
+    "pokemon amarillo",
+    "raton amarillo",
+    "ピカチュウ",
+    "пикачу"
+   ]
+  },
+  {
+   "id": "shrek",
+   "search": "shrek",
+   "aliases": [
+    "shrek",
+    "ogro verde"
+   ]
+  },
+  {
+   "id": "pepe",
+   "search": "pepe the frog",
+   "aliases": [
+    "pepe",
+    "pepe the frog",
+    "rana pepe",
+    "sapo pepe",
+    "feels bad man"
+   ]
+  },
+  {
+   "id": "doge",
+   "search": "doge",
+   "aliases": [
+    "doge",
+    "perro doge",
+    "shiba",
+    "cheems",
+    "perro shiba"
+   ]
+  },
+  {
+   "id": "nyan_cat",
+   "search": "nyan cat",
+   "aliases": [
+    "nyan cat",
+    "gato arcoiris",
+    "gato pop tart"
+   ]
+  },
+  {
+   "id": "rickroll",
+   "search": "rick astley never gonna give you up",
+   "aliases": [
+    "rickroll",
+    "rick roll",
+    "rick astley",
+    "never gonna give you up"
+   ]
+  },
+  {
+   "id": "trollface",
+   "search": "trollface",
+   "aliases": [
+    "trollface",
+    "troll face",
+    "cara de troll",
+    "problem"
+   ]
+  },
+  {
+   "id": "wojak",
+   "search": "wojak",
+   "aliases": [
+    "wojak",
+    "feels guy",
+    "doomer",
+    "boomer meme"
+   ]
+  },
+  {
+   "id": "chad",
+   "search": "gigachad",
+   "aliases": [
+    "chad",
+    "gigachad",
+    "giga chad",
+    "el chad"
+   ]
+  },
+  {
+   "id": "among_us",
+   "search": "among us",
+   "aliases": [
+    "among us",
+    "amogus",
+    "impostor",
+    "sus impostor"
+   ]
+  },
+  {
+   "id": "creeper",
+   "search": "minecraft creeper",
+   "aliases": [
+    "creeper",
+    "minecraft creeper",
+    "aww man"
+   ]
+  },
+  {
+   "id": "minecraft",
+   "search": "minecraft",
+   "aliases": [
+    "minecraft",
+    "maincra",
+    "steve minecraft"
+   ]
+  },
+  {
+   "id": "shift_at_midnight",
+   "search": "shift at midnight",
+   "aliases": [
+    "shift at midnight",
+    "shift a medianoche",
+    "turno de medianoche"
+   ]
+  },
+  {
+   "id": "distracted_bf",
+   "search": "distracted boyfriend",
+   "aliases": [
+    "novio distraido",
+    "distracted boyfriend",
+    "novio celoso"
+   ]
+  },
+  {
+   "id": "this_is_fine",
+   "search": "this is fine",
+   "aliases": [
+    "this is fine",
+    "todo esta bien",
+    "perro en llamas",
+    "perro incendio"
+   ]
+  },
+  {
+   "id": "coffin_dance",
+   "search": "coffin dance",
+   "aliases": [
+    "coffin dance",
+    "baile del ataud",
+    "baile del cajon",
+    "ataud bailando"
+   ]
+  },
+  {
+   "id": "sad_violin",
+   "search": "sad violin",
+   "aliases": [
+    "violin triste",
+    "sad violin",
+    "tiny violin"
+   ]
+  },
+  {
+   "id": "bruh",
+   "search": "bruh sound effect",
+   "aliases": [
+    "bruh",
+    "bruh sound",
+    "sonido bruh"
+   ]
+  },
+  {
+   "id": "vine_boom",
+   "search": "vine boom",
+   "aliases": [
+    "vine boom",
+    "boom vine",
+    "sonido vine"
+   ]
+  },
+  {
+   "id": "windows_xp",
+   "search": "windows xp",
+   "aliases": [
+    "windows xp",
+    "error de windows",
+    "windows error"
+   ]
+  },
+  {
+   "id": "cat_vibing",
+   "search": "cat vibing",
+   "aliases": [
+    "gato vibrando",
+    "cat vibing",
+    "gato moviendo la cabeza",
+    "vibing cat"
+   ]
+  },
+  {
+   "id": "grumpy_cat",
+   "search": "grumpy cat",
+   "aliases": [
+    "grumpy cat",
+    "gato grunon",
+    "gato enojado"
+   ]
+  },
+  {
+   "id": "smiling_ball",
+   "search": "yellow smiley ball",
+   "aliases": [
+    "bola amarilla",
+    "carita amarilla",
+    "smiley amarillo",
+    "pelota amarilla sonriente"
+   ]
+  }
+ ],
+ "stopwords": [
+  "el",
+  "la",
+  "los",
+  "las",
+  "un",
+  "una",
+  "unos",
+  "unas",
+  "de",
+  "del",
+  "al",
+  "ese",
+  "esa",
+  "eso",
+  "este",
+  "esta",
+  "esto",
+  "aquel",
+  "que",
+  "con",
+  "para",
+  "por",
+  "y",
+  "o",
+  "en",
+  "mi",
+  "tu",
+  "su",
+  "lo",
+  "le",
+  "se",
+  "the",
+  "a",
+  "an",
+  "of",
+  "that",
+  "this",
+  "with",
+  "for",
+  "and",
+  "or",
+  "in",
+  "on",
+  "to",
+  "o",
+  "os",
+  "as",
+  "um",
+  "uma",
+  "do",
+  "da"
+ ]
+}

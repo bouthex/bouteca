@@ -1,0 +1,8 @@
+{"result":true,"data":{"data":[
+ {"id":1,"slug":"cat-dance-xyz","title":"Cat Dance","type":"gif","tags":["cat","dance"],"file":{
+  "hd":{"gif":{"url":"https://static.klipy.com/hd.gif","width":498,"height":280,"size":2000000},"mp4":{"url":"https://static.klipy.com/hd.mp4","width":498,"height":280,"size":400000},"webp":{"url":"https://static.klipy.com/hd.webp","width":498,"height":280}},
+  "md":{"gif":{"url":"https://static.klipy.com/md.gif","width":320,"height":180,"size":800000}},
+  "sm":{"webp":{"url":"https://static.klipy.com/sm.webp","width":220,"height":124},"jpg":{"url":"https://static.klipy.com/sm.jpg","width":220,"height":124}},
+  "xs":{"gif":{"url":"https://static.klipy.com/xs.gif","width":90,"height":50}}}},
+ {"id":2,"type":"ad","file":{}}
+],"current_page":1,"per_page":24,"has_next":true}}

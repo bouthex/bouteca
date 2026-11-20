@@ -1,0 +1,26 @@
+{
+  "name": "bouteca-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5174 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@fontsource-variable/outfit": "^5.2.6",
+    "@preact/signals": "^2.3.1",
+    "@tauri-apps/api": "^2.9.0",
+    "preact": "^10.27.2"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.2",
+    "@tauri-apps/cli": "^2.9.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.12",
+    "vitest": "^5.1.1"
+  }
+}

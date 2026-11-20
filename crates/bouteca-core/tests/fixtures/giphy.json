@@ -1,0 +1,6 @@
+{"data":[{"type":"gif","id":"abc123","url":"https://giphy.com/gifs/cat-dance-abc123","username":"catlover","title":"Cat Dancing GIF by catlover","images":{
+ "original":{"url":"https://media.giphy.com/media/abc123/giphy.gif","width":"480","height":"270","size":"1500000","mp4":"https://media.giphy.com/media/abc123/giphy.mp4","mp4_size":"300000","webp":"https://media.giphy.com/media/abc123/giphy.webp"},
+ "fixed_width":{"url":"https://media.giphy.com/media/abc123/200w.gif","width":"200","height":"113","webp":"https://media.giphy.com/media/abc123/200w.webp"},
+ "fixed_width_still":{"url":"https://media.giphy.com/media/abc123/200w_s.gif","width":"200","height":"113"},
+ "downsized_medium":{"url":"https://media.giphy.com/media/abc123/giphy-downsized-medium.gif","width":"480","height":"270","size":"900000"}}}],
+ "pagination":{"total_count":120,"count":1,"offset":0},"meta":{"status":200,"msg":"OK"}}

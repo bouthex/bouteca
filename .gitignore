@@ -1,0 +1,50 @@
+# --- Rust ---
+/target/
+**/target/
+*.pdb
+
+# --- Node / frontend ---
+node_modules/
+ui/dist/
+*.tsbuildinfo
+npm-debug.log*
+
+# --- Tauri ---
+src-tauri/gen/schemas/
+src-tauri/target/
+# Claves de firma de actualizaciones: NUNCA en el repositorio
+*.key
+*.key.pub.bak
+.tauri/
+
+# --- Secretos y configuración local ---
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+credentials*.json
+
+# --- Datos de usuario / runtime ---
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+logs/
+*.log
+.incomplete/
+*.part
+/Bouteca/
+
+# --- Editor / SO ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# --- Herramientas de compilación cruzada ---
+.xwin-cache/

@@ -1,0 +1,6 @@
+{"server":"ia800.us.archive.org","dir":"/1/items/cat_dance_1950","files":[
+ {"name":"cat dance.mp4","source":"derivative","format":"h.264","size":"5242880","length":"62.5","width":"640","height":"480"},
+ {"name":"cat dance.ogv","source":"derivative","format":"Ogg Video","size":"4000000"},
+ {"name":"cat_dance_orig.mov","source":"original","format":"QuickTime","size":"90000000","length":"00:01:02"},
+ {"name":"cat_dance_1950_meta.xml","source":"original","format":"Metadata"}
+]}
