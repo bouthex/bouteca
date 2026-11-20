@@ -16,6 +16,7 @@ integran APIs oficiales; no hay scraping ni resultados simulados. Cada proveedor
 | **KLIPY** | GIFs, memes, clips (video con audio) | Sí, gratis | Clave de prueba: 100/minuto | GIF/MP4/WebM HD y mediano | Atribución a KLIPY. Uso personal. |
 | **Freesound** | Efectos de sonido | Sí, gratis (token) | 60/min, 2000/día | Vista previa HQ MP3 (~128 kbps) / OGG (~192 kbps) | Licencias CC por sonido (algunas NC). El archivo original requiere OAuth2 del usuario: **no integrado aún** (ver ROADMAP). Desde nov. 2025 el endpoint es `/apiv2/search/`; se reintenta `/apiv2/search/text/` si responde 404. |
 | **Pixabay** | Imágenes y videos | Sí, gratis | 100 solicitudes/60 s | Imagen 1280 px; video large/medium/tiny | Licencia de Pixabay. Exige cachear respuestas 24 h (implementado) y mostrar la fuente. Entiende es/tr/ja/ru/pt nativamente. |
+| **YouTube** | Videos (categoría Videos) | Sí, gratis (Google Cloud → habilitar "YouTube Data API v3" → credencial "Clave de API") | `search.list`: 100 llamadas/día (cubo propio); `videos.list`: 1 unidad de 10 000/día. Bouteca hace **1 búsqueda por consulta** y cachea | **No** (las condiciones de YouTube no lo permiten). Reproductor oficial incrustado, copiar enlace, abrir en YouTube, favoritos/colecciones | Controles, publicidad y restricciones del reproductor intactos. Solo videos incrustables (`videoEmbeddable=true`); se excluyen transmisiones en vivo. Pendiente: refrescar metadatos guardados de más de 30 días (política de datos de la API). |
 | **Pexels** | Fotos y videos | Sí, gratis | 200/hora, 20 000/mes | Foto original; MP4 en varias calidades | Licencia de Pexels. Mostrar enlace a Pexels. |
 
 ### Costos
@@ -34,22 +35,23 @@ del usuario. Nunca en `settings.json`, en registros ni en el repositorio. Se car
 | Proveedor | Motivo |
 |---|---|
 | **Tenor** | Google cerró la API el **30/06/2026** (dejó de emitir claves el 13/01/2026). KLIPY es el reemplazo integrado. |
-| **YouTube / TikTok / Instagram** | Sus términos prohíben descargar contenido; no hay API oficial de descarga. |
+| **Descarga desde YouTube** | Sus condiciones la prohíben fuera de sus mecanismos oficiales. YouTube sí está integrado para buscar y reproducir. |
+| **TikTok / Instagram** | Sin API pública de búsqueda de contenido para apps de terceros; sus términos prohíben descargar. |
 | **Reddit** | La API requiere OAuth y sus términos restringen el uso de contenido de terceros. |
 | **Myinstants** | No tiene API oficial. |
 | **Imgflip `search_memes`** | Función paga (API Premium). |
 
-## Pendientes de verificación en vivo
+## Verificación en vivo
 
-El entorno de desarrollo en la nube bloquea la salida a estos dominios, así que los parsers se
-probaron contra respuestas sintéticas construidas según la documentación (ver `TESTING.md`).
-La primera ejecución en Windows debe confirmar contra las APIs reales:
+`crates/bouteca-core/tests/live.rs` consulta las APIs reales con el cliente de producción y se
+ejecuta en GitHub Actions en Linux y en Windows en cada push. Los resultados de cada corrida
+aparecen como anotaciones del workflow y se resumen en `TESTING.md`.
 
 - [ ] Wikimedia Commons — `prop=videoinfo` con `derivatives`.
 - [ ] Openverse — formato actual de `results`.
 - [ ] Internet Archive — `advancedsearch` + `metadata`.
 - [ ] Imgflip — `get_memes`.
-- [ ] GIPHY, KLIPY, Freesound, Pixabay, Pexels — con clave.
+- [ ] GIPHY, KLIPY, YouTube, Freesound, Pixabay, Pexels — con clave. CI las prueba automáticamente si se cargan como secretos del repositorio (`BOUTECA_KEY_GIPHY`, `BOUTECA_KEY_YOUTUBE`, …).
   KLIPY tiene la documentación de formato menos explícita: el parser es tolerante a variantes.
 
 ## Agregar un proveedor
