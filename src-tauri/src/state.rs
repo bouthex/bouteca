@@ -80,6 +80,7 @@ impl AppState {
                 organize_by_kind: settings.organize_by_kind,
                 detect_duplicates: settings.detect_duplicates,
                 allow_insecure_loopback: false,
+                preferred_quality: settings.preferred_quality,
             },
             Arc::new(move |ev| {
                 let _ = h.emit("download-event", ev);

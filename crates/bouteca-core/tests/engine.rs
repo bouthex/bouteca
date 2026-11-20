@@ -239,3 +239,169 @@ async fn uso_monetizado_excluye_nc_y_desconocidas() {
     uids.sort();
     assert_eq!(uids, vec!["openverse:m-1", "openverse:m-2"], "la CC BY-NC no sirve para monetizar");
 }
+
+// ---------- Deduplicación por niveles ----------
+
+use bouteca_core::model::{MediaItem, MediaKind, ProviderPage, Rendition};
+use bouteca_core::providers::{Provider, ProviderCtx, ProviderInfo, ProviderQuery};
+
+struct Fake {
+    info: ProviderInfo,
+    items: Vec<MediaItem>,
+    delay_ms: u64,
+}
+
+#[async_trait::async_trait]
+impl Provider for Fake {
+    fn info(&self) -> &ProviderInfo {
+        &self.info
+    }
+    async fn search(&self, _: &ProviderCtx, _: &ProviderQuery) -> bouteca_core::Result<ProviderPage> {
+        tokio::time::sleep(Duration::from_millis(self.delay_ms)).await;
+        Ok(ProviderPage { items: self.items.clone(), has_more: false, total: None })
+    }
+}
+
+fn fake(id: &'static str, delay_ms: u64, items: Vec<MediaItem>) -> DynProvider {
+    Arc::new(Fake {
+        info: ProviderInfo {
+            id,
+            name: id,
+            kinds: &[MediaKind::Image, MediaKind::Video, MediaKind::Gif],
+            needs_key: false,
+            key_url: None,
+            homepage: "https://example.org",
+            rate_limit: "",
+            terms: "",
+            native_langs: &[bouteca_core::query::LangCode::Es],
+            prefers_english: false,
+            attribution_mark: None,
+            single_query: true,
+        },
+        items,
+        delay_ms,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn media(provider: &str, id: &str, kind: MediaKind, title: &str, url: &str, thumb: Option<String>, w: u32, h: u32) -> MediaItem {
+    let mut m = MediaItem::new(provider, id, kind, title);
+    m.tags = vec!["gato".into()];
+    m.thumbnail = thumb;
+    m.width = Some(w);
+    m.height = Some(h);
+    m.license = Some("CC0".into());
+    m.renditions.push(Rendition {
+        label: "o".into(),
+        url: url.into(),
+        mime: Some(if kind == MediaKind::Video { "video/mp4".into() } else { "image/jpeg".into() }),
+        width: Some(w),
+        height: Some(h),
+        size_bytes: None,
+        original: true,
+    });
+    m
+}
+
+fn png(pattern: u8, size: u32) -> Vec<u8> {
+    let img = image::RgbImage::from_fn(size, size, |x, y| {
+        let v = match pattern {
+            0 => ((x * 255) / size) as u8, // degradé horizontal
+            _ => {
+                if (x / (size / 4) + y / (size / 4)).is_multiple_of(2) {
+                    20
+                } else {
+                    230
+                }
+            } // damero
+        };
+        image::Rgb([v, v / 2, 255 - v])
+    });
+    let mut out = std::io::Cursor::new(Vec::new());
+    img.write_to(&mut out, image::ImageFormat::Png).unwrap();
+    out.into_inner()
+}
+
+fn grouped_events(ev: &[SearchEvent]) -> Vec<(String, String, bool, bool, String)> {
+    ev.iter()
+        .filter_map(|e| match e {
+            SearchEvent::Grouped { group, uid, duplicate, promote, variant, .. } => {
+                Some((group.clone(), uid.clone(), *duplicate, *promote, variant.reason.clone()))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn duplicados_exactos_por_metadatos_y_visuales_con_variantes_legitimas() {
+    let s = MockServer::start().await;
+    for (p, body) in [("/t/a.png", png(0, 64)), ("/t/a_big.png", png(0, 160)), ("/t/c.png", png(1, 64))] {
+        Mock::given(method("GET")).and(path(p)).respond_with(ResponseTemplate::new(200).set_body_raw(body, "image/png")).mount(&s).await;
+    }
+    let t = |p: &str| Some(format!("{}{p}", s.uri()));
+    // Fuente 1: una foto chica, un video y un dibujo distinto.
+    let a = media("uno", "a", MediaKind::Image, "Gato naranja", "https://uno.example/fotos/gato_naranja_sol_1.jpg", t("/t/a.png"), 640, 480);
+    let v = media("uno", "v", MediaKind::Video, "Gato naranja video", "https://uno.example/v/clip-original-2024.mp4", t("/t/a.png"), 640, 480);
+    let c = media("uno", "c", MediaKind::Image, "Gato dibujo", "https://uno.example/fotos/dibujo_de_gato.jpg", t("/t/c.png"), 640, 480);
+    // Fuente 2 (más lenta): el mismo archivo por nombre, y la misma foto en alta resolución con otro nombre.
+    let a_same_file = media("dos", "x", MediaKind::Image, "Otro título", "https://cdn.dos.example/mirror/gato_naranja_sol_1.jpg", None, 640, 480);
+    let a_big = media(
+        "dos",
+        "big",
+        MediaKind::Image,
+        "Orange cat",
+        "https://cdn.dos.example/p/4000/orange-cat-hq-original.jpg",
+        t("/t/a_big.png"),
+        4000,
+        3000,
+    );
+    let engine = Arc::new(
+        SearchEngine::new(
+            vec![fake("uno", 0, vec![a, v, c]), fake("dos", 150, vec![a_same_file, a_big])],
+            build_test_client(),
+            EngineSettings::default(),
+            Arc::new(NoKeys),
+        )
+        .with_loopback_thumbnails(),
+    );
+    let (sink, events) = collect();
+    engine.search(SearchRequest { search_id: 21, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None }, sink).await;
+    // El nivel visual corre en segundo plano después de cada lote.
+    tokio::time::sleep(Duration::from_millis(800)).await;
+    let ev = events.lock();
+    let g = grouped_events(&ev);
+    let key_a = ev
+        .iter()
+        .find_map(
+            |e| if let SearchEvent::Batch { items, .. } = e { items.iter().find(|i| i.uid == "uno:a").map(|i| i.dedupe_key.clone()) } else { None },
+        )
+        .expect("la foto original se mostró");
+    // Nivel 1: mismo nombre de archivo distintivo → duplicado exacto, sin red.
+    assert!(g.iter().any(|(grp, uid, dup, _, reason)| grp == &key_a && uid == "dos:x" && *dup && reason == "exacto"), "{g:?}");
+    // Nivel 3: la versión en alta resolución se reconoce por la miniatura y pasa a ser la principal.
+    assert!(g.iter().any(|(grp, uid, dup, promote, reason)| grp == &key_a && uid == "dos:big" && *dup && *promote && reason == "visual"), "{g:?}");
+    // El video con la misma miniatura es una variante legítima, no un duplicado.
+    assert!(
+        g.iter().any(|(_, uid, dup, promote, reason)| uid == "uno:v" && !dup && !promote && reason == "imagen y video")
+            || g.iter().any(|(_, uid, _, _, reason)| uid == "uno:a" && reason == "imagen y video"),
+        "{g:?}"
+    );
+    // El dibujo distinto nunca se agrupa.
+    assert!(!g.iter().any(|(_, uid, ..)| uid == "uno:c"), "{g:?}");
+}
+
+#[tokio::test]
+async fn agrupar_se_puede_desactivar() {
+    let a = media("uno", "a", MediaKind::Image, "Gato naranja", "https://uno.example/fotos/gato_naranja_sol_1.jpg", None, 640, 480);
+    let b = media("dos", "x", MediaKind::Image, "Otro", "https://cdn.dos.example/mirror/gato_naranja_sol_1.jpg", None, 640, 480);
+    let settings = EngineSettings { group_duplicates: false, ..Default::default() };
+    let engine =
+        Arc::new(SearchEngine::new(vec![fake("uno", 0, vec![a]), fake("dos", 50, vec![b])], build_test_client(), settings, Arc::new(NoKeys)));
+    let (sink, events) = collect();
+    engine.search(SearchRequest { search_id: 22, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None }, sink).await;
+    let ev = events.lock();
+    assert!(grouped_events(&ev).is_empty());
+    let shown: usize = ev.iter().map(|e| if let SearchEvent::Batch { items, .. } = e { items.len() } else { 0 }).sum();
+    assert_eq!(shown, 2, "sin agrupar, ambas tarjetas se muestran");
+}

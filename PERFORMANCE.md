@@ -69,6 +69,14 @@ set. Pendiente: medir en Windows 10/11 de escritorio con el Administrador de tar
 - Proveedores consultados solo ante una búsqueda explícita; nunca en segundo plano.
 - Caché por proveedor (Pixabay 24 h por sus términos; resto 15 min).
 
+**Deduplicación**
+- Niveles baratos primero: URL y metadatos se comparan en memoria (sin red), como máximo
+  600 miembros por búsqueda.
+- El nivel visual descarga solo miniaturas (límite 2 MB c/u, en la práctica 10–30 KB), como
+  máximo 60 por búsqueda, 4 a la vez, con 5 s de espera máxima y caché LRU de 3000 huellas.
+  Corre en segundo plano: no demora los resultados. Se desactiva en Ajustes.
+- La huella de audio no se calcula (exigiría descargar cada pista): ver `dedup.rs`.
+
 **Disco**
 - Nada se descarga sin acción del usuario. Sin copias de miniaturas propias.
 - Autolimpieza segura (temporales, parciales huérfanos, registros, `VACUUM`) a los 30 s del

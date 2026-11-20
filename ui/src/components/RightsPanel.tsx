@@ -1,8 +1,7 @@
-import { useEffect, useState } from "preact/hooks";
-import { api } from "../lib/api";
+import { useState } from "preact/hooks";
 import * as Icon from "../lib/icons";
 import { copyText } from "../lib/store";
-import type { MediaItem, RightsDetail } from "../lib/types";
+import type { ItemDetails, MediaItem } from "../lib/types";
 import { INDICATOR_LABEL } from "./ResultCard";
 
 /**
@@ -10,15 +9,8 @@ import { INDICATOR_LABEL } from "./ResultCard";
  * texto de créditos listo para copiar. Los datos los calcula el backend a partir de la licencia
  * declarada por la fuente; lo que no se puede verificar se muestra como "?".
  */
-export function RightsPanel({ item }: { item: MediaItem }) {
-  const [detail, setDetail] = useState<RightsDetail | null>(null);
+export function RightsPanel({ item, detail }: { item: MediaItem; detail: ItemDetails | null }) {
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    api.rightsDetail(item).then((d) => alive && setDetail(d)).catch(() => {});
-    return () => { alive = false; };
-  }, [item.uid, item.license, item.renditions.length, item.download_policy]);
 
   const r = detail?.rights ?? item.rights;
   if (!r) return null;

@@ -14,7 +14,7 @@ export const api = {
 
   search: (search_id: number, query: string, filter: T.KindFilter, page = 1, rights: T.RightsFilter | null = null, usage: T.Usage | null = null) =>
     call<void>("search", { req: { search_id, query, filter, page, rights, usage } }),
-  rightsDetail: (item: T.MediaItem) => call<T.RightsDetail>("rights_detail", { item }),
+  itemDetails: (item: T.MediaItem) => call<T.ItemDetails>("item_details", { item }),
   cancelSearch: (search_id: number) => call<void>("cancel_search", { searchId: search_id }),
   resolve: (item: T.MediaItem) => call<T.MediaItem>("resolve_item", { item }),
   suggestions: (prefix: string) => call<string[]>("suggestions", { prefix }),

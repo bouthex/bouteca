@@ -50,6 +50,8 @@ pub struct DownloadOptions {
     pub detect_duplicates: bool,
     /// Solo pruebas automatizadas: permite http://127.0.0.1. Siempre `false` en la app.
     pub allow_insecure_loopback: bool,
+    /// Calidad elegida cuando no se indica una versión concreta.
+    pub preferred_quality: crate::quality::QualityPref,
 }
 
 pub struct DownloadManager {
@@ -109,7 +111,8 @@ impl DownloadManager {
         }
         let rendition = match rendition_url {
             Some(u) => item.renditions.iter().find(|r| r.url == u).ok_or_else(|| CoreError::NotFound("variante".into()))?,
-            None => item.best_rendition().ok_or_else(|| CoreError::NotFound("el recurso no tiene archivos descargables".into()))?,
+            None => crate::quality::pick(item, self.opts.read().preferred_quality)
+                .ok_or_else(|| CoreError::NotFound("el recurso no tiene archivos descargables".into()))?,
         };
         let loopback = self.opts.read().allow_insecure_loopback && rendition.url.starts_with("http://127.0.0.1:");
         if !loopback {

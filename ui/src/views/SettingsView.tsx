@@ -145,6 +145,12 @@ export function SettingsView() {
                 })}
               </div>
             </Setting>
+            <Setting title="Agrupar duplicados" desc="Muestra una sola tarjeta por contenido, con sus otras fuentes, formatos y duraciones como versiones.">
+              <Switch on={s.engine.group_duplicates} label="Agrupar duplicados" onChange={(v) => setEngine({ group_duplicates: v })} />
+            </Setting>
+            <Setting title="Comparar miniaturas" desc="Detecta el mismo contenido con distinto nombre comparando miniaturas en tu equipo (hasta 60 por búsqueda).">
+              <Switch on={s.engine.visual_dedup} label="Comparar miniaturas" onChange={(v) => setEngine({ visual_dedup: v })} />
+            </Setting>
             <Setting title="Búsqueda segura" desc="Filtra contenido para adultos en las fuentes que lo permiten.">
               <Switch on={s.engine.safe_search} label="Búsqueda segura" onChange={(v) => setEngine({ safe_search: v })} />
             </Setting>
@@ -181,7 +187,15 @@ export function SettingsView() {
             <Setting title="Evitar duplicados" desc="No vuelve a descargar un archivo que ya tenés (misma dirección o mismo contenido).">
               <Switch on={s.detect_duplicates} label="Evitar duplicados" onChange={(v) => set({ detect_duplicates: v })} />
             </Setting>
-            <Setting title="Incluir elementos sin licencia declarada" desc="Solo Internet Archive. Desactivado por defecto para respetar los derechos de autor.">
+            <Setting title="Calidad preferida" desc="Se usa al tocar «Descargar». Solo se elige entre archivos que la fuente publica; si el nivel no existe, se usa el más cercano.">
+              <select class="field" value={s.preferred_quality} onChange={(e) => set({ preferred_quality: (e.target as HTMLSelectElement).value as AppSettings["preferred_quality"] })}>
+                <option value="auto">La mejor disponible</option>
+                <option value="alta">Alta</option>
+                <option value="media">Media</option>
+                <option value="baja">Baja (más liviana)</option>
+              </select>
+            </Setting>
+            <Setting title="Incluir elementos sin licencia declarada" desc="Solo Internet Archive. Se muestran para ver o abrir la fuente, pero no se descargan: una licencia desconocida no es un permiso.">
               <Switch on={s.engine.include_unlicensed} label="Incluir sin licencia" onChange={(v) => setEngine({ include_unlicensed: v })} />
             </Setting>
           </div>

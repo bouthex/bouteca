@@ -59,6 +59,14 @@ export const providerNames: Record<string, string> = {
   pixabay: "Pixabay",
   pexels: "Pexels",
   youtube: "YouTube",
+  nasa: "NASA",
+  artic: "Art Institute of Chicago",
+  met: "The Met",
+  cleveland: "Cleveland Museum of Art",
+  inaturalist: "iNaturalist",
+  ccmixter: "ccMixter",
+  peertube: "PeerTube",
+  dailymotion: "Dailymotion",
 };
 
 export const providerName = (id: string) => providerNames[id] ?? id;

@@ -13,9 +13,15 @@
 │    state.rs    estado global, registros con rotación                               │
 │                                                                                    │
 │  crates/bouteca-core/ — motor (sin interfaz, 100 % probado sin ventana)            │
-│    providers/  Wikimedia · Openverse · Internet Archive · Imgflip · GIPHY · KLIPY  │
-│                Freesound · Pixabay · Pexels   (trait Provider)                     │
+│    providers/  18 fuentes (trait Provider): Wikimedia · Openverse · Archive ·      │
+│                Imgflip · NASA · AIC · The Met · Cleveland · iNaturalist ·          │
+│                ccMixter · PeerTube · Dailymotion · GIPHY · KLIPY · Freesound ·     │
+│                Pixabay · Pexels · YouTube                                          │
 │    query/      normalización, sinónimos, traducción por léxico, entidades          │
+│    intent.rs   intención en lenguaje natural: tipo, derechos, uso, duración        │
+│    rights.rs   licencias → permisos, usos por plataforma, texto de créditos        │
+│    dedup.rs    duplicados por niveles (exacto, metadatos, visual) y variantes      │
+│    quality.rs  calidades reales (Original/Alta/Media/Baja) y preferencia           │
 │    rank.rs     relevancia multilingüe + calidad + popularidad; claves de duplicado │
 │    engine.rs   búsqueda federada progresiva, cancelación, caché LRU, límites 429   │
 │    db.rs       SQLite (WAL): favoritos, colecciones, historial, descargas          │
@@ -36,7 +42,8 @@
 ## Flujo de una búsqueda
 
 1. La interfaz llama `search(req)` con un `search_id` nuevo; el backend cancela la búsqueda anterior.
-2. `query::plan` analiza el texto: normaliza, segmenta en conceptos del léxico (99 conceptos en
+2. `intent::parse_for` separa del texto lo que es intención (tipo de contenido, derechos,
+   uso previsto, duración) y lo convierte en filtros; `query::plan` analiza el resto: normaliza, segmenta en conceptos del léxico (99 conceptos en
    es/en/pt/tr/ja/ru, adjetivos reordenados para inglés/turco/japonés/ruso), detecta entidades
    (28 personajes/memes conocidos) y genera variantes: original, inglés, idiomas extra elegidos,
    entidad.
@@ -45,13 +52,25 @@
    proveedores que los entienden de forma nativa (máx. 2 por idioma) para cuidar los cupos.
 4. Las tareas corren en paralelo (máx. 6 a la vez, timeout de 12 s por proveedor). Cada
    proveedor emite su lote apenas responde (`search-event: batch`).
-5. Cada resultado recibe puntuación (`rank::score`) y clave de duplicado. Un duplicado no se
-   muestra dos veces: sus variantes se agregan como "versiones alternativas" (`alternate`).
+5. Cada resultado recibe sus permisos (`rights::derive`), se filtra por derechos/uso si se
+   pidió (lo no verificable queda afuera), recibe puntuación (`rank::score`, más cercanía a
+   la duración pedida) y pasa por la deduplicación por niveles (`dedup.rs`):
+   - mismo archivo (URL normalizada) → otra fuente del mismo resultado (`alternate`);
+   - mismo nombre de archivo distintivo o mismos metadatos fuertes → `grouped` (duplicado);
+   - en segundo plano, dHash de hasta 60 miniaturas por búsqueda (4 en paralelo, caché LRU):
+     distancia ≤ 4 → `grouped` como duplicado o como **variante legítima** (GIF/video, otra
+     duración, recorte). Distancias intermedias no se fusionan.
+   La versión principal se elige por calidad (`dedup::quality`); si llega una claramente mejor,
+   ocupa el lugar de la tarjeta sin moverla (`promote`). Agrupar se puede desactivar.
 6. Un error de proveedor se informa sin cortar a los demás. Un 429 pausa al proveedor el tiempo
    indicado por `Retry-After`.
 7. `done` informa si hay más páginas; "cargar más" solo consulta proveedores que dijeron tener más.
 
 ## Descargas
+
+Al encolar se **recalculan los permisos** desde la licencia (la interfaz no puede declararlos):
+licencia desconocida o restringida = sin descarga. Sin versión elegida, se usa la calidad
+preferida (`quality::pick`) entre los archivos que la fuente publica.
 
 `verificar duplicado por URL → .incomplete/<id>.part (mismo volumen) → validar firma real del
 archivo (nunca HTML/ejecutables) → hash BLAKE3 → duplicado por contenido → nombre seguro →

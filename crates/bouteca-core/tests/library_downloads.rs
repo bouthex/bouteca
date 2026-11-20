@@ -99,7 +99,13 @@ fn manager(root: &std::path::Path) -> (Arc<DownloadManager>, Arc<Db>, Arc<Mutex<
     let m = DownloadManager::new(
         db.clone(),
         build_test_client(),
-        DownloadOptions { root: root.to_path_buf(), organize_by_kind: true, detect_duplicates: true, allow_insecure_loopback: true },
+        DownloadOptions {
+            root: root.to_path_buf(),
+            organize_by_kind: true,
+            detect_duplicates: true,
+            allow_insecure_loopback: true,
+            preferred_quality: Default::default(),
+        },
         Arc::new(move |e| e2.lock().push(e)),
     );
     (m, db, events)

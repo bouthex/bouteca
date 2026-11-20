@@ -27,7 +27,7 @@ Corrida del commit `ab616e7` (2026-11-20):
   secretos del repo (`BOUTECA_KEY_GIPHY`, `BOUTECA_KEY_KLIPY`, `BOUTECA_KEY_YOUTUBE`,
   `BOUTECA_KEY_FREESOUND`, `BOUTECA_KEY_PIXABAY`, `BOUTECA_KEY_PEXELS`).
 
-## Implementado y con pruebas automáticas (Auto: 67 Rust + 5 interfaz)
+## Implementado y con pruebas automáticas (Auto: 79 Rust + 8 interfaz)
 - Motor federado progresivo, cancelable, caché acotada, pausa por límites, paginación.
 - Consultas multilingües (léxico es/en/pt/tr/ja/ru, entidades), ranking, duplicados.
 - 18 proveedores (incluye YouTube y Dailymotion: reproductor oficial, **sin descarga**).
@@ -61,7 +61,14 @@ Corrida del commit `ab616e7` (2026-11-20):
   resultado (lo dudoso queda afuera). Indicador en cada tarjeta, panel de derechos con
   compatibilidad por uso y créditos listos para copiar; reproductor con ±10 s, teclado y una
   sola reproducción con sonido a la vez.
-- ⏳ Etapa 3: deduplicación por niveles con variantes legítimas y selección de calidad.
+- ✅ **Etapa 3 (Auto)**: deduplicación por niveles (exacto, metadatos, visual por miniaturas;
+  la huella de audio se descartó por costo y está documentado), variantes legítimas (GIF/video,
+  otra duración, recorte) bajo una tarjeta con indicador "+N", principal elegida por calidad
+  (promoción sin mover la tarjeta), sin fusionar ante la duda, opción para desactivar.
+  Calidades reales Original/Alta/Media/Baja solo cuando existen, calidad preferida en Ajustes
+  (también la usa "Descargar"). Revisada la interfaz en navegador con datos simulados
+  (`npm run dev:mock`). Corregido: parte de la interfaz de la etapa 2 (panel de derechos y
+  ±10 s) no había quedado aplicada en el commit anterior.
 - ⏳ Etapa 4: filtros avanzados, preferencias persistentes, gestor de descargas (pausa/progreso
   global), actualizador firmado con canales estable/beta.
 - ⏳ Etapa 5: Bouteca Studio (independiente), búsqueda universal de imágenes, documentación y

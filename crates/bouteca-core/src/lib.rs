@@ -15,6 +15,7 @@
 //! | `settings`    | Configuración persistente                                    |
 
 pub mod db;
+pub mod dedup;
 pub mod downloads;
 pub mod engine;
 pub mod error;
@@ -23,6 +24,7 @@ pub mod intent;
 pub mod maintenance;
 pub mod model;
 pub mod providers;
+pub mod quality;
 pub mod query;
 pub mod rank;
 pub mod rights;

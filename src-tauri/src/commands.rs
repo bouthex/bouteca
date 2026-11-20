@@ -144,9 +144,11 @@ pub async fn resolve_item(state: S<'_>, item: MediaItem) -> R<MediaItem> {
 /// Permisos verificados del recurso y compatibilidad por uso (se recalculan aquí: la interfaz
 /// no puede declarar permisos por su cuenta).
 #[derive(serde::Serialize)]
-pub struct RightsDetail {
+pub struct ItemDetails {
     rights: bouteca_core::rights::Rights,
     usages: Vec<UsageRow>,
+    /// Calidades reales disponibles (Original/Alta/Media/Baja solo si existen).
+    tiers: Vec<bouteca_core::quality::Tier>,
 }
 
 #[derive(serde::Serialize)]
@@ -157,10 +159,10 @@ pub struct UsageRow {
 }
 
 #[tauri::command]
-pub fn rights_detail(item: MediaItem) -> RightsDetail {
+pub fn item_details(item: MediaItem) -> ItemDetails {
     let rights = bouteca_core::rights::derive(&item);
     let usages = rights.usage_table().into_iter().map(|(usage, ok)| UsageRow { usage, label: usage.label(), ok }).collect();
-    RightsDetail { rights, usages }
+    ItemDetails { tiers: bouteca_core::quality::tiers(&item), rights, usages }
 }
 
 #[tauri::command]
@@ -428,6 +430,7 @@ pub fn settings_update(app: AppHandle, state: S, mut settings: AppSettings) -> R
         organize_by_kind: settings.organize_by_kind,
         detect_duplicates: settings.detect_duplicates,
         allow_insecure_loopback: false,
+        preferred_quality: settings.preferred_quality,
     });
     *state.settings.write() = settings.clone();
     state.save_settings()?;

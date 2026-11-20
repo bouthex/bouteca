@@ -111,7 +111,7 @@ pub fn run() {
             commands::history_clear,
             commands::download_start,
             commands::visual_compare,
-            commands::rights_detail,
+            commands::item_details,
             commands::downloads_list,
             commands::download_cancel,
             commands::download_retry,

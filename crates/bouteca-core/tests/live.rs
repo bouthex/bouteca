@@ -116,7 +116,13 @@ async fn live_descarga_real_validada() {
     let m = DownloadManager::new(
         db.clone(),
         build_download_client(),
-        DownloadOptions { root: tmp.clone(), organize_by_kind: true, detect_duplicates: true, allow_insecure_loopback: false },
+        DownloadOptions {
+            root: tmp.clone(),
+            organize_by_kind: true,
+            detect_duplicates: true,
+            allow_insecure_loopback: false,
+            preferred_quality: Default::default(),
+        },
         Arc::new(|_| {}),
     );
     let EnqueueOutcome::Queued { id } = m.enqueue(&it, None).unwrap() else { panic!() };

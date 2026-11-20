@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addAlternate, allRenditions, mergeBatch } from "./results";
+import { addAlternate, allRenditions, applyGrouped, mergeBatch } from "./results";
 import { bytes, duration, resolution } from "./format";
 import type { MediaItem } from "./types";
 
@@ -46,5 +46,32 @@ describe("formato", () => {
     expect(duration(3725)).toBe("1:02:05");
     expect(resolution(1920, 1080)).toBe("1080p");
     expect(resolution(320, 240)).toBe("320×240");
+  });
+});
+
+describe("agrupación de duplicados y variantes", () => {
+  const v = (uid: string, reason: string) => ({ uid, provider: "p", kind: "gif" as const, title: uid, reason, confidence: 0.9, width: null, height: null, duration_secs: null, download: true, thumbnail: null });
+
+  it("un miembro nuevo se agrega a la principal sin crear tarjeta", () => {
+    const r = [item("a", 9), item("b", 5)];
+    const out = applyGrouped(r, new Map(), new Map(), { group: "a", uid: "x", item: item("x", 3), variant: v("x", "exacto"), duplicate: true, promote: false });
+    expect(out.results.map((i) => i.uid)).toEqual(["a", "b"]);
+    expect(out.groups.get("a")?.variants.map((x) => x.uid)).toEqual(["x"]);
+    expect(allRenditions(out.results[0], undefined, out.groups.get("a")).length).toBe(2);
+  });
+
+  it("una tarjeta ya visible se mueve al grupo y la mejor ocupa el lugar sin saltar", () => {
+    const r = [item("a", 9), item("b", 5), item("c", 1)];
+    const out = applyGrouped(r, new Map(), new Map(), { group: "a", uid: "c", item: null, variant: v("c", "visual"), duplicate: true, promote: true });
+    expect(out.results.map((i) => i.uid)).toEqual(["c", "b"]);
+    expect(out.results[0].dedupe_key).toBe("a");
+    expect(out.groups.get("a")?.members.map((m) => m.uid)).toEqual(["a"]);
+  });
+
+  it("las variantes legítimas no aportan archivos como si fueran el mismo", () => {
+    const r = [item("a", 9)];
+    const out = applyGrouped(r, new Map(), new Map(), { group: "a", uid: "vid", item: item("vid", 2), variant: v("vid", "GIF y video"), duplicate: false, promote: true });
+    expect(out.results[0].uid).toBe("a");
+    expect(allRenditions(out.results[0], undefined, out.groups.get("a")).length).toBe(1);
   });
 });

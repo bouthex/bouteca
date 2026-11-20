@@ -4,8 +4,8 @@ import * as Icon from "../lib/icons";
 import { playerMounted, playerUnmounted } from "../lib/store";
 
 /**
- * Reproductor integrado de video/audio con controles propios: reproducir/pausar, progreso,
- * duración, volumen, repetición y pantalla completa (video). Al desmontarse libera el
+ * Reproductor integrado de video/audio con controles propios: reproducir/pausar, ±10 s, progreso,
+ * duración, volumen, silencio, repetición y pantalla completa (video). Solo suena uno a la vez. Al desmontarse libera el
  * decodificador (pausa + quita la fuente + load()).
  */
 export function Player({ src, kind, poster, wave }: { src: string; kind: "video" | "audio"; poster?: string | null; wave?: string | null }) {
@@ -46,6 +46,23 @@ export function Player({ src, kind, poster, wave }: { src: string; kind: "video"
     else el.pause();
   };
 
+  const skip = (secs: number) => {
+    const el = ref.current;
+    if (!el || !Number.isFinite(el.duration)) return;
+    el.currentTime = Math.min(Math.max(0, el.currentTime + secs), el.duration);
+    setT(el.currentTime);
+  };
+
+  // Teclado dentro del reproductor: espacio, flechas (±5 s / ±10 s con Mayús), M para silenciar.
+  const onKey = (e: KeyboardEvent) => {
+    const tgt = e.target as HTMLElement;
+    if (tgt.tagName === "INPUT" && (tgt as HTMLInputElement).type !== "range") return;
+    if (e.key === " ") { e.preventDefault(); toggle(); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); skip(e.shiftKey ? -10 : -5); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); skip(e.shiftKey ? 10 : 5); }
+    else if (e.key.toLowerCase() === "m") setMuted((m) => !m);
+  };
+
   const common = {
     ref,
     src,
@@ -67,7 +84,9 @@ export function Player({ src, kind, poster, wave }: { src: string; kind: "video"
 
   const bar = (
     <div class="player-bar" onClick={(e) => e.stopPropagation()}>
+      <button onClick={() => skip(-10)} aria-label="Retroceder 10 segundos" title="−10 s (←)"><Icon.Back10 size={16} /></button>
       <button onClick={toggle} aria-label={playing ? "Pausar" : "Reproducir"}>{playing ? <Icon.Pause size={16} /> : <Icon.Play size={16} />}</button>
+      <button onClick={() => skip(10)} aria-label="Adelantar 10 segundos" title="+10 s (→)"><Icon.Fwd10 size={16} /></button>
       <input
         class="seek"
         type="range"
@@ -90,7 +109,7 @@ export function Player({ src, kind, poster, wave }: { src: string; kind: "video"
 
   if (kind === "audio") {
     return (
-      <div class="stage audio" ref={stage}>
+      <div class="stage audio" ref={stage} tabIndex={0} onKeyDown={onKey} aria-label="Reproductor de audio">
         {wave ? <img class="wave-img" src={wave} alt="" /> : <Icon.Music size={56} class="wave" />}
         <audio {...common} />
         {error ? <p class="small" style="color:#fff">{error}</p> : bar}
@@ -98,7 +117,7 @@ export function Player({ src, kind, poster, wave }: { src: string; kind: "video"
     );
   }
   return (
-    <div class="stage" ref={stage} onClick={toggle} onDblClick={() => stage.current?.requestFullscreen()}>
+    <div class="stage" ref={stage} tabIndex={0} onKeyDown={onKey} onClick={toggle} onDblClick={() => stage.current?.requestFullscreen()}>
       <video {...common} poster={poster ?? undefined} playsInline />
       {error ? <p class="small" style="position:absolute;color:#fff;padding:16px;text-align:center">{error}</p> : bar}
       {waiting && !error && <div class="skeleton" style="position:absolute;inset:0;opacity:.35;pointer-events:none" />}

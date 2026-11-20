@@ -29,6 +29,8 @@ pub struct AppSettings {
     pub theme: String,
     /// "system" (respeta la preferencia de Windows), "reduced" o "off".
     pub motion: String,
+    /// Calidad de descarga por defecto (solo entre archivos que la fuente publica de verdad).
+    pub preferred_quality: crate::quality::QualityPref,
 }
 
 impl Default for AppSettings {
@@ -48,6 +50,7 @@ impl Default for AppSettings {
             thumbnail_quality: "low".into(),
             theme: "dark".into(),
             motion: "system".into(),
+            preferred_quality: Default::default(),
         }
     }
 }

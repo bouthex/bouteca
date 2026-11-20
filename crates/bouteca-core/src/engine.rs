@@ -8,7 +8,7 @@
 //! - Agrupa duplicados entre proveedores conservando las versiones alternativas.
 
 use crate::error::CoreError;
-use crate::model::{KindFilter, MediaItem, ProviderPage, ProviderStatus, Rendition};
+use crate::model::{KindFilter, MediaItem, ProviderPage, ProviderStatus, Rendition, Variant};
 use crate::providers::{DynProvider, ProviderCtx, ProviderQuery};
 use crate::query::{self, LangCode, QueryPlan};
 use crate::rank;
@@ -35,6 +35,7 @@ impl KeyStore for NoKeys {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct EngineSettings {
     pub primary_lang: LangCode,
     /// Idiomas adicionales a los que se amplía la consulta (además del inglés).
@@ -43,6 +44,11 @@ pub struct EngineSettings {
     pub safe_search: bool,
     pub include_unlicensed: bool,
     pub per_page: u32,
+    /// Agrupar duplicados y variantes bajo una tarjeta principal (los archivos idénticos se
+    /// unen siempre).
+    pub group_duplicates: bool,
+    /// Nivel visual de la deduplicación: compara miniaturas (≈10–30 KB cada una, con límite).
+    pub visual_dedup: bool,
 }
 
 impl Default for EngineSettings {
@@ -54,6 +60,8 @@ impl Default for EngineSettings {
             safe_search: true,
             include_unlicensed: false,
             per_page: 24,
+            group_duplicates: true,
+            visual_dedup: true,
         }
     }
 }
@@ -106,6 +114,18 @@ pub enum SearchEvent {
         uid: String,
         renditions: Vec<Rendition>,
     },
+    /// Un resultado pasa a formar parte del grupo `group` (clave de la tarjeta principal).
+    /// `item` viene si todavía no se mostró; si no, la interfaz lo toma de la tarjeta `uid`.
+    /// `promote`: el nuevo miembro es de mejor calidad y pasa a ser la tarjeta principal.
+    Grouped {
+        search_id: u64,
+        group: String,
+        uid: String,
+        item: Option<Box<MediaItem>>,
+        variant: Variant,
+        duplicate: bool,
+        promote: bool,
+    },
     ProviderError {
         search_id: u64,
         provider: String,
@@ -128,6 +148,11 @@ struct Session {
     rights: Option<crate::rights::RightsFilter>,
     usage: Option<crate::rights::Usage>,
     duration: Option<u32>,
+    /// Miembros comparables (niveles 1–3 de la deduplicación) y calidad de la principal de cada grupo.
+    members: Vec<crate::dedup::Member>,
+    primary_quality: HashMap<String, f32>,
+    /// Miniaturas que todavía se pueden analizar en esta búsqueda (nivel visual).
+    visual_budget: usize,
     /// proveedor → hay más páginas (de la variante principal)
     more: HashMap<String, bool>,
     seen: HashSet<String>,
@@ -135,6 +160,12 @@ struct Session {
 }
 
 const MAX_SESSIONS: usize = 3;
+/// Miniaturas analizadas por búsqueda como máximo (nivel visual de la deduplicación).
+const VISUAL_BUDGET: usize = 60;
+/// Miembros comparados por metadatos como máximo (la comparación es O(n) por resultado).
+const MAX_MEMBERS: usize = 600;
+/// Una tarjeta nueva desplaza a la principal solo si es claramente mejor.
+const PROMOTE_MARGIN: f32 = 4.0;
 const PROVIDER_TIMEOUT: Duration = Duration::from_secs(12);
 
 pub struct SearchEngine {
@@ -154,6 +185,11 @@ pub struct SearchEngine {
     /// imagen solo aceptan URLs de este conjunto (o de la biblioteca guardada): una interfaz
     /// comprometida no puede pedirle al backend que descargue direcciones arbitrarias.
     known: Mutex<lru::LruCache<String, ()>>,
+    /// dHash de miniaturas ya analizadas (por URL).
+    fingerprints: Mutex<lru::LruCache<String, Option<u64>>>,
+    thumbs: Arc<Semaphore>,
+    /// Solo pruebas: permite miniaturas en http://127.0.0.1 (servidor simulado).
+    loopback_thumbs: bool,
 }
 
 impl SearchEngine {
@@ -173,10 +209,19 @@ impl SearchEngine {
             base_overrides: HashMap::new(),
             active: std::sync::atomic::AtomicUsize::new(0),
             known: Mutex::new(lru::LruCache::new(NonZeroUsize::new(20_000).unwrap())),
+            fingerprints: Mutex::new(lru::LruCache::new(NonZeroUsize::new(3_000).unwrap())),
+            thumbs: Arc::new(Semaphore::new(4)),
+            loopback_thumbs: false,
         }
     }
 
     /// Solo para pruebas: dirige un proveedor a un servidor simulado.
+    /// Solo pruebas automatizadas: acepta miniaturas del servidor simulado local.
+    pub fn with_loopback_thumbnails(mut self) -> Self {
+        self.loopback_thumbs = true;
+        self
+    }
+
     pub fn with_base_override(mut self, provider: &str, base: &str) -> Self {
         self.base_overrides.insert(provider.to_string(), base.to_string());
         self
@@ -307,6 +352,9 @@ impl SearchEngine {
                     rights,
                     usage,
                     duration: intent.duration_secs,
+                    members: Vec::new(),
+                    primary_quality: HashMap::new(),
+                    visual_budget: VISUAL_BUDGET,
                     more: HashMap::new(),
                     seen: HashSet::new(),
                     created: Instant::now(),
@@ -448,16 +496,52 @@ impl SearchEngine {
                                 item.score += 12.0 * closeness as f32;
                             }
                             item.dedupe_key = rank::dedupe_key(&item);
-                            let dup = {
+                            let grouping = engine.settings.read().group_duplicates;
+                            // Nivel 1 (URL idéntica) y niveles 1–2 por metadatos, sin red.
+                            let (url_dup, grouped) = {
                                 let mut sessions = engine.sessions.lock();
                                 match sessions.get_mut(&search_id) {
-                                    Some(s) => !s.seen.insert(item.dedupe_key.clone()) || !s.seen.insert(item.uid.clone()),
-                                    None => false,
+                                    Some(s) => {
+                                        if !s.seen.insert(item.dedupe_key.clone()) || !s.seen.insert(item.uid.clone()) {
+                                            (true, None)
+                                        } else {
+                                            let mut me = crate::dedup::Member::of(&item, &item.dedupe_key);
+                                            let found = if grouping {
+                                                s.members.iter().find_map(|m| match crate::dedup::relate(&me, m, None) {
+                                                    crate::dedup::Relation::Distinct => None,
+                                                    rel => Some((m.group.clone(), rel)),
+                                                })
+                                            } else {
+                                                None
+                                            };
+                                            let grouped = match found {
+                                                Some((g, rel)) => {
+                                                    let primary = s.primary_quality.get(&g).copied().unwrap_or(0.0);
+                                                    let promote = matches!(rel, crate::dedup::Relation::Duplicate { .. })
+                                                        && me.quality > primary + PROMOTE_MARGIN;
+                                                    if promote {
+                                                        s.primary_quality.insert(g.clone(), me.quality);
+                                                    }
+                                                    me.group = g.clone();
+                                                    Some((g, rel, promote))
+                                                }
+                                                None => {
+                                                    s.primary_quality.insert(item.dedupe_key.clone(), me.quality);
+                                                    None
+                                                }
+                                            };
+                                            if s.members.len() < MAX_MEMBERS {
+                                                s.members.push(me);
+                                            }
+                                            (false, grouped)
+                                        }
+                                    }
+                                    None => (false, None),
                                 }
                             };
                             engine.remember(&item);
-                            if dup {
-                                // Mismo recurso desde otra fuente o variante: lo ofrecemos como versión alternativa.
+                            if url_dup {
+                                // Mismo archivo desde otra fuente o variante de consulta: se ofrece como otra fuente.
                                 if !token.is_cancelled() {
                                     sink(SearchEvent::Alternate {
                                         search_id,
@@ -469,11 +553,46 @@ impl SearchEngine {
                                 }
                                 continue;
                             }
+                            if let Some((group, rel, promote)) = grouped {
+                                if let Some(variant) = crate::dedup::to_variant(&item, &rel) {
+                                    if !token.is_cancelled() {
+                                        sink(SearchEvent::Grouped {
+                                            search_id,
+                                            group,
+                                            uid: item.uid.clone(),
+                                            duplicate: matches!(rel, crate::dedup::Relation::Duplicate { .. }),
+                                            item: Some(Box::new(item)),
+                                            variant,
+                                            promote,
+                                        });
+                                    }
+                                }
+                                continue;
+                            }
                             fresh.push(item);
                         }
                         total.fetch_add(fresh.len(), std::sync::atomic::Ordering::Relaxed);
                         if !fresh.is_empty() && !token.is_cancelled() {
+                            let visual: Vec<(String, String)> = if engine.settings.read().visual_dedup && engine.settings.read().group_duplicates {
+                                fresh
+                                    .iter()
+                                    .filter(|i| !i.kind.is_audio())
+                                    .filter_map(|i| {
+                                        i.thumbnail
+                                            .as_ref()
+                                            .filter(|t| t.starts_with("https://") || (engine.loopback_thumbs && t.starts_with("http://127.0.0.1:")))
+                                            .map(|t| (i.uid.clone(), t.clone()))
+                                    })
+                                    .collect()
+                            } else {
+                                vec![]
+                            };
                             sink(SearchEvent::Batch { search_id, provider: id, items: fresh });
+                            if !visual.is_empty() {
+                                let e = engine.clone();
+                                let (sink, token) = (sink.clone(), token.clone());
+                                tokio::spawn(async move { e.visual_pass(search_id, visual, token, sink).await });
+                            }
                         }
                     }
                     Err(e) => {
@@ -507,6 +626,99 @@ impl SearchEngine {
             });
         }
         self.finish(req.search_id);
+    }
+
+    /// Nivel visual de la deduplicación: dHash de miniaturas (con presupuesto por búsqueda,
+    /// concurrencia limitada y caché). Agrupa solo con distancia muy baja y metadatos compatibles.
+    async fn visual_pass(self: Arc<Self>, search_id: u64, candidates: Vec<(String, String)>, token: CancellationToken, sink: EventSink) {
+        use futures::StreamExt;
+        let candidates: Vec<(String, String)> = {
+            let mut sessions = self.sessions.lock();
+            let Some(s) = sessions.get_mut(&search_id) else { return };
+            let n = candidates.len().min(s.visual_budget);
+            s.visual_budget -= n;
+            candidates.into_iter().take(n).collect()
+        };
+        let hashes: Vec<(String, Option<u64>)> = futures::stream::iter(candidates)
+            .map(|(uid, url)| {
+                let e = self.clone();
+                let token = token.clone();
+                async move {
+                    if token.is_cancelled() {
+                        return (uid, None);
+                    }
+                    (uid, e.thumb_hash(&url).await)
+                }
+            })
+            .buffer_unordered(4)
+            .collect()
+            .await;
+        if token.is_cancelled() {
+            return;
+        }
+        for (uid, h) in hashes {
+            let Some(h) = h else { continue };
+            let event = {
+                let mut sessions = self.sessions.lock();
+                let Some(s) = sessions.get_mut(&search_id) else { return };
+                let Some(idx) = s.members.iter().position(|m| m.uid == uid) else { continue };
+                s.members[idx].dhash = Some(h);
+                let me = s.members[idx].clone();
+                let found = s.members.iter().enumerate().find_map(|(j, m)| {
+                    if j == idx || m.group == me.group {
+                        return None;
+                    }
+                    let d = (m.dhash? ^ h).count_ones();
+                    match crate::dedup::relate(&me, m, Some(d)) {
+                        crate::dedup::Relation::Distinct => None,
+                        rel => Some((m.group.clone(), rel)),
+                    }
+                });
+                found.map(|(g, rel)| {
+                    let old_group = me.group.clone();
+                    let primary = s.primary_quality.get(&g).copied().unwrap_or(0.0);
+                    let duplicate = matches!(rel, crate::dedup::Relation::Duplicate { .. });
+                    let promote = duplicate && me.quality > primary + PROMOTE_MARGIN;
+                    if promote {
+                        s.primary_quality.insert(g.clone(), me.quality);
+                    }
+                    for m in s.members.iter_mut().filter(|m| m.group == old_group) {
+                        m.group = g.clone();
+                    }
+                    s.primary_quality.remove(&old_group);
+                    let mut variant = me.variant.clone();
+                    if let crate::dedup::Relation::Duplicate { reason, confidence } | crate::dedup::Relation::Variant { reason, confidence } = rel {
+                        variant.reason = reason.to_string();
+                        variant.confidence = confidence;
+                    }
+                    SearchEvent::Grouped { search_id, group: g, uid: me.uid.clone(), item: None, variant, duplicate, promote }
+                })
+            };
+            if let Some(ev) = event {
+                if !token.is_cancelled() {
+                    sink(ev);
+                }
+            }
+        }
+    }
+
+    async fn thumb_hash(&self, url: &str) -> Option<u64> {
+        if let Some(h) = self.fingerprints.lock().get(url) {
+            return *h;
+        }
+        let _permit = self.thumbs.clone().acquire_owned().await.ok()?;
+        let fetch = async {
+            if !(self.loopback_thumbs && url.starts_with("http://127.0.0.1:")) {
+                crate::http::check_external_url(url).ok()?;
+            }
+            let resp = self.client.get(url).send().await.ok()?;
+            let resp = crate::http::check_status("miniatura", resp).await.ok()?;
+            let bytes = crate::http::read_limited(resp, 2 * 1024 * 1024).await.ok()?;
+            tokio::task::spawn_blocking(move || crate::visual::fingerprint(&bytes).ok().map(|f| f.dhash)).await.ok()?
+        };
+        let h = tokio::time::timeout(Duration::from_secs(5), fetch).await.ok().flatten();
+        self.fingerprints.lock().put(url.to_string(), h);
+        h
     }
 
     fn finish(&self, search_id: u64) {

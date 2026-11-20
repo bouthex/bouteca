@@ -38,6 +38,8 @@ export const Download = I(<><path d="M12 4v11M7 10.5l5 5 5-5" /><path d="M5 19.5
 export const Sliders = I(<><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></>);
 export const Pulse = I(<path d="M3 12h4l2.5-6 4 12 2.5-6H21" />);
 export const Play = I(<path d="M7.5 5.3c0-.9 1-1.5 1.8-1l10 6.2c.7.5.7 1.5 0 2l-10 6.2c-.8.5-1.8-.1-1.8-1V5.3Z" />, true);
+export const Back10 = I(<><path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.6" /><path d="M4 4v4.6h4.6" /><path d="M10 10v5M13 11.2a1.2 1.2 0 0 1 2.4 0v2.6a1.2 1.2 0 0 1-2.4 0Z" /></>);
+export const Fwd10 = I(<><path d="M20 12a8 8 0 1 1-2.4-5.7L20 8.6" /><path d="M20 4v4.6h-4.6" /><path d="M9 10v5M12 11.2a1.2 1.2 0 0 1 2.4 0v2.6a1.2 1.2 0 0 1-2.4 0Z" /></>);
 export const Pause = I(<><rect x="6" y="5" width="4" height="14" rx="1.3" /><rect x="14" y="5" width="4" height="14" rx="1.3" /></>, true);
 export const Volume = I(<><path d="M4 10v4h3.5L12 18V6L7.5 10H4Z" /><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" /></>);
 export const Mute = I(<><path d="M4 10v4h3.5L12 18V6L7.5 10H4Z" /><path d="m16 10 4 4M20 10l-4 4" /></>);

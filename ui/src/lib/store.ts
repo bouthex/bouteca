@@ -1,7 +1,7 @@
 // Estado global con señales (Preact Signals): actualizaciones finas, sin re-render masivo.
 import { batch, computed, signal } from "@preact/signals";
 import { api, errText, onDownloadEvent, onSearchEvent } from "./api";
-import { addAlternate, mergeBatch, type Alt } from "./results";
+import { addAlternate, applyGrouped, mergeBatch, type Alt, type Group } from "./results";
 import type * as T from "./types";
 
 export type View = "search" | "favorites" | "collections" | "history" | "downloads" | "settings" | "diagnostics";
@@ -14,6 +14,8 @@ export const query = signal("");
 export const filter = signal<T.KindFilter>("all");
 export const results = signal<T.MediaItem[]>([]);
 export const alternates = signal<Map<string, Alt[]>>(new Map());
+/** Duplicados y variantes agrupados bajo cada tarjeta principal (clave = dedupe_key). */
+export const groups = signal<Map<string, Group>>(new Map());
 export const plan = signal<{ variants: T.QueryVariant[]; providers: string[] } | null>(null);
 export const providerState = signal<Record<string, "pending" | "ok" | "error" | "empty">>({});
 export const providerErrors = signal<Record<string, string>>({});
@@ -43,6 +45,7 @@ export function runSearch(q = query.value, f = filter.value) {
     filter.value = f;
     results.value = [];
     alternates.value = new Map();
+    groups.value = new Map();
     plan.value = null;
     understood.value = null;
     providerState.value = {};
@@ -92,6 +95,16 @@ function handleSearchEvent(e: T.SearchEvent) {
     case "alternate":
       alternates.value = addAlternate(alternates.value, e.dedupe_key, { provider: e.provider, uid: e.uid, renditions: e.renditions });
       break;
+    case "grouped": {
+      const out = applyGrouped(results.value, groups.value, alternates.value, e);
+      batch(() => {
+        results.value = out.results;
+        groups.value = out.groups;
+        alternates.value = out.alts;
+        // Si la tarjeta abierta pasó a ser una versión, el panel sigue mostrando lo mismo.
+      });
+      break;
+    }
     case "provider_error":
       batch(() => {
         providerState.value = { ...providerState.value, [e.provider]: "error" };

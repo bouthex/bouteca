@@ -3,10 +3,14 @@
 ## Cómo ejecutar
 
 ```bash
-cargo test -p bouteca-core     # núcleo: 47 pruebas (+7 en vivo, ignoradas por defecto)
+cargo test -p bouteca-core     # núcleo: 79 pruebas (+13 en vivo, ignoradas por defecto)
 cargo test -p bouteca-core --test live -- --ignored --nocapture --test-threads=1   # APIs reales
-cd ui && npm test              # interfaz: 5 pruebas
+cd ui && npm test              # interfaz: 8 pruebas
+cd ui && npm run dev:mock      # interfaz en el navegador con datos simulados (capturas)
 ```
+
+`ui/dev/` y `vite.mock.config.ts` simulan los comandos de Tauri con la forma real de los datos
+para revisar la interfaz en un navegador (no forman parte de la app ni del instalador).
 
 ## Pruebas automáticas en GitHub Actions (cada push a `main`)
 
@@ -60,7 +64,12 @@ detalles, paginación, cupo agotado), huellas visuales y bombas de imagen)
 | Validación | 3 | Nombres reservados de Windows y caracteres inválidos; path traversal bloqueado; validación por firma (GIF real, HTML, ejecutable, vacío) |
 | Mantenimiento | 1 | Borra parciales huérfanos, conserva activos y reanudables, **nunca toca descargas del usuario**, rota registros a 7 |
 | Configuración | 1 | Guardado atómico; JSON dañado → valores por defecto + copia `.bak`; inicio con Windows desactivado por defecto |
-| Interfaz | 5 | Fusión de lotes (orden por puntuación / estable al desplazarse), duplicados, alternativas, formato de bytes/duración/resolución |
+| Interfaz | 8 | Fusión de lotes (orden por puntuación / estable al desplazarse), duplicados, alternativas, formato de bytes/duración/resolución; agrupación (miembro nuevo, tarjeta visible que se mueve y promoción sin saltos, variantes que no mezclan archivos) |
+| Derechos (`rights`) | 3 | Clasificación de licencias; usos por plataforma (ND no sirve para video, NC no sirve para monetizar, términos de plataforma "depende"); indicadores, filtros A–D y texto de créditos |
+| Intención (`intent`) | 5 | "música de tensión para un video de terror sin atribución" → Música + sin atribución + "tension terror"; usos y duración; respeta el filtro elegido; sin falsos positivos |
+| Deduplicación (`dedup`, motor) | 8 | Exacto por nombre de archivo entre fuentes; nombres genéricos/ids no cuentan; metadatos exigen título largo + dato físico; visual: duplicado vs. otra duración vs. recorte vs. GIF del video; distancia dudosa no fusiona; audio nunca por imagen; calidad elige el original grande; de punta a punta con miniaturas reales (la versión en alta resolución pasa a ser la principal); agrupar desactivable |
+| Calidad (`quality`) | 4 | Niveles solo si existen; tamaños casi iguales no son niveles distintos; audio por bitrate; sin archivos no hay niveles; preferencia con el nivel más cercano |
+| Fuentes nuevas | 9 | NASA (+archivos), iNaturalist (solo CC reutilizables), ccMixter (solo enlace), AIC, The Met (`/v1.1`), Cleveland, Dailymotion (solo reproductor), PeerTube (+archivos, respeta `downloadEnabled`); licencia desconocida o restringida no se descarga aunque la interfaz diga lo contrario |
 
 ### Manuales (app real bajo Xvfb, WebKitGTK, proveedores simulados) ✅
 

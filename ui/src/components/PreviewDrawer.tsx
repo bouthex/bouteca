@@ -4,10 +4,11 @@ import { api, errText } from "../lib/api";
 import { bytes, duration, isVideoUrl, kindLabel, providerName, resolution } from "../lib/format";
 import * as Icon from "../lib/icons";
 import { allRenditions } from "../lib/results";
-import { alternates, copyText, favoriteUids, playerMounted, playerUnmounted, selected, startDownload, toast, toggleFavorite } from "../lib/store";
-import type { MediaItem } from "../lib/types";
+import { alternates, copyText, favoriteUids, groups, openPreview, playerMounted, playerUnmounted, selected, startDownload, toast, toggleFavorite } from "../lib/store";
+import type { ItemDetails, MediaItem } from "../lib/types";
 import { CollectionPicker } from "./CollectionPicker";
 import { Player } from "./Player";
+import { RightsPanel } from "./RightsPanel";
 
 /** Reproductores oficiales permitidos (deben coincidir con `frame-src` de la CSP). */
 const OFFICIAL_EMBEDS: { prefix: string; name: string; params: string }[] = [
@@ -77,8 +78,19 @@ export function PreviewDrawer({ item: initial }: { item: MediaItem }) {
     return () => { alive = false; };
   }, [initial.uid]);
 
+  const [details, setDetails] = useState<ItemDetails | null>(null);
+  const [showFiles, setShowFiles] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    api.itemDetails(item).then((d) => alive && setDetails(d)).catch(() => {});
+    return () => { alive = false; };
+  }, [item.uid, item.renditions.length, item.license, item.download_policy]);
+
   const close = () => (selected.value = null);
-  const renditions = allRenditions(item, alternates.value.get(item.dedupe_key));
+  const group = groups.value.get(item.dedupe_key);
+  const renditions = allRenditions(item, alternates.value.get(item.dedupe_key), group);
+  const canDownload = item.download_policy !== "preview_only" && item.rights?.download !== false;
+  const tiers = details?.tiers ?? [];
   const media = item.preview ?? item.renditions.find((r) => r.mime?.startsWith("video") || r.mime?.startsWith("audio"))?.url ?? null;
 
   let stage;
@@ -96,10 +108,6 @@ export function PreviewDrawer({ item: initial }: { item: MediaItem }) {
     stage = <StageImage src={src} fallback={item.thumbnail} title={item.title} />;
   }
 
-  const copyAttribution = () => {
-    const parts = [`"${item.title}"`, item.author && `por ${item.author}`, `vía ${providerName(item.provider)}`, item.license && `(${item.license})`, item.page_url].filter(Boolean);
-    navigator.clipboard.writeText(parts.join(" ")).then(() => toast("Atribución copiada", "ok"), () => toast("No se pudo copiar", "error"));
-  };
 
   return (
     <aside class="drawer" aria-label="Vista previa">
@@ -131,9 +139,49 @@ export function PreviewDrawer({ item: initial }: { item: MediaItem }) {
         {item.download_policy === "preview_only" && (
           <div class="notice"><Icon.Alert size={16} /><span>{providerName(item.provider)} no ofrece una descarga autorizada para aplicaciones como Bouteca. Podés reproducirlo acá, guardarlo en favoritos o colecciones, copiar el enlace o abrirlo en {providerName(item.provider)}.</span></div>
         )}
+        {item.download_policy !== "preview_only" && item.rights?.download === false && (
+          <div class="notice"><Icon.Alert size={16} /><span>No se ofrece descarga: {item.rights.summary} Podés reproducirlo, guardarlo, copiar el enlace o abrir la fuente.</span></div>
+        )}
         {item.download_policy === "personal" && (
           <div class="notice"><Icon.Alert size={16} /><span>Los derechos pertenecen a sus autores. Descarga para uso personal según los términos de {providerName(item.provider)}.</span></div>
         )}
+
+        {canDownload && tiers.length > 1 && (
+          <div>
+            <p class="section-title">Calidad</p>
+            <div class="tiers" role="group" aria-label="Elegí la calidad a descargar">
+              {tiers.map((t) => (
+                <button class="tier" key={t.url} onClick={() => startDownload(item, t.url)} title={`Descargar ${t.label}`}>
+                  <b>{t.tier}</b>
+                  <span>{[t.width && t.height ? `${t.width}×${t.height}` : t.height ? `${t.height}p` : "", bytes(t.size_bytes), t.mime?.split("/")[1]?.toUpperCase()].filter(Boolean).join(" · ") || t.label}</span>
+                </button>
+              ))}
+            </div>
+            <p class="small muted" style="margin-top:4px">Archivos publicados por la fuente; Bouteca no recomprime.</p>
+          </div>
+        )}
+
+        {group && group.variants.length > 0 && (
+          <div>
+            <p class="section-title">Otras versiones ({group.variants.length})</p>
+            <div class="variants">
+              {group.variants.map((v) => {
+                const m = group.members.find((x) => x.uid === v.uid);
+                return (
+                  <button class="variant" key={v.uid} disabled={!m} onClick={() => m && openPreview(m)}>
+                    {v.thumbnail ? <img src={v.thumbnail} alt="" loading="lazy" /> : <span class="vt" />}
+                    <span class="vi">
+                      <span class="l">{providerName(v.provider)} · {kindLabel[v.kind]}</span>
+                      <span class="d">{[v.duplicate ? "mismo contenido" : v.reason, resolution(v.width, v.height), v.duration_secs ? duration(v.duration_secs) : "", v.download ? "" : "solo ver"].filter(Boolean).join(" · ")}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <RightsPanel item={item} detail={details} />
 
         <dl class="facts">
           <dt>Tipo</dt><dd>{kindLabel[item.kind]}</dd>
@@ -147,18 +195,20 @@ export function PreviewDrawer({ item: initial }: { item: MediaItem }) {
 
         {renditions.length > 0 && (
           <div>
-            <p class="section-title">Versiones disponibles</p>
-            <div class="renditions">
+            <button class="section-title as-btn" aria-expanded={showFiles || tiers.length <= 1} onClick={() => setShowFiles(!showFiles)}>
+              Archivos disponibles ({renditions.length})
+            </button>
+            {(showFiles || tiers.length <= 1) && <div class="renditions">
               {renditions.map((r) => (
                 <div class="rendition" key={r.url}>
                   <div class="info">
                     <div class="l" title={r.label}>{r.label}{r.original && <span class="tag-orig">original</span>}</div>
                     <div class="d">{[r.width && r.height ? `${r.width}×${r.height}` : "", bytes(r.size_bytes), r.provider !== item.provider ? `desde ${providerName(r.provider)}` : ""].filter(Boolean).join(" · ") || r.mime || ""}</div>
                   </div>
-                  <button class="btn sm" disabled={item.download_policy === "preview_only"} onClick={() => startDownload(item, r.url)} title="Descargar esta versión"><Icon.Download size={14} /></button>
+                  <button class="btn sm" disabled={!canDownload} onClick={() => startDownload(item, r.url)} title="Descargar esta versión"><Icon.Download size={14} /></button>
                 </div>
               ))}
-            </div>
+            </div>}
           </div>
         )}
 
@@ -167,7 +217,6 @@ export function PreviewDrawer({ item: initial }: { item: MediaItem }) {
             <button class="btn ghost sm" onClick={() => api.openExternal(item.page_url!).catch((e) => toast(errText(e), "error"))}><Icon.External size={14} /> Ver en la fuente</button>
           )}
           {item.page_url?.startsWith("https://") && <button class="btn ghost sm" onClick={() => copyText(item.page_url!, "Enlace copiado")}><Icon.Copy size={14} /> Copiar enlace</button>}
-          <button class="btn ghost sm" onClick={copyAttribution}><Icon.Copy size={14} /> Copiar atribución</button>
         </div>
       </div>
     </aside>

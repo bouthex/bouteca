@@ -3,8 +3,16 @@ import { memo } from "preact/compat";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { duration, isVideoUrl, kindLabel, providerName, resolution } from "../lib/format";
 import * as Icon from "../lib/icons";
-import { favoriteUids, openPreview, selected, settings, startDownload, toggleFavorite, visual } from "../lib/store";
+import { favoriteUids, groups, openPreview, selected, settings, startDownload, toggleFavorite, visual } from "../lib/store";
 import type { Indicator, MediaItem } from "../lib/types";
+
+const SHORT_LABEL: Record<Indicator, string> = {
+  sin_atribucion: "Sin atribución",
+  requiere_atribucion: "Atribución",
+  licencia_comercial: "Lic. comercial",
+  uso_restringido: "Restringido",
+  desconocida: "Lic. desconocida",
+};
 
 export const INDICATOR_LABEL: Record<Indicator, string> = {
   sin_atribucion: "Sin atribución",
@@ -27,6 +35,7 @@ export const ResultCard = memo(function ResultCard({ item, style }: { item: Medi
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
+  const versions = groups.value.get(item.dedupe_key)?.variants.length ?? 0;
   const sub = [providerName(item.provider), resolution(item.width, item.height), item.author].filter(Boolean).join(" · ");
 
   return (
@@ -60,6 +69,7 @@ export const ResultCard = memo(function ResultCard({ item, style }: { item: Medi
         {visual.value?.scores.has(item.uid) && <span class="sim" title="Parecido con tu imagen">{Math.round((visual.value.scores.get(item.uid) ?? 0) * 100)}%</span>}
         {(item.download_policy === "preview_only" || item.rights?.download === false) && !item.duration_secs && <span class="stream-only">Solo ver</span>}
         {item.duration_secs && !visual.value?.scores.has(item.uid) ? <span class="dur">{duration(item.duration_secs)}</span> : null}
+        {versions > 0 && <span class="versions" title="Otras versiones de este contenido (otras fuentes, formatos o duraciones)">+{versions}</span>}
         <div class={`card-actions ${fav ? "on" : ""}`} onClick={(e) => e.stopPropagation()}>
           <button class={`icon-btn ${fav ? "fav-on" : ""}`} title={fav ? "Quitar de favoritos" : "Guardar en favoritos"} onClick={() => toggleFavorite(item)}>
             {fav ? <Icon.HeartFill size={16} /> : <Icon.Heart size={16} />}
@@ -73,8 +83,10 @@ export const ResultCard = memo(function ResultCard({ item, style }: { item: Medi
       </div>
       <div class="meta">
         <span class="title" title={item.title}>{item.title}</span>
-        <span class="sub">{sub}</span>
-        {item.rights && <span class="lic" data-i={item.rights.indicator} title={item.rights.summary}>{INDICATOR_LABEL[item.rights.indicator]}</span>}
+        <span class="sub">
+          {item.rights && <span class="lic" data-i={item.rights.indicator} title={`${INDICATOR_LABEL[item.rights.indicator]}. ${item.rights.summary}`}>{SHORT_LABEL[item.rights.indicator]}</span>}
+          {sub}
+        </span>
       </div>
     </div>
   );

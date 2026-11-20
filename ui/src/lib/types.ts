@@ -88,9 +88,10 @@ export interface Intent {
   detected: string[];
 }
 
-export interface RightsDetail {
+export interface ItemDetails {
   rights: Rights;
   usages: { usage: Usage; label: string; ok: boolean | null }[];
+  tiers: Tier[];
 }
 
 export const isAudioKind = (k: MediaKind) => k === "audio" || k === "music";
@@ -116,6 +117,7 @@ export type SearchEvent =
     }
   | { type: "batch"; search_id: number; provider: string; items: MediaItem[] }
   | { type: "alternate"; search_id: number; dedupe_key: string; provider: string; uid: string; renditions: Rendition[] }
+  | { type: "grouped"; search_id: number; group: string; uid: string; item: MediaItem | null; variant: Variant; duplicate: boolean; promote: boolean }
   | { type: "provider_error"; search_id: number; provider: string; message: string; status: ProviderStatus }
   | { type: "done"; search_id: number; has_more: boolean; total_items: number; elapsed_ms: number };
 
@@ -189,6 +191,20 @@ export interface EngineSettings {
   safe_search: boolean;
   include_unlicensed: boolean;
   per_page: number;
+  group_duplicates: boolean;
+  visual_dedup: boolean;
+}
+
+export type QualityPref = "auto" | "original" | "alta" | "media" | "baja";
+
+export interface Tier {
+  tier: "Original" | "Alta" | "Media" | "Baja" | "Única";
+  url: string;
+  label: string;
+  mime: string | null;
+  width: number | null;
+  height: number | null;
+  size_bytes: number | null;
 }
 
 export interface AppSettings {
@@ -206,6 +222,7 @@ export interface AppSettings {
   thumbnail_quality: string;
   theme: "dark" | "light";
   motion: "system" | "reduced" | "off";
+  preferred_quality: QualityPref;
 }
 
 export interface StorageReport {
