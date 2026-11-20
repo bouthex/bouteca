@@ -27,7 +27,7 @@ Corrida del commit `ab616e7` (2026-11-20):
   secretos del repo (`BOUTECA_KEY_GIPHY`, `BOUTECA_KEY_KLIPY`, `BOUTECA_KEY_YOUTUBE`,
   `BOUTECA_KEY_FREESOUND`, `BOUTECA_KEY_PIXABAY`, `BOUTECA_KEY_PEXELS`).
 
-## Implementado y con pruebas automáticas (Auto: 81 Rust + 12 interfaz)
+## Implementado y con pruebas automáticas (Auto: 83 Rust + 12 interfaz)
 - Motor federado progresivo, cancelable, caché acotada, pausa por límites, paginación.
 - Consultas multilingües (léxico es/en/pt/tr/ja/ru, entidades), ranking, duplicados.
 - 18 proveedores (incluye YouTube y Dailymotion: reproductor oficial, **sin descarga**).
@@ -77,7 +77,14 @@ Corrida del commit `ab616e7` (2026-11-20):
   **Real (CI, commit b30173e, Windows)**: búsqueda de humo con 162 resultados de 10 fuentes en
   1,1 s; APIs reales con código 0 en Linux y Windows (incluye The Met `/v1.1`, música en
   Archive/Openverse/Wikimedia, ccMixter, Dailymotion, PeerTube).
-- ⏳ Etapa 4b: actualizador firmado con canales estable/beta.
+- ✅ **Etapa 4b (Auto)**: actualizador oficial de Tauri 2 con canales **estable**
+  (predeterminado) y **beta**, solo paquetes firmados (verificación al descargar y al
+  instalar), búsqueda al iniciar con demora, descarga en segundo plano opcional, instalar solo
+  con confirmación, logo monocromático con anillo de progreso real, historial de versiones
+  (texto plano), errores sin tocar la versión instalada. Flujo `release.yml`: etiqueta →
+  pruebas → instalador firmado → `latest.json`/`beta.json` → GitHub Releases. **Bloqueado**:
+  necesita la clave de firma del propietario (ver `RELEASING.md`); el entorno de desarrollo no
+  tiene permiso para crear secretos del repositorio, así que no se generó ninguna clave aquí.
 - ⏳ Etapa 5: Bouteca Studio (independiente), búsqueda universal de imágenes, documentación y
   regresión completa. Recién después: pedido de prueba manual.
 
@@ -90,6 +97,8 @@ Corrida del commit `ab616e7` (2026-11-20):
 - Freesound OAuth2 (originales); refresco de metadatos de YouTube guardados > 30 días.
 
 ## Bloqueado / requiere al propietario
+- Clave de firma de actualizaciones: 2 secretos y 1 variable en GitHub Actions (pasos en
+  `RELEASING.md`). Sin ella, la app funciona y simplemente no ofrece actualizaciones.
 - Claves de API para las 6 fuentes con clave (gratuitas; ver `PROVIDERS.md`).
 - Certificado de firma de código (pago) para evitar el aviso de SmartScreen.
 

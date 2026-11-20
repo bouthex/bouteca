@@ -93,3 +93,14 @@ IDs de YouTube maliciosos. Resultados en [TESTING.md](TESTING.md).
 ## Reportar una vulnerabilidad
 Usá **GitHub → Security → Report a vulnerability** (aviso privado) en `bouthex/bouteca`. No
 publiques detalles en issues públicos hasta que haya una corrección.
+
+## Actualizaciones
+
+- Mecanismo oficial `tauri-plugin-updater`; manifiestos y paquetes solo por HTTPS desde
+  GitHub Releases del repositorio.
+- Firma minisign obligatoria: la clave pública va en la compilación (variable de Actions
+  `TAURI_UPDATER_PUBKEY`); la privada solo existe como secreto de Actions del propietario. El
+  plugin verifica la firma al descargar y otra vez al instalar. Sin clave pública, la función
+  queda desactivada.
+- Nunca se instala sin confirmación del usuario. Notas de versión mostradas como texto plano.
+- Ver `RELEASING.md`.

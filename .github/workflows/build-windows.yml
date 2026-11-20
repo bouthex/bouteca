@@ -6,7 +6,6 @@ name: Windows — compilación, instalador y prueba real
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   workflow_dispatch:
 
 permissions:

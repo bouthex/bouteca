@@ -54,3 +54,15 @@ interfaz fuera comprometida), contenido del reproductor de YouTube (iframe).
 - **Dependencias de Linux sin mantenimiento** reportadas por `cargo audit` (glib, zbus, etc.)
   pertenecen solo a la compilación Linux de desarrollo y **no se incluyen en el binario de
   Windows** (verificado con `cargo tree --target x86_64-pc-windows-msvc`).
+
+## Actualizador (STRIDE)
+
+| Amenaza | Mitigación |
+|---|---|
+| **Suplantación** del servidor de actualizaciones | HTTPS a github.com; paquete aceptado solo si la firma coincide con la clave pública compilada |
+| **Manipulación** del instalador o del manifiesto | Firma minisign verificada al descargar y al instalar; `SHA256SUMS.txt` publicado |
+| **Repudio** | Versiones etiquetadas y publicadas por el flujo de Actions con registro |
+| **Divulgación** | La consulta solo envía lo que cualquier descarga de GitHub (sin datos del usuario) |
+| **Denegación de servicio** | Un fallo deja la versión actual intacta; reintento manual |
+| **Elevación de privilegios** | Instalador por usuario, sin administrador; instalar requiere confirmación |
+| Robo de la clave privada | Solo como secreto de Actions; rotarla exige publicar una versión con la clave pública nueva firmada con la anterior (limitación conocida) |

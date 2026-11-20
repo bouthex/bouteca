@@ -33,6 +33,32 @@ pub struct AppSettings {
     pub preferred_quality: crate::quality::QualityPref,
     /// Combinaciones de filtros guardadas por el usuario (la interfaz define su contenido).
     pub saved_filters: Vec<SavedFilter>,
+    pub updates: UpdateSettings,
+}
+
+/// Actualizaciones: canal estable por defecto; instalar siempre requiere confirmación.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct UpdateSettings {
+    pub check_on_start: bool,
+    /// Descargar (y verificar) en segundo plano al encontrar una versión nueva.
+    pub auto_download: bool,
+    /// "stable" | "beta".
+    pub channel: UpdateChannel,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum UpdateChannel {
+    #[default]
+    Stable,
+    Beta,
+}
+
+impl Default for UpdateSettings {
+    fn default() -> Self {
+        Self { check_on_start: true, auto_download: true, channel: UpdateChannel::Stable }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -82,6 +108,7 @@ impl Default for AppSettings {
             motion: "system".into(),
             preferred_quality: Default::default(),
             saved_filters: Vec::new(),
+            updates: UpdateSettings::default(),
         }
     }
 }

@@ -62,6 +62,18 @@
         "displayLanguageSelector": false,
         "installerIcon": "icons/icon.ico"
       }
+    },
+    "createUpdaterArtifacts": false
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "endpoints": [
+        "https://github.com/bouthex/bouteca/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }

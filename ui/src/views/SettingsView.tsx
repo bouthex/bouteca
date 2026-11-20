@@ -1,8 +1,76 @@
 import { useEffect, useState } from "preact/hooks";
 import { api, errText } from "../lib/api";
 import * as Icon from "../lib/icons";
-import { saveSettings, settings, toast, view } from "../lib/store";
-import type { AppInfo, AppSettings, Lang, ProviderView } from "../lib/types";
+import { installUpdate, saveSettings, settings, toast, update, view } from "../lib/store";
+import type { AppInfo, AppSettings, Lang, ProviderView, ReleaseEntry } from "../lib/types";
+
+function UpdatesSection({ s, info }: { s: AppSettings; info: AppInfo | null }) {
+  const [history, setHistory] = useState<ReleaseEntry[] | null>(null);
+  const [histErr, setHistErr] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const u = update.value;
+  const setU = (patch: Partial<AppSettings["updates"]>) => saveSettings({ ...s, updates: { ...s.updates, ...patch } });
+  const check = async () => {
+    setChecking(true);
+    try {
+      const r = await api.updateCheck(s.updates.auto_download);
+      if (!r.available) toast(`Tenés la última versión (${r.current})`, "ok");
+    } catch (e) {
+      toast(errText(e), "error");
+    } finally {
+      setChecking(false);
+    }
+  };
+  const status =
+    u.phase === "ready" ? `Versión ${u.version} descargada y verificada.` :
+    u.phase === "downloading" ? `Descargando ${u.version ?? ""}…` :
+    u.phase === "available" ? `Hay una versión nueva: ${u.version}.` :
+    u.phase === "up_to_date" ? "Tenés la última versión." :
+    u.phase === "error" ? u.message ?? "No se pudo buscar." : `Versión instalada: ${info?.version ?? "—"}.`;
+  return (
+    <section class="group">
+      <h2>Actualizaciones</h2>
+      <div class="rows">
+        <Setting title="Estado" desc={status}>
+          <div style="display:flex;gap:6px">
+            {u.phase === "ready" ? (
+              <button class="btn sm primary" onClick={installUpdate}>Reiniciar y actualizar</button>
+            ) : (
+              <button class="btn sm" disabled={checking || u.phase === "downloading"} onClick={check}><Icon.Refresh size={14} /> Buscar ahora</button>
+            )}
+          </div>
+        </Setting>
+        <Setting title="Canal" desc="Estable: versiones probadas (recomendado). Beta: novedades antes, con más riesgo de errores. Solo se instalan versiones firmadas.">
+          <select class="field" value={s.updates.channel} onChange={(e) => setU({ channel: (e.target as HTMLSelectElement).value as "stable" | "beta" })}>
+            <option value="stable">Estable</option>
+            <option value="beta">Beta</option>
+          </select>
+        </Setting>
+        <Setting title="Buscar al iniciar" desc="Unos segundos después de abrir, sin demorar el arranque.">
+          <Switch on={s.updates.check_on_start} label="Buscar al iniciar" onChange={(v) => setU({ check_on_start: v })} />
+        </Setting>
+        <Setting title="Descargar en segundo plano" desc="Se descarga y verifica sola; instalar siempre te lo pregunta.">
+          <Switch on={s.updates.auto_download} label="Descargar en segundo plano" onChange={(v) => setU({ auto_download: v })} />
+        </Setting>
+        <Setting title="Historial de versiones">
+          <button class="btn sm" onClick={() => { setHistErr(null); api.updateHistory().then(setHistory).catch((e) => setHistErr(errText(e))); }}>Ver</button>
+        </Setting>
+        {histErr && <p class="small muted">{histErr}</p>}
+        {history && (history.length === 0 ? <p class="small muted">Todavía no hay versiones publicadas.</p> : (
+          <div class="releases">
+            {history.map((r) => (
+              <div class="release" key={r.version}>
+                <div class="h"><b>{r.version}</b>{r.prerelease && <span class="status-pill">beta</span>}<span class="small muted">{r.date ? new Date(r.date).toLocaleDateString("es-AR") : ""}</span>
+                  <span style="flex:1" /><button class="btn ghost sm" onClick={() => api.openExternal(r.url)}><Icon.External size={13} /></button></div>
+                {r.notes && <pre>{r.notes}</pre>}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 const LANGS: { id: Lang; label: string }[] = [
   { id: "es", label: "Español" },
@@ -213,6 +281,8 @@ export function SettingsView() {
             </Setting>
           </div>
         </section>
+
+        <UpdatesSection s={s} info={info} />
 
         <section class="group">
           <h2>Rendimiento</h2>

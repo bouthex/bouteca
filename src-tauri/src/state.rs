@@ -33,6 +33,10 @@ pub struct AppState {
     pub activity: Notify,
     pub last_cleanup: AtomicI64,
     pub shortcut_error: Mutex<Option<String>>,
+    /// Actualización descargada y verificada, lista para instalar cuando el usuario confirme.
+    pub update_ready: Mutex<Option<(String, Vec<u8>)>>,
+    pub update_pending: Mutex<Option<tauri_plugin_updater::Update>>,
+    pub update_downloading: std::sync::atomic::AtomicBool,
     _log_guard: Mutex<Option<tracing_appender::non_blocking::WorkerGuard>>,
 }
 
@@ -107,6 +111,9 @@ impl AppState {
             activity: Notify::new(),
             last_cleanup: AtomicI64::new(0),
             shortcut_error: Mutex::new(None),
+            update_ready: Mutex::new(None),
+            update_pending: Mutex::new(None),
+            update_downloading: std::sync::atomic::AtomicBool::new(false),
             _log_guard: Mutex::new(Some(guard)),
         }))
     }

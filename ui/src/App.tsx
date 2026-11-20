@@ -1,6 +1,7 @@
 import { useEffect } from "preact/hooks";
 import { Rail } from "./components/Rail";
 import { Toasts } from "./components/Toasts";
+import { UpdateBanner } from "./components/UpdateBanner";
 import { PreviewDrawer } from "./components/PreviewDrawer";
 import { SearchView } from "./views/SearchView";
 import { FavoritesView, CollectionsView } from "./views/LibraryViews";
@@ -49,6 +50,7 @@ export function App() {
         {v === "diagnostics" && <DiagnosticsView />}
         {selected.value && <PreviewDrawer key={selected.value.uid} item={selected.value} />}
       </main>
+      <UpdateBanner />
       <Toasts />
     </div>
   );

@@ -1,6 +1,6 @@
 // Estado global con señales (Preact Signals): actualizaciones finas, sin re-render masivo.
 import { batch, computed, signal } from "@preact/signals";
-import { api, errText, onDownloadEvent, onSearchEvent } from "./api";
+import { api, errText, onDownloadEvent, onSearchEvent, onUpdateEvent } from "./api";
 import { addAlternate, applyGrouped, mergeBatch, type Alt, type Group } from "./results";
 import type * as T from "./types";
 import { applyFilters, NO_FILTERS, type ResultFilters } from "./filters";
@@ -235,6 +235,38 @@ export function dismissToast(id: number) {
   toasts.value = toasts.value.filter((t) => t.id !== id);
 }
 
+// ---------- actualizaciones ----------
+export interface UpdateState {
+  phase: "idle" | "checking" | "up_to_date" | "available" | "downloading" | "ready" | "error";
+  version?: string;
+  notes?: string;
+  done?: number;
+  total?: number | null;
+  message?: string;
+  dismissed?: boolean;
+}
+export const update = signal<UpdateState>({ phase: "idle" });
+
+function handleUpdateEvent(e: T.UpdateEvent) {
+  const cur = update.value;
+  switch (e.type) {
+    case "checking": update.value = { ...cur, phase: cur.phase === "ready" ? "ready" : "checking" }; break;
+    case "up_to_date": update.value = { phase: "up_to_date", version: e.current }; break;
+    case "available": update.value = { ...cur, phase: cur.phase === "ready" && cur.version === e.version ? "ready" : "available", version: e.version, notes: e.notes }; break;
+    case "progress": update.value = { ...cur, phase: "downloading", done: e.done, total: e.total }; break;
+    case "ready": update.value = { ...cur, phase: "ready", version: e.version, dismissed: false }; break;
+    case "error": update.value = { ...cur, phase: "error", message: e.message }; break;
+  }
+}
+
+export async function installUpdate() {
+  try {
+    await api.updateInstall();
+  } catch (e) {
+    toast(errText(e), "error");
+  }
+}
+
 // ---------- configuración ----------
 export async function saveSettings(next: T.AppSettings) {
   try {
@@ -342,7 +374,7 @@ export function playerUnmounted() {
 
 // ---------- arranque ----------
 export async function boot() {
-  await Promise.all([onSearchEvent(handleSearchEvent), onDownloadEvent(handleDownloadEvent)]);
+  await Promise.all([onSearchEvent(handleSearchEvent), onDownloadEvent(handleDownloadEvent), onUpdateEvent(handleUpdateEvent)]);
   const [s, favs] = await Promise.all([api.settings(), api.favoriteUids()]);
   settings.value = s;
   applyTheme(s.theme);

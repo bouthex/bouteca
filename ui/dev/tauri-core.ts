@@ -42,7 +42,7 @@ export async function invoke(cmd: string, args?: Record<string, any>): Promise<a
     case "settings_get":
       return { engine: { primary_lang: "es", extra_langs: ["pt"], disabled_providers: [], safe_search: true, include_unlicensed: false, per_page: 24, group_duplicates: true, visual_dedup: true, favorite_providers: [] },
         download_dir: null, organize_by_kind: true, detect_duplicates: true, global_shortcut: "CommandOrControl+Shift+B", minimize_to_tray: false, launch_at_startup: false,
-        hover_previews: true, autoplay_gifs: false, web_cache_limit_mb: 150, auto_cleanup: true, thumbnail_quality: "low", theme: "dark", motion: "system", preferred_quality: "auto", saved_filters: [{ name: "Música sin créditos", data: { rights: "sin_atribucion" } }] };
+        hover_previews: true, autoplay_gifs: false, web_cache_limit_mb: 150, auto_cleanup: true, thumbnail_quality: "low", theme: "dark", motion: "system", preferred_quality: "auto", saved_filters: [{ name: "Música sin créditos", data: { rights: "sin_atribucion" } }], updates: { check_on_start: true, auto_download: true, channel: "stable" } };
     case "favorite_uids": case "collections_list": case "downloads_list": case "history_searches": case "history_views": case "favorites_list": case "suggestions":
       return [];
     case "app_info":
@@ -83,3 +83,10 @@ export async function invoke(cmd: string, args?: Record<string, any>): Promise<a
   }
 }
 void lastQuery;
+
+// Con #update en la URL se simula una actualización descargándose y lista para instalar.
+if (typeof location !== "undefined" && location.hash === "#update") {
+  setTimeout(() => emit("update-event", { type: "available", version: "0.3.0", notes: "Música, derechos y deduplicación.", date: null }), 600);
+  setTimeout(() => emit("update-event", { type: "progress", done: 2_100_000, total: 4_200_000 }), 800);
+  if (!location.search.includes("dl")) setTimeout(() => emit("update-event", { type: "ready", version: "0.3.0" }), 1400);
+}

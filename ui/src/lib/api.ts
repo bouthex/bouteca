@@ -14,6 +14,9 @@ export const api = {
 
   search: (search_id: number, query: string, filter: T.KindFilter, page = 1, rights: T.RightsFilter | null = null, usage: T.Usage | null = null) =>
     call<void>("search", { req: { search_id, query, filter, page, rights, usage } }),
+  updateCheck: (download: boolean) => call<T.UpdateInfo>("update_check", { download }),
+  updateInstall: () => call<void>("update_install"),
+  updateHistory: () => call<T.ReleaseEntry[]>("update_history"),
   itemDetails: (item: T.MediaItem) => call<T.ItemDetails>("item_details", { item }),
   cancelSearch: (search_id: number) => call<void>("cancel_search", { searchId: search_id }),
   resolve: (item: T.MediaItem) => call<T.MediaItem>("resolve_item", { item }),
@@ -65,6 +68,9 @@ export const api = {
 
 export function onSearchEvent(cb: (e: T.SearchEvent) => void): Promise<UnlistenFn> {
   return listen<T.SearchEvent>("search-event", (e) => cb(e.payload));
+}
+export function onUpdateEvent(cb: (e: T.UpdateEvent) => void): Promise<UnlistenFn> {
+  return listen<T.UpdateEvent>("update-event", (e) => cb(e.payload));
 }
 export function onDownloadEvent(cb: (e: T.DownloadEvent) => void): Promise<UnlistenFn> {
   return listen<T.DownloadEvent>("download-event", (e) => cb(e.payload));

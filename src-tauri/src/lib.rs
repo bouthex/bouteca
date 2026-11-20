@@ -6,6 +6,7 @@ mod keys;
 mod smoke;
 mod state;
 mod system;
+mod updates;
 
 use state::AppState;
 use std::sync::Arc;
@@ -44,6 +45,7 @@ pub fn run() {
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec!["--autostart"])))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(navigation_guard())
         .setup(|app| {
             let state = AppState::init(app.handle())?;
@@ -53,6 +55,8 @@ pub fn run() {
             system::spawn_background(app.handle().clone());
             if let Some(out) = smoke::requested() {
                 smoke::run(app.handle().clone(), out);
+            } else {
+                updates::schedule_startup_check(app.handle());
             }
             // La ventana se muestra cuando la interfaz avisa que está lista (sin parpadeo blanco);
             // como respaldo, a los 4 s se muestra igual.
@@ -112,6 +116,9 @@ pub fn run() {
             commands::download_start,
             commands::visual_compare,
             commands::item_details,
+            commands::update_check,
+            commands::update_install,
+            commands::update_history,
             commands::downloads_list,
             commands::download_pause,
             commands::download_resume,

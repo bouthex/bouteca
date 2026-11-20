@@ -230,7 +230,19 @@ export interface AppSettings {
   motion: "system" | "reduced" | "off";
   preferred_quality: QualityPref;
   saved_filters: SavedFilter[];
+  updates: { check_on_start: boolean; auto_download: boolean; channel: "stable" | "beta" };
 }
+
+export type UpdateEvent =
+  | { type: "checking" }
+  | { type: "up_to_date"; current: string }
+  | { type: "available"; version: string; notes: string; date: string | null }
+  | { type: "progress"; done: number; total: number | null }
+  | { type: "ready"; version: string }
+  | { type: "error"; message: string };
+
+export interface UpdateInfo { configured: boolean; current: string; available: string | null; notes: string; date: string | null; ready: string | null }
+export interface ReleaseEntry { version: string; name: string; date: string | null; prerelease: boolean; notes: string; url: string }
 
 export interface StorageReport {
   database_bytes: number;

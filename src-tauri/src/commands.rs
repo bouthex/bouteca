@@ -519,3 +519,22 @@ pub fn activity(state: S) {
 pub fn quit_app(app: AppHandle) {
     app.exit(0);
 }
+
+// ---------- actualizaciones ----------
+
+/// Busca una versión nueva en el canal elegido; con `download`, la descarga y verifica.
+#[tauri::command]
+pub async fn update_check(app: AppHandle, download: bool) -> R<crate::updates::UpdateInfo> {
+    crate::updates::check(app, download).await
+}
+
+/// Instala la actualización ya descargada y verificada, y reinicia (acción del usuario).
+#[tauri::command]
+pub fn update_install(app: AppHandle) -> R<()> {
+    crate::updates::install(&app)
+}
+
+#[tauri::command]
+pub async fn update_history(state: S<'_>) -> R<Vec<crate::updates::ReleaseEntry>> {
+    crate::updates::history(&state.http).await
+}
