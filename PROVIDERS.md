@@ -58,6 +58,38 @@ En el **Administrador de credenciales de Windows** (servicio `Bouteca`), cifrada
 del usuario. Nunca en `settings.json`, en registros ni en el repositorio. Se cargan con
 **Ajustes → Fuentes**.
 
+## YouTube en detalle
+
+**Qué hace Bouteca:** busca en YouTube (API oficial YouTube Data API v3, con la clave del
+usuario) junto con las demás fuentes y muestra los videos en la misma cuadrícula: miniatura,
+título, canal, duración, vistas, licencia y avisos de disponibilidad (restricción de edad,
+países bloqueados). Los videos privados o con la inserción desactivada se quitan porque no se
+pueden ver dentro de la app. Al abrir uno, se reproduce con el **reproductor oficial**
+(`youtube-nocookie.com`); si YouTube no lo permite (errores 100, 101, 150, 153…) se muestra un
+mensaje claro con "Abrir en YouTube". Favoritos, colecciones, historial y copiar enlace
+funcionan igual que con cualquier otra fuente.
+
+**Cuotas:** cada búsqueda gasta 101 unidades de las 10 000 diarias gratuitas (≈ 99 búsquedas
+por día por clave); Bouteca envía una sola consulta por búsqueda, guarda resultados en caché y,
+si la cuota se agota o la clave es inválida, lo informa y sigue con las demás fuentes.
+
+**Descarga — investigación y decisión:**
+
+| Vía | ¿Autorizada? | En Bouteca |
+|---|---|---|
+| API de YouTube (Data API v3) | No ofrece descarga de video | — |
+| Reproductor oficial | Solo reproducción | Integrado |
+| YouTube Studio: descargar **tus propios** videos (MP4 720p/360p, hasta 5 veces por día) | Sí, para el dueño del canal | Botón "Es mi video: YouTube Studio" + "Importar mi archivo" (se valida y se copia a Descargas con su enlace de origen) |
+| Google Takeout (todos tus videos subidos) | Sí, para el dueño | Mismo "Importar mi archivo" |
+| Archivo entregado por el autor / con su permiso escrito | Sí | "Importar mi archivo" |
+| La misma obra publicada en otra fuente con licencia que permite descargar (Internet Archive, Wikimedia, PeerTube, NASA…) | Sí, según esa licencia | "Buscar una versión descargable" (compara títulos; el usuario confirma) |
+| YouTube Premium "sin conexión" | Solo dentro de las apps de YouTube, cifrado | No aplicable |
+| yt-dlp y similares (extraen el stream) | **No**: los Términos de YouTube prohíben descargar salvo donde el servicio lo autoriza y prohíben eludir sus medidas técnicas | **No se usa** |
+
+Una licencia Creative Commons en YouTube permite reutilizar la obra (por ejemplo, en el editor
+de YouTube), pero no convierte en autorizada una descarga por vías no oficiales: por eso el
+botón de descarga no aparece en resultados de YouTube.
+
 ## Evaluados y descartados
 
 | Proveedor | Motivo |

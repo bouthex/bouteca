@@ -1,0 +1,83 @@
+name: Configurar firma de actualizaciones (una sola vez)
+
+# Genera la clave de firma del actualizador DENTRO de GitHub Actions y la guarda directamente
+# como secretos del repositorio, sin mostrarla nunca en registros ni artefactos en claro.
+#
+# Requisito previo (desde el navegador, ver RELEASING.md):
+#   - Secreto BOUTECA_ADMIN_TOKEN: token "fine-grained" con acceso solo a bouthex/bouteca y
+#     permisos "Secrets: Read and write" y "Variables: Read and write". Se puede borrar después.
+#   - Opcional: secreto BOUTECA_BACKUP_PASSWORD (frase larga) para recibir una copia de
+#     seguridad CIFRADA (AES-256) de la clave como artefacto de 1 día.
+#
+# Se niega a reemplazar una clave existente: todas las versiones deben firmarse con la misma.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: setup-signing
+  cancel-in-progress: false
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ secrets.BOUTECA_ADMIN_TOKEN }}
+      EXISTING_PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY }}
+      BACKUP_PASSWORD: ${{ secrets.BOUTECA_BACKUP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Comprobaciones previas
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error title=Falta BOUTECA_ADMIN_TOKEN::Creá el token y guardalo como secreto (RELEASING.md, paso 1)."; exit 1
+          fi
+          if [ -n "$EXISTING_PUBKEY" ]; then
+            echo "::error title=Ya hay una clave::TAURI_UPDATER_PUBKEY ya existe. No se reemplaza para no romper las actualizaciones de las instalaciones existentes."; exit 1
+          fi
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Herramienta de firma oficial de Tauri
+        working-directory: ui
+        run: npm ci --ignore-scripts
+      - name: Generar y guardar la clave (sin mostrarla)
+        run: |
+          set -euo pipefail
+          umask 077
+          dir=$(mktemp -d)
+          pw=$(openssl rand -hex 32)
+          echo "::add-mask::$pw"
+          node ui/node_modules/@tauri-apps/cli/tauri.js signer generate --ci -p "$pw" -w "$dir/k.key" > /dev/null 2>&1
+          key=$(cat "$dir/k.key")
+          echo "::add-mask::$key"
+          pub=$(tr -d '\r\n' < "$dir/k.key.pub")
+          # Prueba de ida y vuelta: firmar un archivo y verificarlo con la clave pública.
+          head -c 4096 /dev/urandom > "$dir/probe.bin"
+          TAURI_SIGNING_PRIVATE_KEY="$key" TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$pw" \
+            node ui/node_modules/@tauri-apps/cli/tauri.js signer sign "$dir/probe.bin" > /dev/null 2>&1
+          node scripts/verify-sig.mjs "$dir/probe.bin" "$dir/probe.bin.sig" "$pub"
+          # Guardar (gh cifra los secretos con la clave pública del repositorio antes de enviarlos).
+          printf '%s' "$key" | gh secret set TAURI_SIGNING_PRIVATE_KEY -R "$GITHUB_REPOSITORY"
+          printf '%s' "$pw" | gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD -R "$GITHUB_REPOSITORY"
+          gh variable set TAURI_UPDATER_PUBKEY -R "$GITHUB_REPOSITORY" --body "$pub"
+          if [ -n "$BACKUP_PASSWORD" ]; then
+            mkdir -p backup
+            { echo "Clave de firma de Bouteca — GUARDAR EN LUGAR SEGURO"; echo "TAURI_SIGNING_PRIVATE_KEY=$key"; echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$pw"; echo "TAURI_UPDATER_PUBKEY=$pub"; } \
+              | 7z a -si"bouteca-firma.txt" -t7z -mhe=on -p"$BACKUP_PASSWORD" backup/bouteca-firma-respaldo.7z > /dev/null
+            echo "BACKUP=1" >> "$GITHUB_ENV"
+          fi
+          rm -rf "$dir"
+          echo "::notice title=Firma configurada::Secretos TAURI_SIGNING_PRIVATE_KEY y TAURI_SIGNING_PRIVATE_KEY_PASSWORD y variable TAURI_UPDATER_PUBKEY guardados. Clave pública: $pub"
+      - name: Respaldo cifrado (opcional, 1 día)
+        if: env.BACKUP == '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bouteca-firma-respaldo-cifrado
+          path: backup/bouteca-firma-respaldo.7z
+          retention-days: 1

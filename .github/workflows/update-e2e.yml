@@ -83,16 +83,17 @@ jobs:
         shell: pwsh
         run: |
           $b = Get-ChildItem $env:E2E_OUT -Filter '*0.9.1*-setup.exe' | Select-Object -First 1
-          $sig = (Get-Content "$($b.FullName).sig" -Raw).Trim()
           $srv = Join-Path $env:RUNNER_TEMP 'srv'
           New-Item -ItemType Directory -Force $srv | Out-Null
           Copy-Item $b.FullName (Join-Path $srv 'b-setup.exe')
-          $m = @{ version = '0.9.1'; notes = 'Prueba de actualización'; pub_date = (Get-Date).ToUniversalTime().ToString('o'); platforms = @{ 'windows-x86_64' = @{ signature = $sig; url = 'http://127.0.0.1:8765/b-setup.exe' } } }
-          $m | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $srv 'latest.json') -Encoding utf8
+          # Mismos scripts que usa la publicación real (release.yml).
+          $pub = (Get-Content (Join-Path $env:E2E_KEYDIR 'k.key.pub') -Raw).Trim()
+          node scripts/verify-sig.mjs $b.FullName "$($b.FullName).sig" $pub
+          if ($LASTEXITCODE -ne 0) { Write-Output "::error title=Firma::la firma de B no verifica"; exit 1 }
+          node scripts/make-manifest.mjs '0.9.1' "$($b.FullName).sig" 'http://127.0.0.1:8765/b-setup.exe' 'Prueba de actualización' (Join-Path $srv 'latest.json')
           # Manifiesto con firma de OTRO archivo (la de A): debe rechazarse.
           $a = Get-ChildItem $env:E2E_OUT -Filter '*0.9.0*-setup.exe' | Select-Object -First 1
-          $bad = @{ version = '0.9.2'; notes = 'firma inválida'; pub_date = (Get-Date).ToUniversalTime().ToString('o'); platforms = @{ 'windows-x86_64' = @{ signature = (Get-Content "$($a.FullName).sig" -Raw).Trim(); url = 'http://127.0.0.1:8765/b-setup.exe' } } }
-          $bad | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $srv 'bad.json') -Encoding utf8
+          node scripts/make-manifest.mjs '0.9.2' "$($a.FullName).sig" 'http://127.0.0.1:8765/b-setup.exe' 'firma inválida' (Join-Path $srv 'bad.json')
           Start-Process python -ArgumentList '-m', 'http.server', '8765', '--bind', '127.0.0.1' -WorkingDirectory $srv -WindowStyle Hidden
           Start-Sleep -Seconds 3
       - name: A se actualiza a B desde la propia app
@@ -114,7 +115,14 @@ jobs:
           } while ($ver -notlike '0.9.1*' -and (Get-Date) -lt $deadline)
           Write-Output "::notice title=Actualizador — instalado::versión del ejecutable: $ver"
           if ($ver -notlike '0.9.1*') { Write-Output "::error title=Actualización::no quedó instalada la 0.9.1"; exit 1 }
-          Start-Sleep -Seconds 5
+          # El instalador reinicia Bouteca sola: debe aparecer el proceso de la versión nueva.
+          $deadline = (Get-Date).AddSeconds(60)
+          do { Start-Sleep -Seconds 2; $proc = Get-Process bouteca -ErrorAction SilentlyContinue | Select-Object -First 1 } while (-not $proc -and (Get-Date) -lt $deadline)
+          if (-not $proc) { Write-Output "::error title=Reinicio::Bouteca no se volvió a abrir después de actualizar"; exit 1 }
+          $pv = $proc.MainModule.FileVersionInfo.ProductVersion
+          Write-Output "::notice title=Actualizador — reinicio::Bouteca se reabrió sola (PID $($proc.Id), versión $pv)"
+          if ($pv -notlike '0.9.1*') { Write-Output "::error title=Reinicio::se reabrió una versión distinta ($pv)"; exit 1 }
+          Start-Sleep -Seconds 3
           Get-Process bouteca -ErrorAction SilentlyContinue | Stop-Process -Force
       - name: Verificar B y conservación de datos
         shell: pwsh

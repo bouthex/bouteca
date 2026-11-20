@@ -45,15 +45,17 @@ Bout + biblioteca: escribí lo que necesitás, previsualizalo y descargalo, todo
 
 ## Instalación (usuario)
 
-1. Descargá `Bouteca_<versión>_x64-setup.exe` (artefacto del workflow **Instalador Windows** en
-   GitHub Actions, o de una release).
+1. Descargá `Bouteca_<versión>_x64-setup.exe` desde la última versión publicada:
+   https://github.com/bouthex/bouteca/releases/latest (junto está `SHA256SUMS.txt`).
 2. Ejecutalo. Se instala para tu usuario, sin permisos de administrador. Si el equipo no tiene
    WebView2 (Windows 10 muy antiguos), el instalador lo descarga.
 3. Abrí Bouteca y buscá. Opcional: en **Ajustes → Fuentes** pegá claves gratuitas para sumar
    GIPHY, KLIPY, YouTube, Freesound, Pixabay y Pexels (cada fila tiene el botón "Conseguir clave").
 
 Windows puede mostrar el aviso de SmartScreen "editor desconocido" porque el instalador todavía
-no tiene firma de código. Verificá el SHA-256 publicado en la corrida de Actions antes de instalar.
+no tiene firma de código (Authenticode). Elegí "Más información → Ejecutar de todas formas".
+Podés comparar el SHA-256 con `SHA256SUMS.txt` de la release. Las actualizaciones automáticas,
+en cambio, sí se verifican siempre con la firma del proyecto.
 
 ### Claves de API (todas gratuitas)
 
@@ -67,12 +69,16 @@ no tiene firma de código. Verificá el SHA-256 publicado en la corrida de Actio
 | Pexels | pexels.com/api/new |
 
 Las claves se guardan en el Administrador de credenciales de Windows y nunca se muestran
-completas. Para probarlas en CI, cargalas como *secrets* del repositorio con los nombres
+completas. **Un secreto de GitHub no llega a la app instalada**: en tu PC tenés que pegar la clave
+en Ajustes → Fuentes. Sin una clave, esa fuente simplemente no participa y el resto funciona.
+Para probarlas en CI, cargalas como *secrets* del repositorio con los nombres
 `BOUTECA_KEY_GIPHY`, `BOUTECA_KEY_KLIPY`, `BOUTECA_KEY_YOUTUBE`, `BOUTECA_KEY_FREESOUND`,
 `BOUTECA_KEY_PIXABAY`, `BOUTECA_KEY_PEXELS`.
 
-**Actualizar:** instalá la versión nueva encima de la anterior; tu configuración, favoritos,
-colecciones e historial se conservan.
+**Actualizar:** Bouteca busca versiones nuevas al abrirse (canal estable por defecto; beta
+opcional en Ajustes → Actualizaciones), las descarga en segundo plano, verifica la firma y te
+muestra "Reiniciar y actualizar". Nunca instala sin tu confirmación. Tu configuración,
+favoritos, colecciones, proyectos de Studio e historial se conservan.
 
 **Desinstalar:** Configuración de Windows → Aplicaciones → Bouteca. Tus archivos descargados no se borran.
 

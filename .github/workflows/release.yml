@@ -1,16 +1,18 @@
 name: Publicar versión (firmada)
 
-# Se ejecuta al subir una etiqueta vX.Y.Z (estable) o vX.Y.Z-beta.N / -rc.N (beta).
-# Una etiqueta o un commit no publican nada por sí solos fuera de este flujo.
+# Publica la versión indicada en src-tauri/tauri.conf.json:
+#   - manualmente (Actions → "Publicar versión (firmada)" → Run workflow), o
+#   - al subir una etiqueta vX.Y.Z (estable) o vX.Y.Z-beta.N / -rc.N (beta).
+# Un commit no publica nada por sí solo.
 #
-# Requisitos (los configura el propietario; ver RELEASING.md):
-#   - Secreto  TAURI_SIGNING_PRIVATE_KEY           (clave privada minisign, nunca en el repo)
-#   - Secreto  TAURI_SIGNING_PRIVATE_KEY_PASSWORD  (su contraseña)
-#   - Variable TAURI_UPDATER_PUBKEY                (clave pública: se incluye en la compilación)
-# Sin ellos el flujo se detiene antes de compilar: nunca se publica una versión sin firma.
+# Requisitos (ver RELEASING.md; se configuran una vez con "Configurar firma de actualizaciones"):
+#   - Secretos TAURI_SIGNING_PRIVATE_KEY y TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+#   - Variable TAURI_UPDATER_PUBKEY
+# Sin ellos, o si la firma no corresponde a la clave pública, el flujo falla y no publica nada.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -33,18 +35,25 @@ jobs:
       - name: Verificar firma configurada y versión
         shell: bash
         run: |
-          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ] || [ -z "$PUBKEY" ]; then
-            echo "::error title=Firma no configurada::Faltan TAURI_SIGNING_PRIVATE_KEY o la variable TAURI_UPDATER_PUBKEY. Ver RELEASING.md. No se publica nada sin firma."
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ] || [ -z "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ] || [ -z "$PUBKEY" ]; then
+            echo "::error title=Firma no configurada::Faltan los secretos de firma o la variable TAURI_UPDATER_PUBKEY. Ver RELEASING.md. No se publica nada sin firma."
             exit 1
           fi
-          tag="${GITHUB_REF_NAME#v}"
           conf=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          if [ "$tag" != "$conf" ]; then
-            echo "::error title=Versión distinta::La etiqueta ($tag) no coincide con tauri.conf.json ($conf)."
-            exit 1
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            tag="${GITHUB_REF_NAME}"
+            if [ "${tag#v}" != "$conf" ]; then
+              echo "::error title=Versión distinta::La etiqueta ($tag) no coincide con tauri.conf.json ($conf)."; exit 1
+            fi
+          else
+            tag="v$conf"
+            if gh release view "$tag" >/dev/null 2>&1; then
+              echo "::error title=Ya publicada::La versión $tag ya existe. Subí la versión en tauri.conf.json antes de publicar."; exit 1
+            fi
           fi
-          case "$tag" in *-*) echo "PRERELEASE=true" >> "$GITHUB_ENV";; *) echo "PRERELEASE=false" >> "$GITHUB_ENV";; esac
-          echo "VERSION=$tag" >> "$GITHUB_ENV"
+          case "$conf" in *-*) echo "PRERELEASE=true" >> "$GITHUB_ENV";; *) echo "PRERELEASE=false" >> "$GITHUB_ENV";; esac
+          echo "VERSION=$conf" >> "$GITHUB_ENV"
+          echo "TAG=$tag" >> "$GITHUB_ENV"
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-node@v5
@@ -55,39 +64,51 @@ jobs:
       - name: Dependencias de la interfaz
         working-directory: ui
         run: npm ci
-      - name: Pruebas del núcleo
-        run: cargo test -p bouteca-core
+      - name: Pruebas
+        shell: bash
+        run: |
+          cargo test --workspace
+          (cd ui && npm test)
       - name: Compilar instalador firmado
         shell: bash
         run: |
           node -e "process.stdout.write(JSON.stringify({bundle:{createUpdaterArtifacts:true},plugins:{updater:{pubkey:process.env.PUBKEY}}}))" > "$RUNNER_TEMP/release-config.json"
           node ui/node_modules/@tauri-apps/cli/tauri.js build --config "$RUNNER_TEMP/release-config.json"
-      - name: Preparar archivos y manifiesto
+      - name: Verificar firma y preparar manifiestos
         shell: bash
         run: |
-          dir=target/release/bundle/nsis
-          exe=$(ls "$dir"/*-setup.exe | head -1)
+          set -euo pipefail
+          exe=$(ls target/release/bundle/nsis/*_${VERSION}_x64-setup.exe | head -1)
           sig="$exe.sig"
           test -f "$sig" || { echo "::error::No se generó la firma del instalador"; exit 1; }
+          # La firma debe corresponder a la clave pública incluida en la app: si no, las
+          # instalaciones existentes rechazarían la actualización.
+          node scripts/verify-sig.mjs "$exe" "$sig" "$PUBKEY"
           name=$(basename "$exe")
-          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/${name// /.}"
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${name}"
           notes=$(git log -1 --pretty=%B | head -c 3000)
-          node -e '
-            const fs=require("fs");
-            const m={version:process.env.VERSION,notes:process.argv[1],pub_date:new Date().toISOString(),
-              platforms:{"windows-x86_64":{signature:fs.readFileSync(process.argv[2],"utf8").trim(),url:process.argv[3]}}};
-            fs.writeFileSync("latest.json",JSON.stringify(m,null,2));' "$notes" "$sig" "$url"
+          node scripts/make-manifest.mjs "$VERSION" "$sig" "$url" "$notes" latest.json
           cp latest.json beta.json
-          sha256sum "$exe" | tee SHA256SUMS.txt
+          (cd "$(dirname "$exe")" && sha256sum "$name" "$name.sig") > SHA256SUMS.txt
+          cat SHA256SUMS.txt
           echo "EXE=$exe" >> "$GITHUB_ENV"
           echo "SIG=$sig" >> "$GITHUB_ENV"
       - name: Publicar en GitHub Releases
         shell: bash
         run: |
+          set -euo pipefail
           flags=""
           [ "$PRERELEASE" = "true" ] && flags="--prerelease --latest=false"
-          gh release create "$GITHUB_REF_NAME" "$EXE" "$SIG" latest.json SHA256SUMS.txt --title "Bouteca $VERSION" --generate-notes $flags
+          gh release create "$TAG" "$EXE" "$SIG" latest.json SHA256SUMS.txt --target "$GITHUB_SHA" --title "Bouteca $VERSION" --generate-notes $flags
           # Canal beta: recibe todas las versiones (beta y estables).
           gh release view updater-beta >/dev/null 2>&1 || gh release create updater-beta --title "Canal beta (técnico)" --notes "Manifiesto del canal beta del actualizador. No instalar desde aquí." --prerelease --latest=false
           gh release upload updater-beta beta.json --clobber
-          echo "::notice title=Publicada::Bouteca $VERSION ($([ "$PRERELEASE" = true ] && echo beta || echo estable))"
+          echo "::notice title=Publicada::Bouteca $VERSION ($([ "$PRERELEASE" = true ] && echo beta || echo estable)) — https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
+      - name: Comprobar el manifiesto publicado
+        if: env.PRERELEASE == 'false'
+        shell: bash
+        run: |
+          sleep 10
+          v=$(curl -fsSL "https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/latest.json" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).version))")
+          [ "$v" = "$VERSION" ] || { echo "::error title=Manifiesto::el canal estable informa $v en lugar de $VERSION"; exit 1; }
+          echo "::notice title=Canal estable::latest.json publica la $v"

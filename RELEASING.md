@@ -14,29 +14,44 @@ La app solo instala paquetes **firmados** con la clave del proyecto: el plugin o
 verifica la firma minisign con la clave pública incluida en la compilación antes de instalar.
 Si la compilación no tiene clave pública, las actualizaciones quedan desactivadas.
 
-## Configuración inicial (una sola vez, la hace el propietario)
+## Configuración inicial de la firma (una sola vez, solo con el navegador)
 
-La clave privada **nunca** se guarda en el repositorio ni en el código distribuido.
+La clave se genera **dentro de GitHub Actions** y se guarda directamente como secretos del
+repositorio; nunca aparece en registros, commits ni artefactos en claro. No hace falta instalar
+nada.
 
-1. En tu PC, desde `ui/`:
-   ```powershell
-   npx tauri signer generate -w "$env:USERPROFILE\.bouteca\updater.key"
-   ```
-   Elegí una contraseña. Guardá el archivo `.key` y la contraseña en un lugar seguro (si se
-   pierden, las instalaciones existentes no podrán recibir actualizaciones firmadas con otra clave).
-2. En GitHub → *Settings → Secrets and variables → Actions*:
-   - **Secret** `TAURI_SIGNING_PRIVATE_KEY`: el contenido del archivo `updater.key`.
-   - **Secret** `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: la contraseña.
-   - **Variable** `TAURI_UPDATER_PUBKEY`: el contenido de `updater.key.pub` (es pública).
+1. **Crear un token temporal** (GitHub → tu foto → *Settings* → *Developer settings* →
+   *Personal access tokens* → *Fine-grained tokens* → *Generate new token*):
+   - Nombre: `bouteca-firma`; vencimiento: 7 días.
+   - *Repository access*: *Only select repositories* → `bouthex/bouteca`.
+   - *Permissions* → *Repository permissions*: **Secrets: Read and write** y
+     **Variables: Read and write** (nada más).
+   - Copiá el token generado.
+2. **Guardarlo como secreto**: repositorio → *Settings* → *Secrets and variables* → *Actions* →
+   *New repository secret* → Name `BOUTECA_ADMIN_TOKEN`, Secret: el token.
+3. *(Opcional, recomendado)* otro secreto `BOUTECA_BACKUP_PASSWORD` con una frase larga que
+   recuerdes: recibirás una copia de seguridad cifrada de la clave.
+4. **Ejecutar**: pestaña *Actions* → "Configurar firma de actualizaciones (una sola vez)" →
+   *Run workflow*. Genera la clave, prueba firmar y verificar, y guarda los secretos
+   `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` y la variable
+   `TAURI_UPDATER_PUBKEY`. Se niega a reemplazar una clave existente.
+5. Si configuraste el paso 3: en la ejecución, descargá el artefacto
+   `bouteca-firma-respaldo-cifrado` (dura 1 día) y guardalo (por ejemplo, en tu nube personal).
+   Es un `.7z` cifrado con AES-256 y tu frase; solo hace falta si alguna vez se pierden los
+   secretos de GitHub.
+6. **Borrar el token** del paso 1 (*Fine-grained tokens* → *Delete*) y el secreto
+   `BOUTECA_ADMIN_TOKEN`. Ya no se necesitan.
 
-Estos secretos solo sirven para firmar en GitHub Actions; no tienen relación con las claves de
-API que cada usuario carga en su app instalada.
+Todas las versiones futuras usan esta misma clave: `release.yml` verifica que la firma de cada
+instalador corresponda a `TAURI_UPDATER_PUBKEY` antes de publicar.
 
 ## Publicar
 
-1. Cambiar la versión en `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` y `ui/package.json`.
+1. Cambiar la versión en `src-tauri/tauri.conf.json`, `Cargo.toml` (workspace) y `ui/package.json`.
 2. Actualizar `PROGRESS.md` / notas.
-3. `git tag v0.3.0 && git push origin v0.3.0` (o `v0.3.0-beta.1` para beta).
+3. Pestaña *Actions* → "Publicar versión (firmada)" → *Run workflow* (publica la versión de
+   `tauri.conf.json`), o bien subir una etiqueta: `git tag v1.0.1 && git push origin v1.0.1`
+   (`v1.1.0-beta.1` para beta).
 
 El flujo verifica que la etiqueta coincida con la versión, corre las pruebas, compila el
 instalador firmado, genera `latest.json` (versión, notas, fecha, firma y URL) y publica el
