@@ -95,7 +95,7 @@ pub fn run(app: AppHandle, out: PathBuf) {
         tokio::time::sleep(Duration::from_secs(3)).await;
         rep.after_search = tokio::task::spawn_blocking(mem).await.unwrap_or_default();
         state.release_idle_resources();
-        tokio::time::sleep(Duration::from_secs(5)).await;
+        tokio::time::sleep(Duration::from_secs(12)).await;
         rep.after_idle_release = tokio::task::spawn_blocking(mem).await.unwrap_or_default();
 
         rep.ok = rep.ui_ready_ms.is_some() && rep.total_results > 0 && rep.errors.is_empty();

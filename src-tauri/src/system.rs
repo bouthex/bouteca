@@ -228,3 +228,34 @@ pub fn measure_process() -> (u64, u64, f32, u64, u64) {
     }
     (ram, virt, cpu, webview, uptime)
 }
+
+/// Pide a WebView2 que reduzca su uso de memoria mientras Bouteca está inactiva u oculta
+/// (`ICoreWebView2_19::MemoryUsageTargetLevel`, API oficial de Microsoft). Al volver la
+/// actividad se restaura el nivel normal. En otros sistemas no hace nada.
+#[cfg(windows)]
+pub fn set_webview_memory_low(app: &AppHandle, low: bool) {
+    use webview2_com::Microsoft::Web::WebView2::Win32::{
+        ICoreWebView2_19, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL,
+    };
+    use windows_core::Interface;
+    let Some(w) = app.get_webview_window("main") else { return };
+    let r = w.with_webview(move |pw| {
+        let level = if low { COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW } else { COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL };
+        // SAFETY: llamadas COM sobre el controlador vivo que Tauri entrega dentro de `with_webview`,
+        // en el hilo de la interfaz. Solo se consultan interfaces y se fija un valor; los errores
+        // (WebView2 antiguo sin ICoreWebView2_19) se ignoran sin efectos.
+        unsafe {
+            if let Ok(core) = pw.controller().CoreWebView2() {
+                if let Ok(c19) = core.cast::<ICoreWebView2_19>() {
+                    let _ = c19.SetMemoryUsageTargetLevel(level);
+                }
+            }
+        }
+    });
+    if let Err(e) = r {
+        tracing::debug!(error = %e, "no se pudo cambiar el nivel de memoria de WebView2");
+    }
+}
+
+#[cfg(not(windows))]
+pub fn set_webview_memory_low(_app: &AppHandle, _low: bool) {}

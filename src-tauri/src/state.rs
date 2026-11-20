@@ -15,6 +15,9 @@ use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::Notify;
 
 pub struct AppState {
+    pub app: AppHandle,
+    /// La interfaz está en modo de memoria reducida (WebView2 "Low").
+    pub webview_low: std::sync::atomic::AtomicBool,
     pub engine: Arc<SearchEngine>,
     /// Cliente HTTP endurecido compartido (miniaturas para la búsqueda por imagen).
     pub http: reqwest::Client,
@@ -87,6 +90,8 @@ impl AppState {
         let web_cache_dir = Some(local_dir.join("EBWebView").join("Default").join("Cache"));
 
         Ok(Arc::new(Self {
+            app: app.clone(),
+            webview_low: std::sync::atomic::AtomicBool::new(false),
             http: http::build_client(),
             engine,
             db,
@@ -108,6 +113,9 @@ impl AppState {
     pub fn touch(&self) {
         self.last_activity.store(now(), Ordering::Relaxed);
         self.activity.notify_one();
+        if self.webview_low.swap(false, Ordering::Relaxed) {
+            crate::system::set_webview_memory_low(&self.app, false);
+        }
     }
 
     pub fn emit_search(app: &AppHandle) -> impl Fn(SearchEvent) + Send + Sync + 'static {
@@ -124,6 +132,9 @@ impl AppState {
     /// Libera memoria que no se necesita mientras nadie usa la app.
     pub fn release_idle_resources(&self) {
         self.engine.trim();
+        if !self.webview_low.swap(true, Ordering::Relaxed) {
+            crate::system::set_webview_memory_low(&self.app, true);
+        }
         tracing::debug!("modo inactivo: cachés liberadas");
     }
 
