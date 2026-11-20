@@ -288,3 +288,8 @@ export interface VisualReport {
   compared: number;
   failed: number;
 }
+
+export interface StudioProject { id: number; name: string; description: string; created_at: number; updated_at: number; count: number }
+export interface KitCategory { id: "music" | "sfx" | "video" | "image"; label: string; filter: KindFilter; queries: string[] }
+export interface KitPlan { theme: string; name: string; categories: KitCategory[]; rights: RightsFilter | null; usage: Usage | null; duration_secs: number | null }
+export interface StudioDetail { project: StudioProject; plan: KitPlan; items: { category: string; item: MediaItem }[] }

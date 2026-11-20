@@ -37,6 +37,8 @@ const images = [
 ];
 
 let lastQuery = "";
+const studio: any[] = [];
+let kit: { pid: number; category: string; item: any }[] = [];
 export async function invoke(cmd: string, args?: Record<string, any>): Promise<any> {
   switch (cmd) {
     case "settings_get":
@@ -78,6 +80,30 @@ export async function invoke(cmd: string, args?: Record<string, any>): Promise<a
       setTimeout(() => emit("search-event", { type: "done", search_id: id, has_more: false, total_items: items.length, elapsed_ms: 840 }), 260);
       return;
     }
+    case "studio_list":
+      return studio.map((p) => ({ ...p, count: kit.filter((k) => k.pid === p.id).length }));
+    case "studio_create": {
+      const id = studio.length + 1;
+      studio.unshift({ id, name: /terror/i.test(args!.description) ? "Terror" : "Proyecto", description: args!.description, created_at: 0, updated_at: 0, count: 0 });
+      return id;
+    }
+    case "studio_detail": {
+      const p = studio.find((x) => x.id === args!.id)!;
+      return { project: p, items: kit.filter((k) => k.pid === p.id).map((k) => ({ category: k.category, item: k.item })),
+        plan: { theme: "terror", name: p.name, rights: "sin_atribucion", usage: null, duration_secs: 120, categories: [
+          { id: "music", label: "Música", filter: "music", queries: ["horror tension", "dark ambient", "suspense"] },
+          { id: "sfx", label: "Efectos de sonido", filter: "audio", queries: ["scream", "door creak", "heartbeat", "thunder"] },
+          { id: "video", label: "Videos", filter: "video", queries: ["dark forest night", "abandoned house", "fog"] },
+          { id: "image", label: "Imágenes", filter: "image", queries: ["abandoned house", "dark forest", "old cemetery"] } ] } };
+    }
+    case "studio_suggest":
+      return args!.category === "music" ? music.slice(0, 1) : images.slice(0, 3);
+    case "studio_add":
+      kit.push({ pid: args!.id, category: args!.category, item: args!.item }); return;
+    case "studio_remove":
+      kit = kit.filter((k) => !(k.pid === args!.id && k.item.uid === args!.uid)); return;
+    case "studio_credits":
+      return "créditos";
     default:
       return null;
   }

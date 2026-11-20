@@ -1,15 +1,31 @@
 <p align="center"><img src="assets/brand/icon-1024.png" width="112" alt="Bouteca"></p>
 
 <h1 align="center">Bouteca</h1>
-<p align="center">Buscador universal de memes, GIFs, videos y sonidos para Windows.<br>
+<p align="center">Buscador de memes, GIFs, videos, imágenes, sonidos y música para Windows.<br>
 Bout + biblioteca: escribí lo que necesitás, previsualizalo y descargalo, todo en un lugar.</p>
 
 ---
 
 ## Qué hace
 
-- **Busca en varias fuentes a la vez** (Wikimedia Commons, Openverse, Internet Archive, Imgflip,
-  y con clave gratuita GIPHY, KLIPY, YouTube, Freesound, Pixabay y Pexels) y une los resultados.
+- **Busca en 18 fuentes oficiales a la vez**: 12 sin clave (Wikimedia Commons, Openverse,
+  Internet Archive, Imgflip, NASA, Art Institute of Chicago, The Met, Cleveland Museum of Art,
+  iNaturalist, ccMixter, PeerTube y Dailymotion) y 6 con clave gratuita tuya (GIPHY, KLIPY,
+  YouTube, Freesound, Pixabay y Pexels). No cubre "todo Internet": solo fuentes con API oficial
+  (detalle en `PROVIDERS.md`).
+- **Música** como sección propia: pedidos en lenguaje natural ("música de tensión para un video
+  de terror sin atribución"), filtros de derechos (sin atribución, con atribución, licencia
+  comercial, uso restringido) y de uso (YouTube, monetizado, TikTok/Instagram, streams, juegos,
+  películas, comercial), créditos listos para copiar.
+- **Derechos claros en cada resultado**: indicador, resumen en lenguaje simple, compatibilidad
+  por uso. Una licencia desconocida nunca se trata como permiso: se puede ver, no descargar.
+- **Sin duplicados**: el mismo contenido de varias fuentes se agrupa en una tarjeta con sus
+  versiones (otras fuentes, GIF/video, otra duración), eligiendo la de mejor calidad.
+- **Calidades reales** (Original/Alta/Media/Baja solo si la fuente las publica) y calidad preferida.
+- **Bouteca Studio**: una sección aparte para armar kits por proyecto (música, efectos, videos e
+  imágenes) con créditos del kit; nunca interfiere con la búsqueda normal.
+- **Actualizaciones firmadas** con canal estable (predeterminado) o beta; instalar siempre lo
+  confirmás vos.
 - **YouTube en Videos:** buscá y reproducí con el reproductor oficial. YouTube no permite
   descargar desde apps de terceros: Bouteca ofrece guardar, copiar el enlace o abrirlo en YouTube.
 - **Búsqueda por imagen:** arrastrá, pegá o elegí una imagen y Bouteca ordena los resultados por
@@ -19,7 +35,7 @@ Bout + biblioteca: escribí lo que necesitás, previsualizalo y descargalo, todo
   ("bob esponja", "tipo amarillo", "coffin dance").
 - **Resultados progresivos:** cada fuente aparece apenas responde; una fuente caída no frena a las demás.
 - **Previsualización integrada** de videos, GIFs, imágenes y audios, sin abrir ventanas.
-- **Descargas en un clic**, validadas, sin duplicados y organizadas en
+- **Descargas en un clic** (con pausa y reanudación), validadas, sin duplicados y organizadas en
   `Descargas\Bouteca\{Videos, GIFs, Audios, Imágenes}`.
 - **Favoritos, colecciones e historial** guardados solo en tu equipo.
 - **Liviana y prolija:** cuadrícula virtualizada, modo inactivo, autolimpieza de temporales y

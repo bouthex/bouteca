@@ -9,6 +9,7 @@ import { HistoryView } from "./views/HistoryView";
 import { DownloadsView } from "./views/DownloadsView";
 import { SettingsView } from "./views/SettingsView";
 import { DiagnosticsView } from "./views/DiagnosticsView";
+import { StudioView } from "./views/StudioView";
 import { onFocusSearch } from "./lib/api";
 import { selected, view } from "./lib/store";
 
@@ -46,6 +47,7 @@ export function App() {
         {v === "collections" && <CollectionsView />}
         {v === "history" && <HistoryView />}
         {v === "downloads" && <DownloadsView />}
+        {v === "studio" && <StudioView />}
         {v === "settings" && <SettingsView />}
         {v === "diagnostics" && <DiagnosticsView />}
         {selected.value && <PreviewDrawer key={selected.value.uid} item={selected.value} />}

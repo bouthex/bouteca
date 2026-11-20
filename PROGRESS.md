@@ -27,7 +27,7 @@ Corrida del commit `ab616e7` (2026-11-20):
   secretos del repo (`BOUTECA_KEY_GIPHY`, `BOUTECA_KEY_KLIPY`, `BOUTECA_KEY_YOUTUBE`,
   `BOUTECA_KEY_FREESOUND`, `BOUTECA_KEY_PIXABAY`, `BOUTECA_KEY_PEXELS`).
 
-## Implementado y con pruebas automáticas (Auto: 83 Rust + 12 interfaz)
+## Implementado y con pruebas automáticas (Auto: 88 Rust + 12 interfaz)
 - Motor federado progresivo, cancelable, caché acotada, pausa por límites, paginación.
 - Consultas multilingües (léxico es/en/pt/tr/ja/ru, entidades), ranking, duplicados.
 - 18 proveedores (incluye YouTube y Dailymotion: reproductor oficial, **sin descarga**).
@@ -85,8 +85,14 @@ Corrida del commit `ab616e7` (2026-11-20):
   pruebas → instalador firmado → `latest.json`/`beta.json` → GitHub Releases. **Bloqueado**:
   necesita la clave de firma del propietario (ver `RELEASING.md`); el entorno de desarrollo no
   tiene permiso para crear secretos del repositorio, así que no se generó ninguna clave aquí.
-- ⏳ Etapa 5: Bouteca Studio (independiente), búsqueda universal de imágenes, documentación y
-  regresión completa. Recién después: pedido de prueba manual.
+- ✅ **Etapa 5 (Auto)**: **Bouteca Studio** como sección aparte (botón propio en la barra):
+  describís el proyecto y arma un plan por categorías (música, efectos, videos, imágenes) con
+  12 temas conocidos y respaldo genérico; aplica derechos, uso y duración del pedido; sugiere con
+  el motor en sesiones propias (sin historial, sin tocar favoritos/colecciones/búsqueda normal);
+  kit persistente en tablas propias, créditos del kit y descarga del kit. Búsqueda de imágenes
+  ampliada: Wikimedia, Openverse, NASA, AIC, The Met, Cleveland, iNaturalist e Imgflip sin
+  clave (+ Pixabay/Pexels con clave), con filtros de fuente, resolución, formato, licencia y
+  descargables, originales priorizados y deduplicación.
 
 ## Pendiente
 - Verificar manualmente en Windows 10/11 de escritorio: bandeja, atajo global con otras apps,

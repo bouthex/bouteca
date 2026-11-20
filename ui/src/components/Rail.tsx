@@ -7,6 +7,7 @@ const items: { id: View; label: string; icon: (p: { size?: number }) => preact.J
   { id: "collections", label: "Colecciones", icon: Icon.Stack },
   { id: "history", label: "Historial", icon: Icon.Clock },
   { id: "downloads", label: "Descargas", icon: Icon.Download },
+  { id: "studio", label: "Studio", icon: Icon.Sparkle },
 ];
 
 export function Rail() {

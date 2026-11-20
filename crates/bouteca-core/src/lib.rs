@@ -29,6 +29,7 @@ pub mod query;
 pub mod rank;
 pub mod rights;
 pub mod settings;
+pub mod studio;
 pub mod validate;
 pub mod visual;
 

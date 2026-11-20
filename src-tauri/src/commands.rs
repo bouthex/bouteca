@@ -538,3 +538,89 @@ pub fn update_install(app: AppHandle) -> R<()> {
 pub async fn update_history(state: S<'_>) -> R<Vec<crate::updates::ReleaseEntry>> {
     crate::updates::history(&state.http).await
 }
+
+// ---------- Bouteca Studio (sección independiente) ----------
+
+static STUDIO_SEARCH_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1 << 40);
+
+#[derive(Serialize)]
+pub struct StudioDetail {
+    project: bouteca_core::db::StudioProject,
+    plan: bouteca_core::studio::KitPlan,
+    items: Vec<StudioItem>,
+}
+
+#[derive(Serialize)]
+pub struct StudioItem {
+    category: String,
+    item: MediaItem,
+}
+
+#[tauri::command]
+pub fn studio_list(state: S) -> R<Vec<bouteca_core::db::StudioProject>> {
+    state.db.studio_list().map_err(e)
+}
+
+#[tauri::command]
+pub fn studio_create(state: S, description: String) -> R<i64> {
+    let plan = bouteca_core::studio::plan_kit(&description);
+    state.db.studio_create(&plan.name, &description).map_err(e)
+}
+
+#[tauri::command]
+pub fn studio_delete(state: S, id: i64) -> R<()> {
+    state.db.studio_delete(id).map_err(e)
+}
+
+#[tauri::command]
+pub fn studio_detail(state: S, id: i64) -> R<StudioDetail> {
+    let project = state.db.studio_get(id).map_err(e)?.ok_or("el proyecto no existe")?;
+    let plan = bouteca_core::studio::plan_kit(&project.description);
+    let items = state.db.studio_items(id).map_err(e)?.into_iter().map(|(category, item)| StudioItem { category, item }).collect();
+    Ok(StudioDetail { project, plan, items })
+}
+
+/// Sugerencias para una categoría del kit. Usa el motor con sesiones propias: no aparece en el
+/// historial ni mezcla resultados con la búsqueda normal.
+#[tauri::command]
+pub async fn studio_suggest(state: S<'_>, id: i64, category: String) -> R<Vec<MediaItem>> {
+    state.touch();
+    let project = state.db.studio_get(id).map_err(e)?.ok_or("el proyecto no existe")?;
+    let plan = bouteca_core::studio::plan_kit(&project.description);
+    let cat = plan.categories.iter().find(|c| c.id == category).ok_or("categoría inválida")?;
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::new();
+    for q in cat.queries.iter().take(4) {
+        let search_id = STUDIO_SEARCH_ID.fetch_add(1, Ordering::SeqCst);
+        let req = SearchRequest { search_id, query: q.clone(), filter: cat.filter, page: 1, rights: plan.rights, usage: plan.usage };
+        for it in state.engine.search_collect(req, 6).await {
+            if seen.insert(it.dedupe_key.clone()) {
+                out.push(it);
+            }
+        }
+    }
+    if let Some(target) = plan.duration_secs {
+        // Para música, primero lo que dura al menos lo que pide el proyecto.
+        if cat.id == "music" {
+            out.sort_by_key(|i| i.duration_secs.map(|d| d < target as f64).unwrap_or(true));
+        }
+    }
+    out.truncate(16);
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn studio_add(state: S, id: i64, category: String, item: MediaItem) -> R<()> {
+    state.db.studio_add(id, &category, &item).map_err(e)
+}
+
+#[tauri::command]
+pub fn studio_remove(state: S, id: i64, uid: String) -> R<()> {
+    state.db.studio_remove(id, &uid).map_err(e)
+}
+
+#[tauri::command]
+pub fn studio_credits(state: S, id: i64) -> R<String> {
+    let items: Vec<MediaItem> = state.db.studio_items(id).map_err(e)?.into_iter().map(|(_, i)| i).collect();
+    Ok(bouteca_core::studio::credits(&items))
+}

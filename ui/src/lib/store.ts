@@ -5,7 +5,7 @@ import { addAlternate, applyGrouped, mergeBatch, type Alt, type Group } from "./
 import type * as T from "./types";
 import { applyFilters, NO_FILTERS, type ResultFilters } from "./filters";
 
-export type View = "search" | "favorites" | "collections" | "history" | "downloads" | "settings" | "diagnostics";
+export type View = "search" | "studio" | "favorites" | "collections" | "history" | "downloads" | "settings" | "diagnostics";
 
 export const view = signal<View>("search");
 export const settings = signal<T.AppSettings | null>(null);
@@ -134,9 +134,10 @@ function handleSearchEvent(e: T.SearchEvent) {
 // ---------- selección / vista previa ----------
 export const selected = signal<T.MediaItem | null>(null);
 
-export function openPreview(item: T.MediaItem) {
+/** `record = false` (Studio): no se agrega al historial de vistos. */
+export function openPreview(item: T.MediaItem, record = true) {
   selected.value = item;
-  api.recordView(item).catch(() => {});
+  if (record) api.recordView(item).catch(() => {});
 }
 
 // ---------- favoritos ----------

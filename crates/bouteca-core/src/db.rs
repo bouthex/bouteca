@@ -25,6 +25,16 @@ pub struct Collection {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct StudioProject {
+    pub id: i64,
+    pub name: String,
+    pub description: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct SavedItem {
     pub item: MediaItem,
     pub added_at: i64,
@@ -108,7 +118,14 @@ impl Db {
                 hash TEXT, mime TEXT, error TEXT, attribution TEXT,
                 created_at INTEGER NOT NULL, completed_at INTEGER);
              CREATE INDEX IF NOT EXISTS idx_dl_url ON downloads(url);
-             CREATE INDEX IF NOT EXISTS idx_dl_hash ON downloads(hash);",
+             CREATE INDEX IF NOT EXISTS idx_dl_hash ON downloads(hash);
+             CREATE TABLE IF NOT EXISTS studio_projects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, description TEXT NOT NULL,
+                created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+             CREATE TABLE IF NOT EXISTS studio_items (
+                project_id INTEGER NOT NULL REFERENCES studio_projects(id) ON DELETE CASCADE,
+                category TEXT NOT NULL, uid TEXT NOT NULL, item_json TEXT NOT NULL, added_at INTEGER NOT NULL,
+                PRIMARY KEY (project_id, uid));",
         )?;
         conn.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_version', ?1)", params![SCHEMA_VERSION.to_string()])?;
         Ok(Self { conn: Mutex::new(conn) })
@@ -175,12 +192,92 @@ impl Db {
             "SELECT item_json FROM favorites WHERE uid = ?1",
             "SELECT item_json FROM collection_items WHERE uid = ?1 LIMIT 1",
             "SELECT item_json FROM view_history WHERE uid = ?1",
+            "SELECT item_json FROM studio_items WHERE uid = ?1 LIMIT 1",
         ] {
             if let Some(j) = c.query_row(sql, params![uid], |r| r.get::<_, String>(0)).optional()? {
                 return Ok(Self::from_json(&j));
             }
         }
         Ok(None)
+    }
+
+    // ---------- Bouteca Studio (tablas propias: no toca favoritos ni colecciones) ----------
+
+    pub fn studio_create(&self, name: &str, description: &str) -> Result<i64> {
+        let (name, description) = (name.trim(), description.trim());
+        if description.is_empty() || description.chars().count() > 300 || name.chars().count() > 80 {
+            return Err(crate::CoreError::Other("describí el proyecto en hasta 300 caracteres".into()));
+        }
+        let c = self.conn.lock();
+        let n: i64 = c.query_row("SELECT COUNT(*) FROM studio_projects", [], |r| r.get(0))?;
+        if n >= 200 {
+            return Err(crate::CoreError::Other("se alcanzó el máximo de 200 proyectos de Studio".into()));
+        }
+        c.execute(
+            "INSERT INTO studio_projects(name, description, created_at, updated_at) VALUES (?1, ?2, ?3, ?3)",
+            params![name, description, now()],
+        )?;
+        Ok(c.last_insert_rowid())
+    }
+
+    pub fn studio_list(&self) -> Result<Vec<StudioProject>> {
+        let c = self.conn.lock();
+        let mut st = c.prepare(
+            "SELECT p.id, p.name, p.description, p.created_at, p.updated_at, COUNT(i.uid)
+             FROM studio_projects p LEFT JOIN studio_items i ON i.project_id = p.id
+             GROUP BY p.id ORDER BY p.updated_at DESC",
+        )?;
+        let rows = st.query_map([], |r| {
+            Ok(StudioProject {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                description: r.get(2)?,
+                created_at: r.get(3)?,
+                updated_at: r.get(4)?,
+                count: r.get(5)?,
+            })
+        })?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    pub fn studio_get(&self, id: i64) -> Result<Option<StudioProject>> {
+        Ok(self.studio_list()?.into_iter().find(|p| p.id == id))
+    }
+
+    pub fn studio_delete(&self, id: i64) -> Result<()> {
+        let c = self.conn.lock();
+        c.execute("DELETE FROM studio_items WHERE project_id = ?1", params![id])?;
+        c.execute("DELETE FROM studio_projects WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    pub fn studio_add(&self, id: i64, category: &str, item: &MediaItem) -> Result<()> {
+        if !matches!(category, "music" | "sfx" | "video" | "image") {
+            return Err(crate::CoreError::Other("categoría inválida".into()));
+        }
+        let c = self.conn.lock();
+        let n: i64 = c.query_row("SELECT COUNT(*) FROM studio_items WHERE project_id = ?1", params![id], |r| r.get(0))?;
+        if n >= 300 {
+            return Err(crate::CoreError::Other("el kit llegó al máximo de 300 elementos".into()));
+        }
+        c.execute(
+            "INSERT OR REPLACE INTO studio_items(project_id, category, uid, item_json, added_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![id, category, item.uid, Self::to_json(item), now()],
+        )?;
+        c.execute("UPDATE studio_projects SET updated_at = ?2 WHERE id = ?1", params![id, now()])?;
+        Ok(())
+    }
+
+    pub fn studio_remove(&self, id: i64, uid: &str) -> Result<()> {
+        self.conn.lock().execute("DELETE FROM studio_items WHERE project_id = ?1 AND uid = ?2", params![id, uid])?;
+        Ok(())
+    }
+
+    pub fn studio_items(&self, id: i64) -> Result<Vec<(String, MediaItem)>> {
+        let c = self.conn.lock();
+        let mut st = c.prepare("SELECT category, item_json FROM studio_items WHERE project_id = ?1 ORDER BY added_at")?;
+        let rows = st.query_map(params![id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
+        Ok(rows.filter_map(|r| r.ok()).filter_map(|(cat, j)| Self::from_json(&j).map(|i| (cat, i))).collect())
     }
 
     // ---------- colecciones ----------

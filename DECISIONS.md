@@ -57,7 +57,7 @@ Formato: fecha · decisión · motivo · alternativas descartadas.
   al SDK de Windows, así que el `.exe` se compila en un runner `windows-latest`
   (`.github/workflows/build-windows.yml`).
 
-### 2026-11-20 · Actualizaciones: pospuestas a la fase 8
+### 2026-11-20 · Actualizaciones: pospuestas a la fase 8 (reemplazada: ver "Actualizaciones firmadas")
 - `tauri-plugin-updater` exige firmar cada versión y un canal de publicación accesible. Con el
   repositorio privado, GitHub Releases no es accesible sin token. Se decidirá el canal (repo
   público de releases, o servidor propio) antes de habilitarlo. No se muestra ningún botón que
@@ -93,3 +93,39 @@ Formato: fecha · decisión · motivo · alternativas descartadas.
   reproducción de video) ni el aislamiento de sitios (seguridad).
 - Esta llamada usa un bloque `unsafe` (COM) acotado y documentado en `system.rs`: es la única
   excepción a "sin unsafe".
+
+
+### 2026-11-20 · Permisos derivados de la licencia; desconocida = sin descarga
+Cada resultado lleva `rights` calculado en el backend a partir de la licencia declarada por la
+fuente. Licencia ausente o no reconocida → se muestra y enlaza, no se descarga. El gestor de
+descargas recalcula el permiso (no confía en la interfaz). Usos por plataforma: sincronizar
+música con video se trata como obra derivada (criterio de Creative Commons), así que ND no
+sirve para YouTube/TikTok/películas; NC no sirve para monetizar; términos de plataforma =
+"depende".
+
+### 2026-11-20 · Intención en lenguaje natural, local y verificable
+"sin atribución", "para YouTube monetizado", "de dos minutos" se reconocen con reglas locales
+(sin modelos) y se aplican como filtros verificados; el resto de la frase va a las fuentes.
+
+### 2026-11-20 · Deduplicación por niveles; sin huella de audio
+URL y metadatos en memoria; visual con dHash de hasta 60 miniaturas por búsqueda. La huella de
+audio exigiría descargar cada pista: se descartó por costo de red y privacidad. Ante la duda no
+se fusiona; GIF/video, otra duración y recortes se conservan como variantes.
+
+### 2026-11-20 · Library of Congress retirada; The Met en `/v1.1`
+Las pruebas reales mostraron que la API JSON de la LoC superaba 12 s y no declara derechos
+estructurados; The Met retiró `/v1/search` el 01/10/2026.
+
+### 2026-11-20 · Actualizaciones firmadas, canal estable por defecto, instalar con confirmación
+Plugin oficial de Tauri; la clave privada solo como secreto de Actions del propietario (el
+entorno de desarrollo no puede crear secretos, así que no se generó ninguna clave aquí). La
+clave pública se inyecta en la compilación de publicación desde una variable de Actions.
+Descarga en segundo plano opcional; nunca se instala sin "Reiniciar y actualizar".
+
+### 2026-11-20 · Bouteca Studio como sección independiente
+Tablas propias, búsquedas con sesiones propias (`search_collect`), sin historial ni favoritos.
+Solo se abre desde su botón: la búsqueda normal nunca se transforma en un kit.
+
+### 2026-11-20 · Sin claves compartidas en el instalador
+Las fuentes con clave usan la clave gratuita de cada usuario (Administrador de credenciales).
+Una clave embebida se podría extraer y agotaría el cupo de todos.

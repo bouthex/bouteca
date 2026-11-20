@@ -164,7 +164,7 @@ struct Session {
     created: Instant,
 }
 
-const MAX_SESSIONS: usize = 3;
+const MAX_SESSIONS: usize = 6;
 /// Miniaturas analizadas por búsqueda como máximo (nivel visual de la deduplicación).
 const VISUAL_BUDGET: usize = 60;
 /// Miembros comparados por metadatos como máximo (la comparación es O(n) por resultado).
@@ -737,6 +737,35 @@ impl SearchEngine {
         let h = tokio::time::timeout(Duration::from_secs(5), fetch).await.ok().flatten();
         self.fingerprints.lock().put(url.to_string(), h);
         h
+    }
+
+    /// Libera la sesión de una búsqueda que no necesita paginación (p. ej. Bouteca Studio).
+    pub fn end_session(&self, search_id: u64) {
+        self.sessions.lock().remove(&search_id);
+    }
+
+    /// Búsqueda completa sin eventos progresivos: devuelve los resultados principales (sin los
+    /// agrupados como duplicados o variantes), ordenados por puntuación. La usa Bouteca Studio,
+    /// que no comparte sesión, historial ni resultados con la búsqueda normal.
+    pub async fn search_collect(self: &Arc<Self>, req: SearchRequest, limit: usize) -> Vec<MediaItem> {
+        let id = req.search_id;
+        let items = Arc::new(Mutex::new(Vec::<MediaItem>::new()));
+        let grouped = Arc::new(Mutex::new(HashSet::<String>::new()));
+        let (i2, g2) = (items.clone(), grouped.clone());
+        let sink: EventSink = Arc::new(move |ev| match ev {
+            SearchEvent::Batch { items, .. } => i2.lock().extend(items),
+            SearchEvent::Grouped { uid, .. } => {
+                g2.lock().insert(uid);
+            }
+            _ => {}
+        });
+        self.search(req, sink).await;
+        self.end_session(id);
+        let grouped = grouped.lock().clone();
+        let mut out: Vec<MediaItem> = items.lock().drain(..).filter(|i| !grouped.contains(&i.uid)).collect();
+        out.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        out.truncate(limit);
+        out
     }
 
     fn finish(&self, search_id: u64) {

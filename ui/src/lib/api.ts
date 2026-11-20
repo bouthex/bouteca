@@ -14,6 +14,14 @@ export const api = {
 
   search: (search_id: number, query: string, filter: T.KindFilter, page = 1, rights: T.RightsFilter | null = null, usage: T.Usage | null = null) =>
     call<void>("search", { req: { search_id, query, filter, page, rights, usage } }),
+  studioList: () => call<T.StudioProject[]>("studio_list"),
+  studioCreate: (description: string) => call<number>("studio_create", { description }),
+  studioDelete: (id: number) => call<void>("studio_delete", { id }),
+  studioDetail: (id: number) => call<T.StudioDetail>("studio_detail", { id }),
+  studioSuggest: (id: number, category: string) => call<T.MediaItem[]>("studio_suggest", { id, category }),
+  studioAdd: (id: number, category: string, item: T.MediaItem) => call<void>("studio_add", { id, category, item }),
+  studioRemove: (id: number, uid: string) => call<void>("studio_remove", { id, uid }),
+  studioCredits: (id: number) => call<string>("studio_credits", { id }),
   updateCheck: (download: boolean) => call<T.UpdateInfo>("update_check", { download }),
   updateInstall: () => call<void>("update_install"),
   updateHistory: () => call<T.ReleaseEntry[]>("update_history"),

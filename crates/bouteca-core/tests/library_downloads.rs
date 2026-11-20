@@ -276,3 +276,24 @@ async fn pausar_y_reanudar() {
     let row = wait_status(&db, id, &["completed"]).await;
     assert!(row.path.is_some());
 }
+
+#[test]
+fn studio_es_independiente_de_favoritos_colecciones_e_historial() {
+    let db = Db::open_in_memory().unwrap();
+    let it = item("s1", "https://example.org/a.gif", MediaKind::Gif);
+    let p = db.studio_create("Terror", "kit para un video de terror").unwrap();
+    db.studio_add(p, "sfx", &it).unwrap();
+    db.studio_add(p, "sfx", &it).unwrap(); // idempotente
+    assert!(db.studio_add(p, "otra", &it).is_err(), "categorías validadas");
+    assert_eq!(db.studio_items(p).unwrap().len(), 1);
+    assert_eq!(db.studio_list().unwrap()[0].count, 1);
+    // Nada aparece en la biblioteca normal.
+    assert!(db.list_favorites().unwrap().is_empty());
+    assert!(db.list_collections().unwrap().is_empty());
+    assert!(db.recent_searches(10).unwrap().is_empty());
+    // Pero sí se reconoce como recurso guardado (para poder descargarlo tras reiniciar).
+    assert!(db.find_saved_item("s1").unwrap().is_some());
+    assert!(db.studio_create("x", " ").is_err());
+    db.studio_delete(p).unwrap();
+    assert!(db.studio_items(p).unwrap().is_empty() && db.studio_list().unwrap().is_empty());
+}
