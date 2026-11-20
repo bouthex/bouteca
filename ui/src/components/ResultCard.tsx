@@ -65,6 +65,7 @@ export const ResultCard = memo(function ResultCard({ item, style }: { item: Medi
         ) : (
           <div class="fallback"><Icon.Image size={28} /></div>
         )}
+        {item.kind === "video" && !wantPreview && <span class="play-badge" aria-hidden="true"><Icon.Play size={16} /></span>}
         <span class="kind" data-k={item.kind} data-src={item.provider}>{item.provider === "youtube" ? "YouTube" : kindLabel[item.kind]}</span>
         {visual.value?.scores.has(item.uid) && <span class="sim" title="Parecido con tu imagen">{Math.round((visual.value.scores.get(item.uid) ?? 0) * 100)}%</span>}
         {(item.download_policy === "preview_only" || item.rights?.download === false) && !item.duration_secs && <span class="stream-only">Solo ver</span>}

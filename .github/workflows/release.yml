@@ -58,11 +58,10 @@ jobs:
       - name: Pruebas del núcleo
         run: cargo test -p bouteca-core
       - name: Compilar instalador firmado
-        working-directory: ui
         shell: bash
         run: |
-          node -e "process.stdout.write(JSON.stringify({bundle:{createUpdaterArtifacts:true},plugins:{updater:{pubkey:process.env.PUBKEY}}}))" > ../release-config.json
-          npx tauri build --config ../release-config.json
+          node -e "process.stdout.write(JSON.stringify({bundle:{createUpdaterArtifacts:true},plugins:{updater:{pubkey:process.env.PUBKEY}}}))" > "$RUNNER_TEMP/release-config.json"
+          node ui/node_modules/@tauri-apps/cli/tauri.js build --config "$RUNNER_TEMP/release-config.json"
       - name: Preparar archivos y manifiesto
         shell: bash
         run: |

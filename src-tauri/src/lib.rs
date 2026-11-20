@@ -121,6 +121,8 @@ pub fn run() {
             commands::download_start,
             commands::visual_compare,
             commands::item_details,
+            commands::import_own_file,
+            commands::downloadable_alternatives,
             commands::studio_list,
             commands::studio_create,
             commands::studio_delete,

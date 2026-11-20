@@ -14,6 +14,13 @@ jobs:
     name: Lint, pruebas y auditoría (Linux)
     runs-on: ubuntu-24.04
     steps:
+      - name: Estado de la firma de actualizaciones (solo sí/no, nunca el valor)
+        shell: bash
+        env:
+          HAS_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+          HAS_PW: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD != '' }}
+          HAS_PUB: ${{ vars.TAURI_UPDATER_PUBKEY != '' }}
+        run: echo "::notice title=Firma de actualizaciones::clave privada=$HAS_KEY, contraseña=$HAS_PW, clave pública=$HAS_PUB"
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:

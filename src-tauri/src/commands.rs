@@ -457,6 +457,53 @@ pub async fn choose_download_dir(app: AppHandle) -> R<Option<String>> {
     Ok(picked.map(|p| p.to_string_lossy().to_string()))
 }
 
+/// Importa un archivo que el usuario obtuvo por una vía autorizada (p. ej. su propio video
+/// descargado desde YouTube Studio) y lo asocia al resultado. El usuario elige el archivo.
+#[tauri::command]
+pub async fn import_own_file(app: AppHandle, state: S<'_>, item: MediaItem) -> R<Option<bouteca_core::db::DownloadRow>> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog()
+        .file()
+        .set_title("Elegí tu archivo (propio o autorizado por su autor)")
+        .add_filter("Video", &["mp4", "webm", "mov", "mkv", "m4v"])
+        .pick_file(move |p| {
+            let _ = tx.send(p.and_then(|p| p.into_path().ok()));
+        });
+    let Some(path) = rx.await.map_err(e)? else { return Ok(None) };
+    let mut item = item;
+    item.kind = bouteca_core::model::MediaKind::Video;
+    state.downloads.import_local(&item, &path).await.map(Some).map_err(e)
+}
+
+/// Versiones del mismo video publicadas en otras fuentes CON permiso de descarga verificado
+/// (Internet Archive, Wikimedia, PeerTube, NASA…). Se comparan títulos: el usuario confirma.
+#[tauri::command]
+pub async fn downloadable_alternatives(state: S<'_>, item: MediaItem) -> R<Vec<MediaItem>> {
+    state.touch();
+    let norm = |t: &str| -> std::collections::HashSet<String> {
+        bouteca_core::query::normalize(t).split_whitespace().filter(|w| w.chars().count() >= 3).map(str::to_string).collect()
+    };
+    let want = norm(&item.title);
+    if want.is_empty() {
+        return Ok(vec![]);
+    }
+    let query: String = bouteca_core::query::normalize(&item.title).split_whitespace().take(8).collect::<Vec<_>>().join(" ");
+    let search_id = STUDIO_SEARCH_ID.fetch_add(1, Ordering::SeqCst);
+    let req = SearchRequest { search_id, query, filter: bouteca_core::model::KindFilter::Video, page: 1, rights: None, usage: None };
+    let found = state.engine.search_collect(req, 40).await;
+    Ok(found
+        .into_iter()
+        .filter(|i| i.provider != item.provider && i.rights.download && i.download_policy != bouteca_core::model::DownloadPolicy::PreviewOnly)
+        .filter(|i| {
+            let got = norm(&i.title);
+            let inter = want.intersection(&got).count() as f32;
+            let union = want.union(&got).count().max(1) as f32;
+            inter / union >= 0.5
+        })
+        .take(6)
+        .collect())
+}
+
 // ---------------- diagnóstico y mantenimiento ----------------
 
 #[derive(Serialize)]

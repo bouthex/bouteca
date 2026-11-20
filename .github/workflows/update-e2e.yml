@@ -42,12 +42,12 @@ jobs:
           $dir = Join-Path $env:RUNNER_TEMP 'e2ekey'
           New-Item -ItemType Directory -Force $dir | Out-Null
           $pw = [guid]::NewGuid().ToString('N')
+          Write-Output "::add-mask::$pw"
           npx tauri signer generate --ci -p $pw -w (Join-Path $dir 'k.key') | Out-Null
           "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$pw" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           "E2E_KEYDIR=$dir" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
       - name: Compilar A (0.9.0) y B (0.9.1) firmadas
         shell: pwsh
-        working-directory: ui
         run: |
           $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content (Join-Path $env:E2E_KEYDIR 'k.key') -Raw
           $pub = (Get-Content (Join-Path $env:E2E_KEYDIR 'k.key.pub') -Raw).Trim()
@@ -57,9 +57,9 @@ jobs:
             $cfg = @{ version = $v; bundle = @{ createUpdaterArtifacts = $true }; plugins = @{ updater = @{ pubkey = $pub; dangerousInsecureTransportProtocol = $true } } } | ConvertTo-Json -Depth 5 -Compress
             $cfgFile = Join-Path $env:RUNNER_TEMP "cfg-$v.json"
             Set-Content -Path $cfgFile -Value $cfg -Encoding utf8
-            npx tauri build --features update-test --config $cfgFile
+            node ui/node_modules/@tauri-apps/cli/tauri.js build --features update-test --config $cfgFile
             if ($LASTEXITCODE -ne 0) { Write-Output "::error title=Compilación $v::falló"; exit 1 }
-            Get-ChildItem ../target/release/bundle/nsis/*$v*-setup.exe* | Copy-Item -Destination $out
+            Get-ChildItem target/release/bundle/nsis/*$v*-setup.exe* | Copy-Item -Destination $out
           }
           Get-ChildItem $out | ForEach-Object { Write-Output "::notice title=Artefacto de prueba::$($_.Name) ($([math]::Round($_.Length/1MB,2)) MB)" }
           "E2E_OUT=$out" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV

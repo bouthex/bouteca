@@ -1,5 +1,59 @@
 # Progreso real
 
+## ⏸ Pausa de desarrollo — resumen para retomar (2026-11-20 17:20, hora de Argentina)
+
+**Dónde quedamos:** en la "Orden definitiva de finalización" (versión estable 1.0.0). Lo hecho en
+esta última tanda (commits `1ac67cb` y el de cierre):
+- YouTube: estado real por video (restricción de edad, países, licencia CC), privados y no
+  insertables se quitan; el reproductor oficial muestra un mensaje claro ante errores
+  (100/101/150/153…) con "Abrir en YouTube"; botón de reproducción en tarjetas de video.
+- Descarga de YouTube investigada: sus Términos solo permiten descargar donde YouTube lo
+  autoriza; la vía oficial es YouTube Studio para videos propios (MP4 720p/360p, 5 veces por día)
+  o Google Takeout. Implementado: "Buscar una versión descargable" (copias con licencia en
+  Archive/Wikimedia/PeerTube/NASA…), "Es mi video: YouTube Studio" e "Importar mi archivo"
+  (valida y copia a Descargas). No se usa yt-dlp ni extracción de streams. **Falta documentarlo
+  en PROVIDERS.md.**
+- Prueba de humo: verifica el Administrador de credenciales y los datos del usuario
+  (`--smoke-seed`). Prueba automática de que la clave guardada llega al proveedor.
+- Workflow nuevo `update-e2e.yml`: actualización REAL entre dos versiones instaladas (0.9.0 →
+  0.9.1) firmadas con clave efímera del runner, con conservación de datos y rechazo de firma
+  inválida. La 1.ª corrida falló por la ruta del CLI de Tauri (corregido en el commit de cierre;
+  `release.yml` tenía el mismo error, también corregido). **Revisar su resultado al retomar.**
+- CI informa (solo sí/no) si están cargados los secretos de firma.
+
+**Próximos pasos exactos al retomar:**
+1. Revisar las corridas del commit de cierre: "Actualización de punta a punta (Windows)",
+   "Windows — compilación…" y "CI". Si `update-e2e` pasa, el actualizador queda probado.
+2. Documentar en `PROVIDERS.md` la sección de descarga de YouTube (arriba) y actualizar `TESTING.md`.
+3. Subir la versión a 1.0.0 (`src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, `ui/package.json`).
+4. Con la firma configurada por el propietario (ver abajo), etiquetar `v1.0.0` → `release.yml`
+   publica la release estable con instalador, `.sig`, `latest.json` y `SHA256SUMS.txt`.
+   Sin firma no se publica una estable (no podría actualizarse después).
+
+**Acciones del propietario (únicas pendientes que dependen de él):**
+- Firma de actualizaciones (pasos exactos en `RELEASING.md`): secretos
+  `TAURI_SIGNING_PRIVATE_KEY` y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, variable
+  `TAURI_UPDATER_PUBKEY` (GitHub → Settings → Secrets and variables → Actions). El entorno de
+  desarrollo no puede crear secretos.
+- Opcional: claves gratuitas para probar en CI las fuentes con clave: secretos
+  `BOUTECA_KEY_YOUTUBE`, `BOUTECA_KEY_GIPHY`, `BOUTECA_KEY_KLIPY`, `BOUTECA_KEY_FREESOUND`,
+  `BOUTECA_KEY_PIXABAY`, `BOUTECA_KEY_PEXELS`. En la app instalada, cada usuario carga sus claves
+  en Ajustes → Fuentes (Administrador de credenciales de Windows). YouTube necesita clave sí o sí.
+
+**Workflows (todos con permisos mínimos, sin ejecuciones programadas):**
+- `ci.yml` (push a main): formato, clippy, pruebas Rust y TypeScript, `cargo audit`, `npm audit`,
+  APIs reales sin clave, estado de la firma.
+- `build-windows.yml` (push a main / manual): pruebas, APIs reales en Windows, instalador NSIS,
+  instalación silenciosa, prueba de humo, desinstalación, artefacto con SHA-256.
+- `update-e2e.yml` (push a main / manual): prueba real del actualizador.
+- `release.yml` (solo etiquetas `v*`): publica; se detiene si falta la firma.
+
+**Errores conocidos / pendientes:** ninguno crítico conocido. No probado en Windows 10/11 de
+escritorio (solo runner Windows Server). Fuentes con clave sin verificación en vivo. Actualizador
+sin evidencia final hasta ver `update-e2e` en verde. No hay release publicada todavía.
+
+---
+
 Última actualización: 2026-11-20 · versión 0.2.0 (beta, sin release estable)
 
 Leyenda: **Auto** = prueba automática · **Real** = probado contra el servicio real ·

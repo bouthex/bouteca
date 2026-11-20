@@ -414,6 +414,69 @@ impl DownloadManager {
     }
 }
 
+impl DownloadManager {
+    /// Agrega a la biblioteca un archivo que el usuario ya tiene por una vía autorizada (por
+    /// ejemplo, la descarga de su propio video desde YouTube Studio o el archivo que le dio el
+    /// creador). Se valida el contenido real, se copia (nunca se mueve el original) a la carpeta
+    /// organizada y queda asociado al resultado y a su enlace de origen.
+    pub async fn import_local(&self, item: &MediaItem, src: &Path) -> Result<DownloadRow> {
+        const MAX: u64 = 8 * 1024 * 1024 * 1024;
+        let meta = tokio::fs::metadata(src).await?;
+        if !meta.is_file() || meta.len() == 0 || meta.len() > MAX {
+            return Err(CoreError::InvalidFile("elegí un archivo de video válido (hasta 8 GB)".into()));
+        }
+        let src2 = src.to_path_buf();
+        let (head, hash) = tokio::task::spawn_blocking(move || -> Result<(Vec<u8>, String)> {
+            use std::io::Read;
+            let mut f = std::fs::File::open(&src2)?;
+            let mut head = vec![0u8; 4096];
+            let n = f.read(&mut head)?;
+            head.truncate(n);
+            let mut hasher = blake3::Hasher::new();
+            let mut f = std::fs::File::open(&src2)?;
+            let mut buf = vec![0u8; 256 * 1024];
+            loop {
+                let n = f.read(&mut buf)?;
+                if n == 0 {
+                    break;
+                }
+                hasher.update(&buf[..n]);
+            }
+            Ok((head, hasher.finalize().to_hex().to_string()))
+        })
+        .await
+        .map_err(|e| CoreError::Other(e.to_string()))??;
+        let mime = validate::validate_download(item.kind, &head, meta.len())?;
+        let ext = validate::ext_for_mime(&mime).ok_or_else(|| CoreError::InvalidFile(format!("formato no admitido: {mime}")))?.to_string();
+        let opts = self.options();
+        let folder = if opts.organize_by_kind { opts.root.join(item.kind.folder()) } else { opts.root.clone() };
+        tokio::fs::create_dir_all(&folder).await?;
+        let dest = unique_path(&folder, &validate::safe_file_stem(&item.title), &ext);
+        tokio::fs::copy(src, &dest).await?;
+        let mut row = DownloadRow {
+            id: 0,
+            uid: item.uid.clone(),
+            provider: item.provider.clone(),
+            title: item.title.clone(),
+            kind: item.kind.as_str().into(),
+            url: item.page_url.clone().unwrap_or_default(),
+            path: Some(dest.to_string_lossy().to_string()),
+            status: "completed".into(),
+            bytes_total: Some(meta.len() as i64),
+            bytes_done: meta.len() as i64,
+            hash: Some(hash),
+            mime: Some(mime),
+            error: Some("importado desde tu equipo".into()),
+            attribution: Some(item.attribution()),
+            created_at: now(),
+            completed_at: Some(now()),
+        };
+        row.id = self.db.insert_download(&row)?;
+        (self.sink)(DownloadEvent::Updated { row: row.clone() });
+        Ok(row)
+    }
+}
+
 fn unique_path(folder: &Path, stem: &str, ext: &str) -> PathBuf {
     let first = folder.join(format!("{stem}.{ext}"));
     if !first.exists() {

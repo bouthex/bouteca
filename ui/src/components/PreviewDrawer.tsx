@@ -1,5 +1,5 @@
 import { isAudioKind } from "../lib/types";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { api, errText } from "../lib/api";
 import { bytes, duration, isVideoUrl, kindLabel, providerName, resolution } from "../lib/format";
 import * as Icon from "../lib/icons";
@@ -12,28 +12,68 @@ import { RightsPanel } from "./RightsPanel";
 
 /** Reproductores oficiales permitidos (deben coincidir con `frame-src` de la CSP). */
 const OFFICIAL_EMBEDS: { prefix: string; name: string; params: string }[] = [
-  { prefix: "https://www.youtube-nocookie.com/embed/", name: "YouTube", params: "?rel=0&playsinline=1" },
+  { prefix: "https://www.youtube-nocookie.com/embed/", name: "YouTube", params: "?rel=0&playsinline=1&enablejsapi=1" },
   { prefix: "https://geo.dailymotion.com/player.html?video=", name: "Dailymotion", params: "" },
 ];
 
 export function officialEmbed(url: string | null | undefined) {
   if (!url) return null;
   const e = OFFICIAL_EMBEDS.find((x) => url.startsWith(x.prefix) && /^[A-Za-z0-9_-]+$/.test(url.slice(x.prefix.length)));
-  return e ? { src: url + e.params, name: e.name } : null;
+  if (!e) return null;
+  const origin = e.name === "YouTube" ? `&origin=${encodeURIComponent(location.origin)}` : "";
+  return { src: url + e.params + origin, name: e.name };
 }
+
+/** Códigos de error del reproductor de YouTube (API del iframe) en lenguaje simple. */
+const YT_ERRORS: Record<number, string> = {
+  2: "El enlace del video no es válido.",
+  5: "Este video no se puede reproducir en el reproductor integrado.",
+  100: "El video fue eliminado o es privado.",
+  101: "El autor no permite verlo fuera de YouTube, o tiene restricción de edad o de país.",
+  150: "El autor no permite verlo fuera de YouTube, o tiene restricción de edad o de país.",
+  153: "YouTube rechazó el reproductor integrado en este equipo.",
+};
 
 /**
  * Reproductor oficial del proveedor (YouTube, Dailymotion). Se respeta tal cual: controles,
  * publicidad, restricciones de edad/región. Se monta solo con el panel abierto y se destruye al cerrarlo.
  */
-function OfficialEmbed({ src, name, title }: { src: string; name: string; title: string }) {
+function OfficialEmbed({ src, name, title, pageUrl }: { src: string; name: string; title: string; pageUrl: string | null }) {
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
     playerMounted();
-    return () => playerUnmounted();
+    // Solo YouTube: escuchamos los eventos oficiales del reproductor para mostrar un estado
+    // claro cuando un video no está disponible (edad, país, privado, inserción desactivada).
+    const onMsg = (ev: MessageEvent) => {
+      if (ev.origin !== "https://www.youtube-nocookie.com" || ev.source !== frame.current?.contentWindow) return;
+      try {
+        const d = typeof ev.data === "string" ? JSON.parse(ev.data) : ev.data;
+        if (d?.event === "onError") setErr(YT_ERRORS[Number(d.info)] ?? "YouTube no puede reproducir este video aquí.");
+      } catch { /* mensajes ajenos */ }
+    };
+    window.addEventListener("message", onMsg);
+    return () => { window.removeEventListener("message", onMsg); playerUnmounted(); };
   }, []);
+  const onLoad = () => {
+    if (name === "YouTube") frame.current?.contentWindow?.postMessage(JSON.stringify({ event: "listening", id: 1, channel: "widget" }), "https://www.youtube-nocookie.com");
+  };
+  if (err) {
+    return (
+      <div class="stage">
+        <div class="embed-error">
+          <Icon.Alert size={22} />
+          <p>{err}</p>
+          {pageUrl?.startsWith("https://") && <button class="btn sm" onClick={() => api.openExternal(pageUrl)}><Icon.External size={14} /> Abrir en {name}</button>}
+        </div>
+      </div>
+    );
+  }
   return (
     <div class="stage">
       <iframe
+        ref={frame}
+        onLoad={onLoad}
         class="yt-frame"
         src={src}
         title={`Reproductor de ${name}: ${title}`}
@@ -42,6 +82,48 @@ function OfficialEmbed({ src, name, title }: { src: string; name: string; title:
         referrerpolicy="strict-origin-when-cross-origin"
         sandbox="allow-scripts allow-same-origin allow-presentation"
       />
+    </div>
+  );
+}
+
+/**
+ * Videos que la plataforma solo deja ver (YouTube, Dailymotion): opciones legítimas para obtener
+ * el archivo sin salir de Bouteca cuando existen.
+ */
+function VideoFileOptions({ item }: { item: MediaItem }) {
+  const [alts, setAlts] = useState<MediaItem[] | "loading" | null>(null);
+  const yt = item.provider === "youtube";
+  const name = providerName(item.provider);
+  const find = () => {
+    setAlts("loading");
+    api.downloadableAlternatives(item).then(setAlts).catch((e) => { toast(errText(e), "error"); setAlts(null); });
+  };
+  const importOwn = () => api.importOwnFile(item).then((r) => r && toast("Archivo agregado a tus descargas", "ok")).catch((e) => toast(errText(e), "error"));
+  return (
+    <div class="file-options">
+      <p class="small">
+        {name} solo permite verlo con su reproductor: no autoriza que otras aplicaciones descarguen sus videos.
+        Podés guardarlo en favoritos o colecciones, copiar el enlace o abrirlo en {name}, y además:
+      </p>
+      <div class="drawer-actions">
+        <button class="btn sm" disabled={alts === "loading"} onClick={find}><Icon.Search size={14} /> Buscar una versión descargable</button>
+        {yt && <button class="btn sm ghost" onClick={() => api.openExternal("https://studio.youtube.com/")} title="YouTube Studio permite descargar los videos que subiste vos"><Icon.External size={14} /> Es mi video: YouTube Studio</button>}
+        {yt && <button class="btn sm ghost" onClick={importOwn} title="Agregá el archivo que descargaste de YouTube Studio o que te dio su autor"><Icon.Folder size={14} /> Importar mi archivo</button>}
+      </div>
+      {alts === "loading" && <div class="skeleton" style="height:48px;border-radius:8px" />}
+      {Array.isArray(alts) && (alts.length === 0 ? (
+        <p class="small muted">No se encontró una copia con permiso de descarga en las otras fuentes.</p>
+      ) : (
+        <div class="variants">
+          <p class="small muted">Copias con licencia que permite descargar (verificá que sea el mismo contenido):</p>
+          {alts.map((a) => (
+            <button class="variant" key={a.uid} onClick={() => openPreview(a)}>
+              {a.thumbnail ? <img src={a.thumbnail} alt="" loading="lazy" /> : <span class="vt" />}
+              <span class="vi"><span class="l">{a.title}</span><span class="d">{providerName(a.provider)}{a.duration_secs ? ` · ${duration(a.duration_secs)}` : ""} · {a.rights.label}</span></span>
+            </button>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }
@@ -96,7 +178,7 @@ export function PreviewDrawer({ item: initial }: { item: MediaItem }) {
   let stage;
   const embed = officialEmbed(item.embed_url);
   if (embed) {
-    stage = <OfficialEmbed src={embed.src} name={embed.name} title={item.title} />;
+    stage = <OfficialEmbed src={embed.src} name={embed.name} title={item.title} pageUrl={item.page_url} />;
   } else if (resolving) {
     stage = <div class="stage skeleton" style="height:240px" />;
   } else if (isAudioKind(item.kind) && media) {
@@ -136,9 +218,10 @@ export function PreviewDrawer({ item: initial }: { item: MediaItem }) {
           {picker && <CollectionPicker item={item} onClose={() => setPicker(false)} />}
         </div>
 
-        {item.download_policy === "preview_only" && (
+        {(item.notices ?? []).map((n) => <div class="notice" key={n}><Icon.Alert size={16} /><span>{n}</span></div>)}
+        {item.download_policy === "preview_only" && (item.kind === "video" ? <VideoFileOptions item={item} /> : (
           <div class="notice"><Icon.Alert size={16} /><span>{providerName(item.provider)} no ofrece una descarga autorizada para aplicaciones como Bouteca. Podés reproducirlo acá, guardarlo en favoritos o colecciones, copiar el enlace o abrirlo en {providerName(item.provider)}.</span></div>
-        )}
+        ))}
         {item.download_policy !== "preview_only" && item.rights?.download === false && (
           <div class="notice"><Icon.Alert size={16} /><span>No se ofrece descarga: {item.rights.summary} Podés reproducirlo, guardarlo, copiar el enlace o abrir la fuente.</span></div>
         )}

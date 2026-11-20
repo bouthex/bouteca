@@ -38,6 +38,7 @@ export interface MediaItem {
   embed_url?: string | null;
   rights: Rights;
   variants: Variant[];
+  notices?: string[];
   score: number;
   dedupe_key: string;
 }

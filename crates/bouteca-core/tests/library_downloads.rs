@@ -298,3 +298,20 @@ fn studio_es_independiente_de_favoritos_colecciones_e_historial() {
     db.studio_delete(p).unwrap();
     assert!(db.studio_items(p).unwrap().is_empty() && db.studio_list().unwrap().is_empty());
 }
+
+#[tokio::test]
+async fn importar_archivo_propio_valida_y_copia() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (m, db, _) = manager(&tmp.path().join("Bouteca"));
+    let src = tmp.path().join("mi_video.gif");
+    std::fs::write(&src, GIF).unwrap();
+    let it = item("youtube:abcdefghijk", "https://www.youtube.com/watch?v=abcdefghijk", MediaKind::Gif);
+    let row = m.import_local(&it, &src).await.unwrap();
+    assert_eq!(row.status, "completed");
+    assert!(std::path::Path::new(row.path.as_deref().unwrap()).exists());
+    assert!(src.exists(), "el original no se toca");
+    assert_eq!(db.get_download(row.id).unwrap().unwrap().status, "completed");
+    let fake = tmp.path().join("falso.gif");
+    std::fs::write(&fake, b"<html>no</html>").unwrap();
+    assert!(m.import_local(&it, &fake).await.is_err(), "se valida el contenido real");
+}
