@@ -7,6 +7,11 @@ Leyenda: **Auto** = prueba automática · **Real** = probado contra el servicio 
 x64; no es Windows 10/11 de escritorio) · **Pendiente** · **Bloqueado**.
 
 ## Verificado en Windows (workflow "Windows — compilación, instalador y prueba real")
+Última corrida, commit `d931a08` (ampliación completa, 2026-11-20): instalación por usuario OK,
+interfaz lista en 201 ms, búsqueda real con **161 resultados de 10 fuentes en 0,8 s**, reposo
+315,6 MB (Rust 37,8 + WebView2 277,8) con CPU 0 %, APIs reales con código 0, desinstalación OK.
+El actualizador registrado sin clave pública no afecta el arranque.
+
 Corrida del commit `ab616e7` (2026-11-20):
 - ✅ Compila la app y el instalador NSIS (instalador 4,04 MB; `bouteca.exe` 12,33 MB; SHA-256 publicado).
 - ✅ Instalación silenciosa **por usuario, sin administrador** en `%LOCALAPPDATA%\Bouteca`.
@@ -109,14 +114,15 @@ Corrida del commit `ab616e7` (2026-11-20):
 - Certificado de firma de código (pago) para evitar el aviso de SmartScreen.
 
 ## Siguiente paso exacto
-0. Leer los resultados en vivo de las fuentes nuevas en CI y corregir lo que falle; seguir con la
-   etapa 2 (Música). La prueba manual queda para el final de la ampliación.
-1. Prueba manual en el Windows 10/11 del propietario (o por control remoto del escritorio con su
-   permiso): instalar el artefacto de la última corrida de Windows y verificar bandeja, atajo
-   global, inicio con Windows, reproducción de video/audio, reproductor de YouTube y búsqueda
-   por imagen (pegar/arrastrar).
-2. Con las claves cargadas como secretos, confirmar en CI las 6 fuentes con clave.
-3. Corregir lo que aparezca y recién entonces etiquetar una versión estable.
+1. **Prueba manual del propietario** en su Windows 10/11 con el instalador de la última corrida
+   de "Windows — compilación, instalador y prueba real" (artefacto del commit `d931a08` o
+   posterior): Música y filtros de derechos, panel de derechos y créditos, agrupación de
+   duplicados, calidades, pausa de descargas, Studio, reproductores (YouTube/Dailymotion),
+   bandeja, atajo global, búsqueda por imagen.
+2. Para habilitar actualizaciones: cargar la clave de firma (`RELEASING.md`) y publicar la
+   primera versión con una etiqueta (`v0.3.0-beta.1` para probar el canal beta).
+3. Opcional: claves gratuitas como secretos `BOUTECA_KEY_*` para verificar en CI las 6 fuentes
+   con clave.
 
 ## Limitaciones conocidas
 - Sin claves, no hay GIPHY/KLIPY (las mejores fuentes de GIFs de reacción) ni YouTube.
