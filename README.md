@@ -9,7 +9,11 @@ Bout + biblioteca: escribí lo que necesitás, previsualizalo y descargalo, todo
 ## Qué hace
 
 - **Busca en varias fuentes a la vez** (Wikimedia Commons, Openverse, Internet Archive, Imgflip,
-  y con clave gratuita GIPHY, KLIPY, Freesound, Pixabay y Pexels) y une los resultados.
+  y con clave gratuita GIPHY, KLIPY, YouTube, Freesound, Pixabay y Pexels) y une los resultados.
+- **YouTube en Videos:** buscá y reproducí con el reproductor oficial. YouTube no permite
+  descargar desde apps de terceros: Bouteca ofrece guardar, copiar el enlace o abrirlo en YouTube.
+- **Búsqueda por imagen:** arrastrá, pegá o elegí una imagen y Bouteca ordena los resultados por
+  parecido. Se calcula en tu equipo: la imagen no se envía a ningún servicio.
 - **Entiende tu idioma:** escribís en español y Bouteca también busca en inglés (y en portugués,
   turco, japonés o ruso si lo activás). Reconoce sinónimos y personajes conocidos
   ("bob esponja", "tipo amarillo", "coffin dance").
@@ -30,7 +34,26 @@ Bout + biblioteca: escribí lo que necesitás, previsualizalo y descargalo, todo
 2. Ejecutalo. Se instala para tu usuario, sin permisos de administrador. Si el equipo no tiene
    WebView2 (Windows 10 muy antiguos), el instalador lo descarga.
 3. Abrí Bouteca y buscá. Opcional: en **Ajustes → Fuentes** pegá claves gratuitas para sumar
-   GIPHY, KLIPY, Freesound, Pixabay y Pexels.
+   GIPHY, KLIPY, YouTube, Freesound, Pixabay y Pexels (cada fila tiene el botón "Conseguir clave").
+
+Windows puede mostrar el aviso de SmartScreen "editor desconocido" porque el instalador todavía
+no tiene firma de código. Verificá el SHA-256 publicado en la corrida de Actions antes de instalar.
+
+### Claves de API (todas gratuitas)
+
+| Fuente | Dónde se obtiene |
+|---|---|
+| GIPHY | developers.giphy.com → Create an App → API |
+| KLIPY | partner.klipy.com → crear app → API key |
+| YouTube | console.cloud.google.com → nuevo proyecto → habilitar "YouTube Data API v3" → Credenciales → Clave de API (recomendado: restringirla a esa API) |
+| Freesound | freesound.org/apiv2/apply |
+| Pixabay | pixabay.com/api/docs (con sesión iniciada) |
+| Pexels | pexels.com/api/new |
+
+Las claves se guardan en el Administrador de credenciales de Windows y nunca se muestran
+completas. Para probarlas en CI, cargalas como *secrets* del repositorio con los nombres
+`BOUTECA_KEY_GIPHY`, `BOUTECA_KEY_KLIPY`, `BOUTECA_KEY_YOUTUBE`, `BOUTECA_KEY_FREESOUND`,
+`BOUTECA_KEY_PIXABAY`, `BOUTECA_KEY_PEXELS`.
 
 **Actualizar:** instalá la versión nueva encima de la anterior; tu configuración, favoritos,
 colecciones e historial se conservan.
@@ -70,6 +93,8 @@ tools/dev-mock/        servidor simulado para pruebas visuales sin red
 | [TESTING.md](TESTING.md) | Pruebas y resultados |
 | [PROGRESS.md](PROGRESS.md) | Qué está hecho, probado, pendiente o bloqueado |
 | [ROADMAP.md](ROADMAP.md) | Fases |
+| [SECURITY.md](SECURITY.md) | Controles de seguridad, datos enviados, reporte de vulnerabilidades |
+| [THREAT_MODEL.md](THREAT_MODEL.md) | Modelo de amenazas STRIDE y riesgos residuales |
 
 ## Limitaciones conocidas
 

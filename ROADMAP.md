@@ -14,7 +14,7 @@ APIs reales comparadas (`PROVIDERS.md`), tecnologías (`DECISIONS.md`), arquitec
 ## Fase 3 — Fuentes reales 🟡
 - 🟡 9 proveedores implementados (4 sin clave, 5 con clave gratuita)
 - ✅ Resultados unificados, progresivos, paginación, errores por proveedor (con servidor simulado)
-- ⬜ Verificación contra cada API real (bloqueada en la nube; primer arranque en Windows)
+- ✅ Verificación en vivo de las 4 fuentes sin clave (CI Linux y Windows) · ⬜ fuentes con clave (faltan claves)
 
 ## Fase 4 — Multimedia 🟡
 - 🟡 Reproductor de video/audio integrado con controles propios; GIF/imagen en panel
@@ -25,8 +25,7 @@ APIs reales comparadas (`PROVIDERS.md`), tecnologías (`DECISIONS.md`), arquitec
 - ✅ Sinónimos, traducción por léxico, entidades, ampliación multilingüe
 - ✅ Duplicados por URL normalizada y por hash de contenido (al descargar)
 - ⬜ Hash perceptual de miniaturas para duplicados visuales entre fuentes
-- ⬜ Búsqueda por imagen (arrastrar/pegar/elegir): modelo local opcional (p. ej. CLIP cuantizado
-  vía ONNX Runtime) descargado bajo demanda y descargado de memoria al terminar
+- 🟡 Búsqueda por imagen local (arrastrar/pegar/elegir) ordenando resultados por parecido · ⬜ modelo local opcional tipo CLIP
 - ⬜ Búsqueda semántica con embeddings (opcional, mismo criterio)
 - ⬜ Ampliar el léxico (más conceptos y entidades)
 
@@ -36,14 +35,16 @@ APIs reales comparadas (`PROVIDERS.md`), tecnologías (`DECISIONS.md`), arquitec
 
 ## Fase 7 — Optimización 🟡
 - ✅ Virtualización, liberación de reproductores, caché acotada, modo inactivo, autolimpieza
-- ⬜ Medición real en Windows y ajuste de presupuestos
+- ✅ Medición real en Windows (runner) y presupuestos revisados · ⬜ medición en escritorio
 
 ## Fase 8 — Windows 🟡
 - 🟡 Bandeja opcional, atajo global configurable, inicio con Windows opcional, instancia única
-- 🟡 Instalador NSIS (workflow de GitHub Actions listo; se ejecuta al tener el repo privado y hacer push)
+- ✅ Instalador NSIS: se compila, instala y desinstala en Windows en cada push (CI)
 - ⬜ Ventana compacta de búsqueda rápida
 - ⬜ Actualizaciones firmadas (definir canal de publicación)
 - ⬜ Freesound OAuth2 para descargar originales
 
-## Fase 9 — Auditoría ⬜
+## Fase 9 — Auditoría 🟡
+- ✅ cargo audit / npm audit sin vulnerabilidades, clippy estricto, SECURITY.md y THREAT_MODEL.md
+- ⬜ Pruebas manuales en Windows de escritorio
 ## Fase 10 — Entrega ⬜

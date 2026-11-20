@@ -62,3 +62,34 @@ Formato: fecha · decisión · motivo · alternativas descartadas.
   repositorio privado, GitHub Releases no es accesible sin token. Se decidirá el canal (repo
   público de releases, o servidor propio) antes de habilitarlo. No se muestra ningún botón que
   no funcione.
+
+### 2026-11-20 · Repositorio público durante el desarrollo
+- Decisión del propietario. Antes de cada push se revisan secretos (patrones de claves/tokens y
+  archivos `.env`, `.db`, `.log`, `keys.json`). Los secretos de CI van como *secrets* de GitHub.
+
+### 2026-11-20 · YouTube: búsqueda y reproducción oficiales, sin descarga
+- YouTube Data API v3 + reproductor incrustado (youtube-nocookie). Las condiciones de YouTube no
+  permiten descargar desde apps de terceros: no se implementa extracción de streams. Una sola
+  consulta por búsqueda (`single_query`) por el cupo de 100 búsquedas diarias.
+
+### 2026-11-20 · Defensa anti-SSRF en el cliente HTTP
+- Resolvedor DNS propio que solo devuelve IPs públicas (protege también contra DNS rebinding),
+  más validación de IP literales y de cada redirección.
+
+### 2026-11-20 · Búsqueda por imagen local en lugar de búsqueda inversa en Internet
+- Las búsquedas inversas reales (Google Lens, Bing Visual Search, TinEye) requieren enviar la
+  imagen a un tercero y/o son de pago. Se implementa comparación local (dHash + color) contra los
+  resultados. Un modelo local tipo CLIP (cientos de MB) queda como opción futura opcional.
+
+### 2026-11-20 · Ventana compacta de búsqueda rápida: no se implementa por ahora
+- Una segunda ventana implica otro WebView (memoria adicional) y duplicaría la interfaz. El atajo
+  global ya restaura la ventana principal y enfoca el buscador. Se reevaluará cuando la memoria
+  base de WebView2 esté medida y acotada.
+
+### 2026-11-20 · Memoria de WebView2
+- Medido en Windows: ~290 MB de WebView2 en reposo. Se usa la API oficial
+  `MemoryUsageTargetLevel=Low` en inactividad (−48 MB medidos) y flags conservadores de Chromium
+  (sin renderer de reserva, sin red en segundo plano). No se desactiva la GPU (afectaría la
+  reproducción de video) ni el aislamiento de sitios (seguridad).
+- Esta llamada usa un bloque `unsafe` (COM) acotado y documentado en `system.rs`: es la única
+  excepción a "sin unsafe".

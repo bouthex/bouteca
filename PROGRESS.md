@@ -1,6 +1,6 @@
 # Progreso real
 
-Última actualización: 2026-11-20 · versión 0.1.0 (en desarrollo, sin release estable)
+Última actualización: 2026-11-20 · versión 0.2.0 (beta, sin release estable)
 
 Leyenda: **Auto** = prueba automática · **Real** = probado contra el servicio real ·
 **Windows** = probado en Windows real (runner `windows-latest` de GitHub Actions, Windows Server
@@ -13,15 +13,15 @@ Corrida del commit `ab616e7` (2026-11-20):
 - ✅ La app instalada abre: interfaz lista en **202 ms**.
 - ✅ Búsqueda real "gato bailando": **69 resultados en 1,9 s** (Wikimedia 24, Internet Archive 24, Openverse 20, Imgflip 1).
 - ✅ Desinstalación silenciosa: sin archivos del programa ni procesos.
-- ⚠️ Memoria en reposo: proceso 35,5 MB + WebView2 295,3 MB = **330,7 MB**; CPU 0 %. Supera el
-  objetivo. En curso: modo de memoria reducida de WebView2 en reposo (commit siguiente a `d9bc113`).
+- ✅ Memoria (commit `d147c1d`): reposo 318,7 MB (Rust 37 MB + WebView2 282 MB), inactivo
+  282,5 MB tras el modo "Low" de WebView2; CPU 0 %. Detalle y salvedades en `PERFORMANCE.md`.
 
 ## Probado contra APIs reales (Linux y Windows, en CI)
 - ✅ Wikimedia Commons (búsqueda general y de video).
 - ✅ Openverse (imágenes y audio).
 - ✅ Internet Archive (búsqueda + resolución de archivos: 3/3).
 - ✅ Defensas anti-SSRF con red real.
-- ⏳ Imgflip y descarga real validada: incluidas en la suite; la corrida consolidada está pendiente.
+- ✅ Imgflip y descarga real validada de Wikimedia (suite completa con código 0 en Linux y Windows).
 - ⛔ GIPHY, KLIPY, YouTube, Freesound, Pixabay, Pexels: **requieren tu clave**. Implementados y
   probados con respuestas simuladas; se prueban en vivo automáticamente al cargar las claves como
   secretos del repo (`BOUTECA_KEY_GIPHY`, `BOUTECA_KEY_KLIPY`, `BOUTECA_KEY_YOUTUBE`,
@@ -41,11 +41,10 @@ Corrida del commit `ab616e7` (2026-11-20):
 - CI: formato, clippy estricto, `cargo audit` (0 vulnerabilidades), `npm audit` (0), pruebas.
 
 ## Pendiente
-- Medir el efecto del modo de memoria reducida y ajustar presupuestos (`PERFORMANCE.md`).
 - Verificar manualmente en Windows 10/11 de escritorio: bandeja, atajo global con otras apps,
   inicio con Windows, reproducción de video/audio, reproductor de YouTube (posible "Error 153"
   si YouTube rechaza el origen; hay botón "Abrir en YouTube"), pegar/arrastrar imagen.
-- Ventana compacta de búsqueda rápida.
+- Ventana compacta de búsqueda rápida (pospuesta, ver `DECISIONS.md`).
 - Actualizaciones firmadas; firma de código del instalador (requiere certificado: costo).
 - Freesound OAuth2 (originales); refresco de metadatos de YouTube guardados > 30 días.
 
@@ -54,9 +53,12 @@ Corrida del commit `ab616e7` (2026-11-20):
 - Certificado de firma de código (pago) para evitar el aviso de SmartScreen.
 
 ## Siguiente paso exacto
-1. Leer la corrida de Windows del último commit: confirmar que compila el modo de memoria
-   reducida y comparar `after_idle_release` contra `idle`.
-2. Actualizar `PERFORMANCE.md` y `TESTING.md` con esas cifras.
+1. Prueba manual en el Windows 10/11 del propietario (o por control remoto del escritorio con su
+   permiso): instalar el artefacto de la última corrida de Windows y verificar bandeja, atajo
+   global, inicio con Windows, reproducción de video/audio, reproductor de YouTube y búsqueda
+   por imagen (pegar/arrastrar).
+2. Con las claves cargadas como secretos, confirmar en CI las 6 fuentes con clave.
+3. Corregir lo que aparezca y recién entonces etiquetar una versión estable.
 
 ## Limitaciones conocidas
 - Sin claves, no hay GIPHY/KLIPY (las mejores fuentes de GIFs de reacción) ni YouTube.

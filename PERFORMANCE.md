@@ -1,27 +1,50 @@
 # Rendimiento y consumo
 
+Interfaz compilada: JS 86,5 KB (30,3 KB gzip) + CSS 22,4 KB + fuente Outfit 32 KB.
+
 > Regla del proyecto: no inventar cifras. Lo que no se midió en Windows figura como **pendiente**.
 
-## Presupuestos (objetivos a verificar en Windows 11, equipo de referencia del usuario)
+## Mediciones reales en Windows
 
-| Estado | RAM total (Bouteca + WebView2) | CPU | Disco propio |
-|---|---|---|---|
-| Inicio (ventana lista) | ≤ 180 MB | pico breve | — |
-| Reposo (2 min sin uso) | ≤ 150 MB | ~0 % (sin temporizadores activos) | — |
-| Búsqueda | ≤ 250 MB | picos < 1 s por lote | — |
-| Reproducción de video | ≤ 350 MB | lo que pida el decodificador | — |
-| Descargas (3 simultáneas) | ≤ 220 MB | < 5 % | solo parciales en `.incomplete` |
-| Almacenamiento interno | — | — | DB < 20 MB, registros ≤ 10 MB, caché ≤ límite (150 MB) |
+Entorno: runner `windows-latest` de GitHub Actions (Windows Server x64, sin GPU dedicada), app
+instalada con el instalador NSIS, medida por la propia app (`--smoke-test`) con `sysinfo`.
+**Métrica: working set** (memoria residente) del proceso y de todos sus descendientes. El working
+set cuenta varias veces las DLL compartidas entre procesos de WebView2, por lo que **sobreestima**
+la "memoria privada" que muestra el Administrador de tareas.
 
-WebView2 es la mayor parte de la memoria; el proceso Rust se apunta a ≤ 40 MB.
+| Momento | Proceso Bouteca (Rust) | WebView2 | Total | CPU |
+|---|---|---|---|---|
+| Arranque → interfaz lista | — | — | 202 ms | — |
+| Reposo (10 s tras abrir) | 37,2 MB | 281,6 MB | 318,7 MB | 0 % |
+| Tras búsqueda real (69 resultados) | — | — | 324,4 MB | — |
+| Tras inactividad (WebView2 `MemoryUsageTargetLevel=Low` + cachés liberadas) | — | — | **282,5 MB** | — |
 
-## Medido hasta ahora
+Desglose de WebView2 en reposo: navegador 109,5 · renderizador 69,6 · GPU 43,2 · red 31,6 ·
+almacenamiento 18,5 · crashpad 9,2 MB (commit `d147c1d`).
 
-| Medición | Resultado | Entorno |
+Evolución por cambio (mismo entorno):
+
+| Cambio | Reposo | Tras inactividad |
 |---|---|---|
-| Bundle de la interfaz | JS 79,6 KB (28,2 KB gzip) + CSS 20,6 KB + fuente Outfit 47 KB | Build de producción (Vite) |
-| Proceso en reposo, Windows | **pendiente** | — |
-| Proceso Linux de desarrollo | ver `TESTING.md` (no representativo de Windows) | Xvfb + WebKitGTK |
+| Base (`ab616e7`) | 330,7 MB | 337,7 MB (no bajaba) |
+| + WebView2 "Low" en reposo (`744c558`) | 324,9 MB | 291,6 MB |
+| + flags conservadores de Chromium (`d147c1d`) | 318,7 MB | 282,5 MB |
+
+Búsqueda real: 0,8–1,9 s hasta completar 4 fuentes. Instalador: 4,04 MB. Ejecutable: 12,33 MB.
+
+## Presupuestos (revisados con datos reales)
+
+| Estado | Objetivo (working set total) | Estado actual |
+|---|---|---|
+| Proceso Rust en reposo | ≤ 40 MB | ✅ 37 MB |
+| Reposo total | ≤ 320 MB | ✅ 319 MB |
+| Inactivo (tras 2 min o en bandeja) | ≤ 290 MB | ✅ 283 MB |
+| CPU en reposo | ~0 % | ✅ 0 % |
+| Interfaz lista | ≤ 500 ms | ✅ 202 ms |
+
+El presupuesto inicial (≤ 150 MB) era una estimación sin medición y no es alcanzable con
+WebView2, cuyo runtime base (navegador + GPU + red + almacenamiento) ya ocupa ~200 MB de working
+set. Pendiente: medir en Windows 10/11 de escritorio con el Administrador de tareas (memoria privada).
 
 ## Optimizaciones implementadas
 

@@ -3,9 +3,39 @@
 ## Cómo ejecutar
 
 ```bash
-cargo test -p bouteca-core     # núcleo: 36 pruebas
+cargo test -p bouteca-core     # núcleo: 47 pruebas (+7 en vivo, ignoradas por defecto)
+cargo test -p bouteca-core --test live -- --ignored --nocapture --test-threads=1   # APIs reales
 cd ui && npm test              # interfaz: 5 pruebas
 ```
+
+## Pruebas automáticas en GitHub Actions (cada push a `main`)
+
+| Workflow | Qué ejecuta |
+|---|---|
+| **CI** (Linux) | `npm ci`, TypeScript + build, vitest, `npm audit --audit-level=high`, `cargo fmt --check`, `cargo clippy -D warnings`, pruebas del núcleo, `cargo audit`, **pruebas contra APIs reales** |
+| **Windows** (`windows-latest`) | Pruebas del núcleo, **APIs reales desde Windows**, build de la app + instalador NSIS, SHA-256, **instalación silenciosa por usuario**, **prueba de humo de la app instalada** (`--smoke-test`: arranque, búsqueda real, memoria por proceso, liberación en reposo), **desinstalación silenciosa** verificada |
+
+Los resultados se publican como anotaciones de cada corrida (pestaña Actions del repositorio).
+
+## Resultados reales — 2026-11-20
+
+### APIs reales (Linux y Windows) ✅ código de salida 0 en ambos
+- Wikimedia Commons: 12 resultados (general y video). Openverse: 12 (imagen y audio).
+- Internet Archive: búsqueda + 3/3 elementos resueltos a archivos.
+- Imgflip: plantillas filtradas. Descarga real de un GIF de Wikimedia validada por contenido.
+- Anti-SSRF: `localhost` bloqueado por el resolvedor; IP locales y `169.254.169.254` bloqueadas.
+- GIPHY, KLIPY, YouTube, Freesound, Pixabay, Pexels: **omitidas por falta de clave** (no probadas en vivo).
+
+### Windows (runner, commit `744c558`) ✅
+| Paso | Resultado |
+|---|---|
+| Instalador NSIS | 4,04 MB, se instala por usuario sin administrador |
+| Arranque de la app instalada | interfaz lista en 202 ms |
+| Búsqueda real "gato bailando" | 69 resultados en 0,8–1,9 s de 4 fuentes |
+| Memoria en reposo | 37 MB proceso + 288 MB WebView2 = 325 MB, CPU 0 % |
+| Tras inactividad (WebView2 "Low") | 339 → 292 MB |
+| Desinstalación | sin archivos del programa ni procesos |
+
 
 Prueba visual sin red (solo builds de desarrollo):
 
@@ -14,9 +44,11 @@ python3 tools/dev-mock/serve.py 8765
 BOUTECA_DEV_MOCK=http://127.0.0.1:8765 node ui/node_modules/@tauri-apps/cli/tauri.js dev
 ```
 
-## Resultados — 2026-11-20 (entorno de desarrollo Linux, nube)
+## Resultados en el entorno de desarrollo (Linux, nube)
 
-### Automáticas: 41/41 ✅
+### Automáticas: 47 Rust + 5 interfaz ✅ (además de las de la versión inicial, se agregaron:
+seguridad de red y URLs, respuestas gigantes, SVG/ZIP/JPEG engañosos, YouTube (búsqueda,
+detalles, paginación, cupo agotado), huellas visuales y bombas de imagen)
 
 | Área | Pruebas | Qué verifican |
 |---|---|---|
@@ -42,13 +74,11 @@ BOUTECA_DEV_MOCK=http://127.0.0.1:8765 node ui/node_modules/@tauri-apps/cli/taur
 - Ajustes y Recursos se muestran y responden. Se corrigió un desborde de altura que ocultaba los
   botones inferiores de la barra lateral, y el cálculo de RAM de WebView (contaba hilos en Linux).
 
-### No verificable en este entorno (pendiente en Windows)
+### Pendiente de verificación manual en Windows 10/11 de escritorio
 
-El entorno de la nube bloquea la salida a las APIs de los proveedores y no tiene el SDK de Windows.
-
-- [ ] Búsquedas reales contra las 9 APIs (ver checklist en `PROVIDERS.md`).
-- [ ] Reproducción real de MP4/WebM/MP3/OGG en WebView2.
-- [ ] Instalador NSIS en Windows limpio (workflow `build-windows.yml`).
+- [ ] Fuentes con clave (requieren tus claves).
+- [ ] Reproducción de MP4/WebM/MP3/OGG y del reproductor oficial de YouTube en WebView2.
+- [ ] Pegar/arrastrar imagen para la búsqueda visual (en WebKitGTK de Linux el pegado no llegó; WebView2 lo soporta, falta confirmarlo).
 - [ ] Bandeja del sistema, cierre normal vs. bandeja, atajo global con otras apps abiertas,
       inicio con Windows.
 - [ ] Administrador de credenciales (guardar/borrar clave).
