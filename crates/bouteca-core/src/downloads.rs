@@ -166,6 +166,27 @@ impl DownloadManager {
         Ok(())
     }
 
+    /// Pausa: detiene la transferencia y **conserva** el parcial para reanudar con HTTP Range.
+    pub fn pause(&self, id: i64) -> Result<()> {
+        if let Some(t) = self.active.lock().remove(&id) {
+            t.cancel();
+        }
+        if let Some(mut row) = self.db.get_download(id)? {
+            if matches!(row.status.as_str(), "queued" | "downloading") {
+                row.status = "paused".into();
+                self.db.update_download(&row)?;
+                (self.sink)(DownloadEvent::Updated { row });
+            }
+        }
+        Ok(())
+    }
+
+    /// Reanuda una descarga pausada, interrumpida o fallida (continúa desde el parcial si el
+    /// servidor lo admite; si no, empieza de nuevo).
+    pub fn resume(self: &Arc<Self>, id: i64) -> Result<()> {
+        self.retry(id)
+    }
+
     pub fn cancel(&self, id: i64) -> Result<()> {
         if let Some(t) = self.active.lock().remove(&id) {
             t.cancel();

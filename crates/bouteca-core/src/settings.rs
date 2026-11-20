@@ -31,6 +31,36 @@ pub struct AppSettings {
     pub motion: String,
     /// Calidad de descarga por defecto (solo entre archivos que la fuente publica de verdad).
     pub preferred_quality: crate::quality::QualityPref,
+    /// Combinaciones de filtros guardadas por el usuario (la interfaz define su contenido).
+    pub saved_filters: Vec<SavedFilter>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SavedFilter {
+    pub name: String,
+    pub data: serde_json::Value,
+}
+
+impl AppSettings {
+    /// Límites para datos que vienen de la interfaz.
+    pub fn validate(&self) -> std::result::Result<(), String> {
+        if self.saved_filters.len() > 20 {
+            return Err("se pueden guardar hasta 20 combinaciones de filtros".into());
+        }
+        for f in &self.saved_filters {
+            let n = f.name.trim().chars().count();
+            if n == 0 || n > 40 {
+                return Err("el nombre del filtro debe tener entre 1 y 40 caracteres".into());
+            }
+            if serde_json::to_string(&f.data).map(|s| s.len()).unwrap_or(usize::MAX) > 2048 {
+                return Err("filtro guardado demasiado grande".into());
+            }
+        }
+        if self.engine.favorite_providers.len() > 64 {
+            return Err("demasiadas fuentes favoritas".into());
+        }
+        Ok(())
+    }
 }
 
 impl Default for AppSettings {
@@ -51,6 +81,7 @@ impl Default for AppSettings {
             theme: "dark".into(),
             motion: "system".into(),
             preferred_quality: Default::default(),
+            saved_filters: Vec::new(),
         }
     }
 }
@@ -77,6 +108,27 @@ impl AppSettings {
         std::fs::write(&tmp, serde_json::to_vec_pretty(self).unwrap_or_default())?;
         std::fs::rename(&tmp, path)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests_validate {
+    use super::*;
+
+    #[test]
+    fn limites_de_filtros_guardados() {
+        let mut s = AppSettings::default();
+        assert!(s.validate().is_ok());
+        s.saved_filters.push(SavedFilter { name: "Música sin créditos".into(), data: serde_json::json!({"rights": "sin_atribucion"}) });
+        assert!(s.validate().is_ok());
+        s.saved_filters.push(SavedFilter { name: " ".into(), data: serde_json::json!({}) });
+        assert!(s.validate().is_err());
+        s.saved_filters.pop();
+        s.saved_filters.push(SavedFilter { name: "grande".into(), data: serde_json::json!({"x": "a".repeat(3000)}) });
+        assert!(s.validate().is_err());
+        // Archivos de configuración viejos (sin los campos nuevos) siguen cargando.
+        let old: AppSettings = serde_json::from_str(r#"{"engine":{"primary_lang":"es","extra_langs":[],"disabled_providers":[],"safe_search":true,"include_unlicensed":false,"per_page":24}}"#).unwrap();
+        assert!(old.engine.group_duplicates && old.saved_filters.is_empty());
     }
 }
 

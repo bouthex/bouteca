@@ -27,7 +27,7 @@ Corrida del commit `ab616e7` (2026-11-20):
   secretos del repo (`BOUTECA_KEY_GIPHY`, `BOUTECA_KEY_KLIPY`, `BOUTECA_KEY_YOUTUBE`,
   `BOUTECA_KEY_FREESOUND`, `BOUTECA_KEY_PIXABAY`, `BOUTECA_KEY_PEXELS`).
 
-## Implementado y con pruebas automáticas (Auto: 79 Rust + 8 interfaz)
+## Implementado y con pruebas automáticas (Auto: 81 Rust + 12 interfaz)
 - Motor federado progresivo, cancelable, caché acotada, pausa por límites, paginación.
 - Consultas multilingües (léxico es/en/pt/tr/ja/ru, entidades), ranking, duplicados.
 - 18 proveedores (incluye YouTube y Dailymotion: reproductor oficial, **sin descarga**).
@@ -69,8 +69,15 @@ Corrida del commit `ab616e7` (2026-11-20):
   (también la usa "Descargar"). Revisada la interfaz en navegador con datos simulados
   (`npm run dev:mock`). Corregido: parte de la interfaz de la etapa 2 (panel de derechos y
   ±10 s) no había quedado aplicada en el commit anterior.
-- ⏳ Etapa 4: filtros avanzados, preferencias persistentes, gestor de descargas (pausa/progreso
-  global), actualizador firmado con canales estable/beta.
+- ✅ **Etapa 4a (Auto)**: filtros sobre resultados (duración, resolución mínima, fuente,
+  formato real de los archivos, solo descargables) sin volver a consultar la red; combinaciones
+  de filtros guardadas (validadas: ≤ 20, ≤ 2 KB); fuentes favoritas (suben en el orden);
+  descargas con **pausa/reanudación** (conserva el parcial y continúa con HTTP Range) y
+  progreso total. Deduplicación visual determinista (lo mostrado después se une a lo anterior).
+  **Real (CI, commit b30173e, Windows)**: búsqueda de humo con 162 resultados de 10 fuentes en
+  1,1 s; APIs reales con código 0 en Linux y Windows (incluye The Met `/v1.1`, música en
+  Archive/Openverse/Wikimedia, ccMixter, Dailymotion, PeerTube).
+- ⏳ Etapa 4b: actualizador firmado con canales estable/beta.
 - ⏳ Etapa 5: Bouteca Studio (independiente), búsqueda universal de imágenes, documentación y
   regresión completa. Recién después: pedido de prueba manual.
 

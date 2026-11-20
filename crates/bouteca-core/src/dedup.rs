@@ -36,6 +36,9 @@ pub enum Relation {
 #[derive(Debug, Clone)]
 pub struct Member {
     pub uid: String,
+    /// Clave propia (la de su tarjeta si no está agrupado).
+    pub key: String,
+    /// Grupo actual (igual a `key` mientras encabeza su propia tarjeta).
     pub group: String,
     pub kind: MediaKind,
     pub title: String,
@@ -53,6 +56,7 @@ impl Member {
     pub fn of(item: &MediaItem, group: &str) -> Self {
         Member {
             uid: item.uid.clone(),
+            key: item.dedupe_key.clone(),
             group: group.to_string(),
             kind: item.kind,
             title: norm_title(&item.title),

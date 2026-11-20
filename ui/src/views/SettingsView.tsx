@@ -62,6 +62,18 @@ function ShortcutRecorder({ value, onChange }: { value: string | null; onChange:
   );
 }
 
+function FavStar({ id, name }: { id: string; name: string }) {
+  const s = settings.value;
+  if (!s) return null;
+  const on = s.engine.favorite_providers.includes(id);
+  const toggle = () => saveSettings({ ...s, engine: { ...s.engine, favorite_providers: on ? s.engine.favorite_providers.filter((x) => x !== id) : [...s.engine.favorite_providers, id] } });
+  return (
+    <button class={`icon-btn fav-src ${on ? "on" : ""}`} aria-pressed={on} title={on ? `Quitar ${name} de favoritas` : `Marcar ${name} como favorita: sus resultados suben en el orden`} onClick={toggle}>
+      {on ? <Icon.HeartFill size={15} /> : <Icon.Heart size={15} />}
+    </button>
+  );
+}
+
 function ProviderRow({ p, reload }: { p: ProviderView; reload: () => void }) {
   const [key, setKey] = useState("");
   const [editing, setEditing] = useState(false);
@@ -87,6 +99,7 @@ function ProviderRow({ p, reload }: { p: ProviderView; reload: () => void }) {
         <b>{p.info.name}</b>
         <span class="status-pill" data-s={st} title={"detail" in p.status ? p.status.detail : undefined}>{label}</span>
         <span style="flex:1" />
+        <FavStar id={p.info.id} name={p.info.name} />
         <Switch on={p.enabled} label={`Usar ${p.info.name}`} onChange={async (v) => { await api.setProviderEnabled(p.info.id, v).catch((e) => toast(errText(e), "error")); reload(); }} />
       </div>
       <span class="small muted">{p.info.terms} Límite: {p.info.rate_limit}.</span>

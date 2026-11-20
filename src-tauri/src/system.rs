@@ -130,8 +130,14 @@ pub fn run_maintenance(app: &AppHandle) -> maintenance::CleanupReport {
         .filter(|d| matches!(d.status.as_str(), "queued" | "downloading" | "verifying"))
         .map(|d| d.id)
         .collect();
-    let resumable: HashSet<i64> =
-        state.db.list_downloads(500).unwrap_or_default().into_iter().filter(|d| d.status == "interrupted").map(|d| d.id).collect();
+    let resumable: HashSet<i64> = state
+        .db
+        .list_downloads(500)
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|d| matches!(d.status.as_str(), "interrupted" | "paused"))
+        .map(|d| d.id)
+        .collect();
     let limit = state.settings.read().web_cache_limit_mb * 1024 * 1024;
     let rep = maintenance::cleanup(&maint_paths(&state), &state.db, &active, &resumable, limit);
     if rep.web_cache_over_limit && state.players_active.load(Ordering::Relaxed) == 0 {

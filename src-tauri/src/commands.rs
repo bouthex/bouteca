@@ -345,6 +345,14 @@ pub fn downloads_list(state: S) -> R<Vec<DownloadRow>> {
     state.db.list_downloads(300).map_err(e)
 }
 #[tauri::command]
+pub fn download_pause(state: S, id: i64) -> R<()> {
+    state.downloads.pause(id).map_err(e)
+}
+#[tauri::command]
+pub fn download_resume(state: S, id: i64) -> R<()> {
+    state.downloads.resume(id).map_err(e)
+}
+#[tauri::command]
 pub fn download_cancel(state: S, id: i64) -> R<()> {
     state.downloads.cancel(id).map_err(e)
 }
@@ -411,6 +419,7 @@ pub fn settings_get(state: S) -> AppSettings {
 #[tauri::command]
 pub fn settings_update(app: AppHandle, state: S, mut settings: AppSettings) -> R<AppSettings> {
     settings.engine.per_page = settings.engine.per_page.clamp(8, 50);
+    settings.validate()?;
     settings.web_cache_limit_mb = settings.web_cache_limit_mb.clamp(20, 2000);
     if let Some(sc) = &settings.global_shortcut {
         if sc.len() > 60 {

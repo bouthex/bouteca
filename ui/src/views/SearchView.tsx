@@ -1,11 +1,12 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "../lib/api";
 import { duration, providerName } from "../lib/format";
 import * as Icon from "../lib/icons";
 import {
   elapsedMs, filter, hasMore, lastSearched, loadMore, loadingMore, plan, providerErrors, providerState,
-  results, rightsFilter, runSearch, searching, understood, usageFilter, userScrolled, view, visual, clearVisual,
+  results, resultFilters, rightsFilter, runSearch, saveSettings, searching, settings, understood, usageFilter, userScrolled, view, visibleResults, visual, clearVisual,
 } from "../lib/store";
+import { availableFormats, DURATION_LABEL, isActive, NO_FILTERS, type DurationBucket, type MinRes } from "../lib/filters";
 import type { KindFilter, RightsFilter, SearchEntry, Usage } from "../lib/types";
 import { ResultGrid } from "../components/ResultGrid";
 import { SearchBar } from "../components/SearchBar";
@@ -43,7 +44,88 @@ const DETECTED_LABEL: Record<string, string> = {};
 for (const r of RIGHTS_OPTIONS) DETECTED_LABEL[r.id] = r.label;
 for (const u of USAGE_OPTIONS) DETECTED_LABEL[u.id] = u.label;
 
+function FiltersPopover({ onClose }: { onClose: () => void }) {
+  const f = resultFilters.value;
+  const set = (patch: Partial<typeof f>) => (resultFilters.value = { ...f, ...patch });
+  const toggle = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+  const sources = plan.value?.providers ?? [];
+  const formats = availableFormats(results.value);
+  const s = settings.value;
+  const [name, setName] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const away = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    setTimeout(() => document.addEventListener("mousedown", away));
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
+  }, []);
+  const save = () => {
+    if (!s || !name.trim()) return;
+    const preset = { name: name.trim().slice(0, 40), data: { rights: rightsFilter.value, usage: usageFilter.value, filters: f } };
+    saveSettings({ ...s, saved_filters: [...s.saved_filters.filter((x) => x.name !== preset.name), preset].slice(-20) });
+    setName("");
+  };
+  return (
+    <div class="popover filters-pop" ref={ref} role="dialog" aria-label="Filtros de resultados">
+      <div class="fp-row">
+        <span class="fp-l">Duración</span>
+        <select class="field sm" value={f.duration} onChange={(e) => set({ duration: (e.target as HTMLSelectElement).value as DurationBucket })}>
+          {(Object.keys(DURATION_LABEL) as DurationBucket[]).map((k) => <option key={k} value={k}>{DURATION_LABEL[k]}</option>)}
+        </select>
+      </div>
+      <div class="fp-row">
+        <span class="fp-l">Resolución mínima</span>
+        <select class="field sm" value={String(f.minRes)} onChange={(e) => set({ minRes: Number((e.target as HTMLSelectElement).value) as MinRes })}>
+          <option value="0">Cualquiera</option>
+          <option value="720">HD (720p)</option>
+          <option value="1080">Full HD (1080p)</option>
+          <option value="2160">4K</option>
+        </select>
+      </div>
+      <label class="fp-row check">
+        <input type="checkbox" checked={f.downloadableOnly} onChange={(e) => set({ downloadableOnly: (e.target as HTMLInputElement).checked })} />
+        Solo descargables
+      </label>
+      {formats.length > 0 && (
+        <div>
+          <span class="fp-l">Formato</span>
+          <div class="fp-chips">{formats.map((x) => <button class="chip sm" key={x} aria-pressed={f.formats.includes(x)} onClick={() => set({ formats: toggle(f.formats, x) })}>{x.toUpperCase()}</button>)}</div>
+        </div>
+      )}
+      {sources.length > 1 && (
+        <div>
+          <span class="fp-l">Fuente</span>
+          <div class="fp-chips">{sources.map((x) => <button class="chip sm" key={x} aria-pressed={f.sources.includes(x)} onClick={() => set({ sources: toggle(f.sources, x) })}>{providerName(x)}</button>)}</div>
+        </div>
+      )}
+      <div class="fp-foot">
+        <button class="btn ghost sm" onClick={() => (resultFilters.value = NO_FILTERS)} disabled={!isActive(f)}>Limpiar</button>
+        <form class="fp-save" onSubmit={(e) => { e.preventDefault(); save(); }}>
+          <input class="field sm" placeholder="Nombre para guardar" maxLength={40} value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} />
+          <button class="btn sm" disabled={!name.trim()}>Guardar</button>
+        </form>
+      </div>
+      {s && s.saved_filters.length > 0 && (
+        <div>
+          <span class="fp-l">Guardados</span>
+          <div class="fp-chips">
+            {s.saved_filters.map((p) => (
+              <span class="chip sm saved" key={p.name}>
+                <button class="link" onClick={() => { rightsFilter.value = p.data.rights ?? null; usageFilter.value = p.data.usage ?? null; resultFilters.value = p.data.filters ?? NO_FILTERS; runSearch(lastSearched.value, filter.value); onClose(); }}>{p.name}</button>
+                <button class="x" aria-label={`Borrar ${p.name}`} onClick={() => saveSettings({ ...s, saved_filters: s.saved_filters.filter((x) => x.name !== p.name) })}>×</button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RightsBar() {
+  const [open, setOpen] = useState(false);
+  const active = isActive(resultFilters.value);
   const u = understood.value;
   const fromText = u ? [
     u.intent.kind && u.intent.kind !== "all" ? FILTERS.find((f) => f.id === u.intent.kind)?.label : null,
@@ -68,6 +150,12 @@ function RightsBar() {
           {USAGE_OPTIONS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
       </label>
+      <span style="position:relative">
+        <button class="select-chip as-btn" data-on={String(active)} aria-expanded={open} onClick={() => setOpen(!open)}>
+          <Icon.Sliders size={14} /> Filtros{active ? ` · ${visibleResults.value.length} de ${results.value.length}` : ""}
+        </button>
+        {open && <FiltersPopover onClose={() => setOpen(false)} />}
+      </span>
       {fromText.length > 0 && (
         <span class="understood" title="Detectado en tu búsqueda. Se aplica como filtro verificado.">
           Entendí: {fromText.join(" · ")}
@@ -133,7 +221,7 @@ export function SearchView() {
   const translations = p?.variants.filter((v) => v.reason !== "original") ?? [];
   const states = providerState.value;
   const errs = providerErrors.value;
-  const items = results.value;
+  const items = visibleResults.value;
   const allFailed = !searching.value && p && p.providers.length > 0 && p.providers.every((x) => states[x] === "error");
   const noProviders = !searching.value && p && p.providers.length === 0;
 
@@ -192,7 +280,8 @@ export function SearchView() {
       ) : !searching.value && items.length === 0 ? (
         <div class="empty">
           <div class="glyph"><Icon.Search size={28} /></div>
-          <h2>Sin resultados para «{lastSearched.value}»</h2>
+          <h2>{results.value.length > 0 ? "Ningún resultado cumple los filtros" : <>Sin resultados para «{lastSearched.value}»</>}</h2>
+          {results.value.length > 0 && <button class="btn" onClick={() => (resultFilters.value = NO_FILTERS)}>Limpiar filtros</button>}
           <p>Probá con menos palabras, otro filtro o una descripción distinta (por ejemplo, el nombre del personaje o la emoción).</p>
           {(rightsFilter.value || usageFilter.value) && (
             <button class="btn" onClick={() => { rightsFilter.value = null; usageFilter.value = null; runSearch(lastSearched.value, filter.value); }}>Quitar filtros de derechos</button>

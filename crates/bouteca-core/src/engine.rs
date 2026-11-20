@@ -49,6 +49,8 @@ pub struct EngineSettings {
     pub group_duplicates: bool,
     /// Nivel visual de la deduplicación: compara miniaturas (≈10–30 KB cada una, con límite).
     pub visual_dedup: bool,
+    /// Fuentes favoritas: sus resultados suben en el orden (no excluye a las demás).
+    pub favorite_providers: HashSet<String>,
 }
 
 impl Default for EngineSettings {
@@ -62,6 +64,7 @@ impl Default for EngineSettings {
             per_page: 24,
             group_duplicates: true,
             visual_dedup: true,
+            favorite_providers: HashSet::new(),
         }
     }
 }
@@ -121,6 +124,8 @@ pub enum SearchEvent {
         search_id: u64,
         group: String,
         uid: String,
+        /// Si se mueve una tarjeta ya visible: la clave de su grupo anterior.
+        from_group: Option<String>,
         item: Option<Box<MediaItem>>,
         variant: Variant,
         duplicate: bool,
@@ -166,6 +171,8 @@ const VISUAL_BUDGET: usize = 60;
 const MAX_MEMBERS: usize = 600;
 /// Una tarjeta nueva desplaza a la principal solo si es claramente mejor.
 const PROMOTE_MARGIN: f32 = 4.0;
+/// Puntos extra para resultados de fuentes favoritas.
+const FAVORITE_BOOST: f32 = 6.0;
 const PROVIDER_TIMEOUT: Duration = Duration::from_secs(12);
 
 pub struct SearchEngine {
@@ -489,6 +496,9 @@ impl SearchEngine {
                                 continue;
                             }
                             item.score = rank::score(&item, &plan, variant.weight, pos);
+                            if engine.settings.read().favorite_providers.contains(&item.provider) {
+                                item.score += FAVORITE_BOOST;
+                            }
                             if let (Some(target), Some(d)) = (duration, item.duration_secs) {
                                 // Cercanía a la duración pedida: suma hasta 12 puntos (no excluye).
                                 let ratio = (d / target as f64).clamp(0.01, 100.0);
@@ -560,6 +570,7 @@ impl SearchEngine {
                                             search_id,
                                             group,
                                             uid: item.uid.clone(),
+                                            from_group: None,
                                             duplicate: matches!(rel, crate::dedup::Relation::Duplicate { .. }),
                                             item: Some(Box::new(item)),
                                             variant,
@@ -656,6 +667,8 @@ impl SearchEngine {
         if token.is_cancelled() {
             return;
         }
+        // Orden determinista: el resultado mostrado después se une al anterior (nunca al revés),
+        // sin importar en qué orden terminen las descargas de miniaturas.
         for (uid, h) in hashes {
             let Some(h) = h else { continue };
             let event = {
@@ -663,35 +676,40 @@ impl SearchEngine {
                 let Some(s) = sessions.get_mut(&search_id) else { return };
                 let Some(idx) = s.members.iter().position(|m| m.uid == uid) else { continue };
                 s.members[idx].dhash = Some(h);
-                let me = s.members[idx].clone();
-                let found = s.members.iter().enumerate().find_map(|(j, m)| {
-                    if j == idx || m.group == me.group {
+                let pair = s.members.iter().enumerate().find_map(|(j, m)| {
+                    if j == idx || m.group == s.members[idx].group {
                         return None;
                     }
                     let d = (m.dhash? ^ h).count_ones();
-                    match crate::dedup::relate(&me, m, Some(d)) {
+                    let (mover, target) = if j < idx { (idx, j) } else { (j, idx) };
+                    match crate::dedup::relate(&s.members[mover], &s.members[target], Some(d)) {
                         crate::dedup::Relation::Distinct => None,
-                        rel => Some((m.group.clone(), rel)),
+                        rel => Some((mover, target, rel)),
                     }
                 });
-                found.map(|(g, rel)| {
-                    let old_group = me.group.clone();
+                pair.and_then(|(mover, target, rel)| {
+                    let mv = s.members[mover].clone();
+                    // Solo se mueve una tarjeta que encabeza su grupo (no un miembro ya agrupado).
+                    if mv.group != mv.key {
+                        return None;
+                    }
+                    let g = s.members[target].group.clone();
                     let primary = s.primary_quality.get(&g).copied().unwrap_or(0.0);
                     let duplicate = matches!(rel, crate::dedup::Relation::Duplicate { .. });
-                    let promote = duplicate && me.quality > primary + PROMOTE_MARGIN;
+                    let promote = duplicate && mv.quality > primary + PROMOTE_MARGIN;
                     if promote {
-                        s.primary_quality.insert(g.clone(), me.quality);
+                        s.primary_quality.insert(g.clone(), mv.quality);
                     }
-                    for m in s.members.iter_mut().filter(|m| m.group == old_group) {
+                    for m in s.members.iter_mut().filter(|m| m.group == mv.group) {
                         m.group = g.clone();
                     }
-                    s.primary_quality.remove(&old_group);
-                    let mut variant = me.variant.clone();
+                    s.primary_quality.remove(&mv.key);
+                    let mut variant = mv.variant.clone();
                     if let crate::dedup::Relation::Duplicate { reason, confidence } | crate::dedup::Relation::Variant { reason, confidence } = rel {
                         variant.reason = reason.to_string();
                         variant.confidence = confidence;
                     }
-                    SearchEvent::Grouped { search_id, group: g, uid: me.uid.clone(), item: None, variant, duplicate, promote }
+                    Some(SearchEvent::Grouped { search_id, group: g, uid: mv.uid, from_group: Some(mv.key), item: None, variant, duplicate, promote })
                 })
             };
             if let Some(ev) = event {

@@ -11,6 +11,7 @@ export interface Group {
 export interface GroupedEvent {
   group: string;
   uid: string;
+  from_group?: string | null;
   item: MediaItem | null;
   variant: Variant;
   duplicate: boolean;
@@ -35,7 +36,7 @@ export function applyGrouped(
   alts: Map<string, Alt[]>,
   ev: GroupedEvent,
 ): { results: MediaItem[]; groups: Map<string, Group>; alts: Map<string, Alt[]> } {
-  const member = ev.item ?? results.find((r) => r.uid === ev.uid);
+  const member = ev.item ?? results.find((r) => r.uid === ev.uid) ?? (ev.from_group ? results.find((r) => r.dedupe_key === ev.from_group) : undefined);
   const pIdx = results.findIndex((r) => r.dedupe_key === ev.group);
   if (!member || pIdx === -1 || results[pIdx].uid === member.uid) return { results, groups, alts };
   let next = results.filter((r) => r.uid !== member.uid);

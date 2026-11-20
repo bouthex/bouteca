@@ -117,7 +117,7 @@ export type SearchEvent =
     }
   | { type: "batch"; search_id: number; provider: string; items: MediaItem[] }
   | { type: "alternate"; search_id: number; dedupe_key: string; provider: string; uid: string; renditions: Rendition[] }
-  | { type: "grouped"; search_id: number; group: string; uid: string; item: MediaItem | null; variant: Variant; duplicate: boolean; promote: boolean }
+  | { type: "grouped"; search_id: number; group: string; uid: string; from_group: string | null; item: MediaItem | null; variant: Variant; duplicate: boolean; promote: boolean }
   | { type: "provider_error"; search_id: number; provider: string; message: string; status: ProviderStatus }
   | { type: "done"; search_id: number; has_more: boolean; total_items: number; elapsed_ms: number };
 
@@ -167,7 +167,7 @@ export interface DownloadRow {
   kind: MediaKind;
   url: string;
   path: string | null;
-  status: "queued" | "downloading" | "verifying" | "completed" | "failed" | "cancelled" | "interrupted";
+  status: "queued" | "downloading" | "verifying" | "completed" | "failed" | "cancelled" | "interrupted" | "paused";
   bytes_total: number | null;
   bytes_done: number;
   hash: string | null;
@@ -193,6 +193,12 @@ export interface EngineSettings {
   per_page: number;
   group_duplicates: boolean;
   visual_dedup: boolean;
+  favorite_providers: string[];
+}
+
+export interface SavedFilter {
+  name: string;
+  data: { rights?: RightsFilter | null; usage?: Usage | null; filters?: import("./filters").ResultFilters };
 }
 
 export type QualityPref = "auto" | "original" | "alta" | "media" | "baja";
@@ -223,6 +229,7 @@ export interface AppSettings {
   theme: "dark" | "light";
   motion: "system" | "reduced" | "off";
   preferred_quality: QualityPref;
+  saved_filters: SavedFilter[];
 }
 
 export interface StorageReport {

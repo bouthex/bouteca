@@ -40,9 +40,9 @@ let lastQuery = "";
 export async function invoke(cmd: string, args?: Record<string, any>): Promise<any> {
   switch (cmd) {
     case "settings_get":
-      return { engine: { primary_lang: "es", extra_langs: ["pt"], disabled_providers: [], safe_search: true, include_unlicensed: false, per_page: 24, group_duplicates: true, visual_dedup: true },
+      return { engine: { primary_lang: "es", extra_langs: ["pt"], disabled_providers: [], safe_search: true, include_unlicensed: false, per_page: 24, group_duplicates: true, visual_dedup: true, favorite_providers: [] },
         download_dir: null, organize_by_kind: true, detect_duplicates: true, global_shortcut: "CommandOrControl+Shift+B", minimize_to_tray: false, launch_at_startup: false,
-        hover_previews: true, autoplay_gifs: false, web_cache_limit_mb: 150, auto_cleanup: true, thumbnail_quality: "low", theme: "dark", motion: "system", preferred_quality: "auto" };
+        hover_previews: true, autoplay_gifs: false, web_cache_limit_mb: 150, auto_cleanup: true, thumbnail_quality: "low", theme: "dark", motion: "system", preferred_quality: "auto", saved_filters: [{ name: "Música sin créditos", data: { rights: "sin_atribucion" } }] };
     case "favorite_uids": case "collections_list": case "downloads_list": case "history_searches": case "history_views": case "favorites_list": case "suggestions":
       return [];
     case "app_info":

@@ -42,6 +42,8 @@ export const api = {
     call<T.EnqueueOutcome>("download_start", { item, renditionUrl: renditionUrl ?? null }),
   downloads: () => call<T.DownloadRow[]>("downloads_list"),
   downloadCancel: (id: number) => call<void>("download_cancel", { id }),
+  downloadPause: (id: number) => call<void>("download_pause", { id }),
+  downloadResume: (id: number) => call<void>("download_resume", { id }),
   downloadRetry: (id: number) => call<void>("download_retry", { id }),
   downloadRemove: (id: number) => call<void>("download_remove", { id }),
   downloadOpen: (id: number) => call<void>("download_open", { id }),

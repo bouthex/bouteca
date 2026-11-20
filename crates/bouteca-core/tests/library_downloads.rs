@@ -253,3 +253,26 @@ async fn licencia_desconocida_o_restringida_no_se_descarga() {
     it.rights.download = true;
     assert!(m.enqueue(&it, None).is_err());
 }
+
+#[tokio::test]
+async fn pausar_y_reanudar() {
+    let s = MockServer::start().await;
+    let big: Vec<u8> = GIF.iter().copied().chain(std::iter::repeat_n(0u8, 300_000)).collect();
+    Mock::given(method("GET"))
+        .and(path("/p.gif"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(big).set_delay(Duration::from_millis(300)))
+        .mount(&s)
+        .await;
+    let tmp = tempfile::tempdir().unwrap();
+    let (m, db, _) = manager(&tmp.path().join("Bouteca"));
+    let EnqueueOutcome::Queued { id } = m.enqueue(&item("p", &format!("{}/p.gif", s.uri()), MediaKind::Gif), None).unwrap() else { panic!() };
+    tokio::time::sleep(Duration::from_millis(80)).await;
+    m.pause(id).unwrap();
+    let row = db.get_download(id).unwrap().unwrap();
+    assert_eq!(row.status, "paused");
+    tokio::time::sleep(Duration::from_millis(400)).await;
+    assert_eq!(db.get_download(id).unwrap().unwrap().status, "paused", "una pausa no se completa sola");
+    m.resume(id).unwrap();
+    let row = wait_status(&db, id, &["completed"]).await;
+    assert!(row.path.is_some());
+}

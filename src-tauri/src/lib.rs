@@ -113,6 +113,8 @@ pub fn run() {
             commands::visual_compare,
             commands::item_details,
             commands::downloads_list,
+            commands::download_pause,
+            commands::download_resume,
             commands::download_cancel,
             commands::download_retry,
             commands::download_remove,

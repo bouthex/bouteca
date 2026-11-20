@@ -3,6 +3,7 @@ import { batch, computed, signal } from "@preact/signals";
 import { api, errText, onDownloadEvent, onSearchEvent } from "./api";
 import { addAlternate, applyGrouped, mergeBatch, type Alt, type Group } from "./results";
 import type * as T from "./types";
+import { applyFilters, NO_FILTERS, type ResultFilters } from "./filters";
 
 export type View = "search" | "favorites" | "collections" | "history" | "downloads" | "settings" | "diagnostics";
 
@@ -29,6 +30,9 @@ export const elapsedMs = signal<number | null>(null);
 export const rightsFilter = signal<T.RightsFilter | null>(null);
 export const usageFilter = signal<T.Usage | null>(null);
 /** Lo que el motor entendió del texto y los filtros efectivos de la búsqueda en curso. */
+/** Filtros sobre los resultados recibidos (duración, resolución, fuente, formato, descargable). */
+export const resultFilters = signal<ResultFilters>(NO_FILTERS);
+export const visibleResults = computed(() => applyFilters(results.value, resultFilters.value));
 export const understood = signal<{ intent: T.Intent; rights: T.RightsFilter | null; usage: T.Usage | null } | null>(null);
 
 let searchSeq = Date.now() % 1_000_000;

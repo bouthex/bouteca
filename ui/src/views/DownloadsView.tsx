@@ -26,6 +26,7 @@ function Row({ d }: { d: DownloadRow }) {
     case "failed": status = d.error ?? "Falló"; break;
     case "cancelled": status = "Cancelada"; break;
     case "interrupted": status = "Interrumpida al cerrar Bouteca. Podés reanudarla."; break;
+    case "paused": status = `En pausa${done ? ` · ${bytes(done)}${total ? ` de ${bytes(total)}` : ""}` : ""}`; break;
   }
 
   return (
@@ -37,7 +38,11 @@ function Row({ d }: { d: DownloadRow }) {
         {active && <div class={`bar ${!total || d.status !== "downloading" ? "indet" : ""}`}><i style={`width:${pct}%`} /></div>}
       </div>
       <div class="acts">
-        {active && <button class="btn sm" onClick={() => run(api.downloadCancel(d.id))}>Cancelar</button>}
+        {(d.status === "queued" || d.status === "downloading") && (
+          <button class="btn sm ghost" onClick={() => run(api.downloadPause(d.id))} title="Pausar (se conserva lo descargado)"><Icon.Pause size={14} /></button>
+        )}
+        {d.status === "paused" && <button class="btn sm" onClick={() => run(api.downloadResume(d.id))}><Icon.Play size={14} /> Reanudar</button>}
+        {(active || d.status === "paused") && <button class="btn sm" onClick={() => run(api.downloadCancel(d.id))}>Cancelar</button>}
         {(d.status === "failed" || d.status === "cancelled" || d.status === "interrupted") && (
           <button class="btn sm" onClick={() => run(api.downloadRetry(d.id))}><Icon.Refresh size={14} /> {d.status === "interrupted" ? "Reanudar" : "Reintentar"}</button>
         )}
@@ -50,7 +55,7 @@ function Row({ d }: { d: DownloadRow }) {
             )}
           </>
         )}
-        {!active && (
+        {!active && d.status !== "paused" && (
           <button class="btn sm ghost" title="Quitar de la lista (el archivo no se borra)" onClick={() => run(api.downloadRemove(d.id).then(refreshDownloads))}><Icon.Close size={15} /></button>
         )}
       </div>
@@ -62,6 +67,14 @@ export function DownloadsView() {
   useEffect(() => { refreshDownloads(); }, []);
   const list = downloads.value;
   const finished = list.some((d) => d.status === "completed" || d.status === "failed" || d.status === "cancelled");
+  // Progreso total de lo que está en curso (solo con tamaños conocidos).
+  const running = list.filter((d) => d.status === "queued" || d.status === "downloading" || d.status === "verifying");
+  const agg = running.reduce((a, d) => {
+    const pr = progress.value[d.id];
+    const total = pr?.total ?? d.bytes_total;
+    const done = pr?.done ?? d.bytes_done;
+    return total ? { done: a.done + done, total: a.total + total, known: a.known } : { ...a, known: false };
+  }, { done: 0, total: 0, known: true });
 
   return (
     <div class="page">
@@ -70,6 +83,12 @@ export function DownloadsView() {
         {finished && <button class="btn sm ghost" onClick={() => run(api.historyClear("downloads").then(refreshDownloads))}>Limpiar lista</button>}
         <button class="btn" onClick={() => run(api.openDownloadsFolder())}><Icon.Folder size={16} /> Abrir carpeta</button>
       </div>
+      {running.length > 0 && (
+        <div class="dl-total" aria-live="polite">
+          <span>{running.length === 1 ? "1 descarga en curso" : `${running.length} descargas en curso`}{agg.total ? ` · ${bytes(agg.done)} de ${bytes(agg.total)}${agg.known ? "" : " (algunas sin tamaño informado)"}` : ""}</span>
+          <div class={`bar ${agg.total ? "" : "indet"}`}><i style={`width:${agg.total ? Math.min(100, (agg.done / agg.total) * 100) : 0}%`} /></div>
+        </div>
+      )}
       {list.length === 0 ? (
         <div class="empty">
           <div class="glyph"><Icon.Download size={28} /></div>
