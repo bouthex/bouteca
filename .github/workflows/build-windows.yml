@@ -85,6 +85,7 @@ jobs:
           Write-Output "::notice title=Humo — reposo::proceso $($r.idle.main_mb) MB + WebView2 $($r.idle.webview_mb) MB = $($r.idle.total_mb) MB; CPU $($r.idle.cpu_percent) %"
           Write-Output "::notice title=Humo — búsqueda::$($r.total_results) resultados en $($r.search_ms) ms; $(($r.results_by_provider | ConvertTo-Json -Compress))"
           Write-Output "::notice title=Humo — tras búsqueda::total $($r.after_search.total_mb) MB; tras liberar $($r.after_idle_release.total_mb) MB"
+          Write-Output "::notice title=Humo — procesos WebView2 (MB)::$(($r.processes | ForEach-Object { "$($_[0])=$($_[1])" }) -join ', ')"
           if ($r.provider_errors.PSObject.Properties.Count -gt 0) { Write-Output "::warning title=Humo — fuentes con error::$(($r.provider_errors | ConvertTo-Json -Compress))" }
           if (-not $r.ok) { Write-Output "::error title=Humo::falló: $($r.errors -join '; ')"; exit 1 }
       - name: Desinstalar en silencio y verificar

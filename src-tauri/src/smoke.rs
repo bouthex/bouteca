@@ -46,6 +46,45 @@ struct Report {
     provider_errors: BTreeMap<String, String>,
     total_results: usize,
     errors: Vec<String>,
+    /// Procesos descendientes (WebView2) con su memoria, para diagnóstico.
+    processes: Vec<(String, f64)>,
+}
+
+fn process_breakdown() -> Vec<(String, f64)> {
+    use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
+    let mut sys = System::new();
+    sys.refresh_processes_specifics(
+        ProcessesToUpdate::All,
+        true,
+        ProcessRefreshKind::nothing().with_memory().with_cmd(sysinfo::UpdateKind::OnlyIfNotSet),
+    );
+    let me = Pid::from_u32(std::process::id());
+    let procs = sys.processes();
+    let mut out = Vec::new();
+    for p in procs.values() {
+        let mut cur = p.parent();
+        for _ in 0..8 {
+            match cur {
+                Some(pp) if pp == me => {
+                    // Tipo de proceso de Chromium (--type=renderer, gpu-process, utility…).
+                    let kind = p.cmd().iter().filter_map(|a| a.to_str()).find_map(|a| a.strip_prefix("--type=")).unwrap_or("browser").to_string();
+                    let sub = p
+                        .cmd()
+                        .iter()
+                        .filter_map(|a| a.to_str())
+                        .find_map(|a| a.strip_prefix("--utility-sub-type="))
+                        .map(|s| format!(" ({s})"))
+                        .unwrap_or_default();
+                    out.push((format!("{kind}{sub}"), (p.memory() as f64 / 1048576.0 * 10.0).round() / 10.0));
+                    break;
+                }
+                Some(pp) => cur = procs.get(&pp).and_then(|x| x.parent()),
+                None => break,
+            }
+        }
+    }
+    out.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    out
 }
 
 fn mem() -> Mem {
@@ -69,6 +108,7 @@ pub fn run(app: AppHandle, out: PathBuf) {
         }
         tokio::time::sleep(Duration::from_secs(10)).await;
         rep.idle = tokio::task::spawn_blocking(mem).await.unwrap_or_default();
+        rep.processes = tokio::task::spawn_blocking(process_breakdown).await.unwrap_or_default();
 
         let state = app.state::<Arc<AppState>>().inner().clone();
         let events: Arc<Mutex<Vec<SearchEvent>>> = Arc::new(Mutex::new(Vec::new()));
