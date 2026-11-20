@@ -198,6 +198,16 @@ pub fn run_selftest(app: AppHandle, out: std::path::PathBuf) {
             let _ = std::fs::write(&out, serde_json::to_vec_pretty(&v).unwrap_or_default());
         };
         let from = app.package_info().version.to_string();
+        // Reapertura automática tras instalar: el instalador vuelve a abrir Bouteca con los
+        // mismos argumentos. Si existe la marca dejada antes de instalar, solo se informa.
+        let marker = out.with_extension("pending");
+        if let Ok(expected) = std::fs::read_to_string(&marker) {
+            let _ = std::fs::remove_file(&marker);
+            let rep = serde_json::json!({"relaunched": true, "version": from, "expected": expected.trim()});
+            let _ = std::fs::write(out.with_extension("relaunch.json"), serde_json::to_vec_pretty(&rep).unwrap_or_default());
+            app.exit(0);
+            return;
+        }
         let info = match check(app.clone(), true).await {
             Ok(i) => i,
             Err(e) => {
@@ -230,6 +240,7 @@ pub fn run_selftest(app: AppHandle, out: std::path::PathBuf) {
             }
         }
         write(serde_json::json!({"ok": true, "from": from, "to": to, "stage": "verified_installing"}));
+        let _ = std::fs::write(&marker, &to);
         if let Err(e) = install(&app) {
             write(serde_json::json!({"ok": false, "from": from, "to": to, "stage": "install", "error": e}));
             app.exit(7);

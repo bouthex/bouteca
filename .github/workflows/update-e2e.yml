@@ -129,13 +129,15 @@ jobs:
           } while ($ver -notlike '0.9.1*' -and (Get-Date) -lt $deadline)
           Write-Output "::notice title=Actualizador — instalado::versión del ejecutable: $ver"
           if ($ver -notlike '0.9.1*') { Write-Output "::error title=Actualización::no quedó instalada la 0.9.1"; exit 1 }
-          # El instalador reinicia Bouteca sola: debe aparecer el proceso de la versión nueva.
-          $deadline = (Get-Date).AddSeconds(60)
-          do { Start-Sleep -Seconds 2; $proc = Get-Process bouteca -ErrorAction SilentlyContinue | Select-Object -First 1 } while (-not $proc -and (Get-Date) -lt $deadline)
-          if (-not $proc) { Write-Output "::error title=Reinicio::Bouteca no se volvió a abrir después de actualizar"; exit 1 }
-          $pv = $proc.MainModule.FileVersionInfo.ProductVersion
-          Write-Output "::notice title=Actualizador — reinicio::Bouteca se reabrió sola (PID $($proc.Id), versión $pv)"
-          if ($pv -notlike '0.9.1*') { Write-Output "::error title=Reinicio::se reabrió una versión distinta ($pv)"; exit 1 }
+          # El instalador reabre Bouteca sola (con los mismos argumentos): la versión nueva deja
+          # un informe de reapertura.
+          $rel = [System.IO.Path]::ChangeExtension($rep, 'relaunch.json')
+          $deadline = (Get-Date).AddSeconds(90)
+          while (-not (Test-Path $rel) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 2 }
+          if (-not (Test-Path $rel)) { Write-Output "::error title=Reinicio::Bouteca no se volvió a abrir después de actualizar"; exit 1 }
+          $rr = Get-Content $rel -Raw | ConvertFrom-Json
+          Write-Output "::notice title=Actualizador — reinicio::Bouteca se reabrió sola en la versión $($rr.version) (esperada $($rr.expected))"
+          if ($rr.version -ne '0.9.1') { Write-Output "::error title=Reinicio::se reabrió la versión $($rr.version)"; exit 1 }
           Start-Sleep -Seconds 3
           Get-Process bouteca -ErrorAction SilentlyContinue | Stop-Process -Force
       - name: Verificar B y conservación de datos
