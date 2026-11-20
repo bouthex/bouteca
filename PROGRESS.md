@@ -2,7 +2,7 @@
 
 ## Estado actual (2026-11-20, noche) — versión 1.0.0 lista para publicar
 
-**Último commit relevante:** ver `git log` (versión 1.0.0 + firma desde el navegador).
+**Último commit verificado:** `05a7b5a` (CI ✅, Windows ✅, Actualización de punta a punta ✅).
 
 **Verificado con evidencia**
 - CI (Linux): formato, clippy, 88 pruebas Rust + 12 TypeScript, `cargo audit`, `npm audit`,
@@ -14,8 +14,11 @@
   usuario; la app detectó 0.9.1, la descargó, verificó la firma, la instaló, quedó 0.9.1, la
   búsqueda real siguió funcionando y **los datos se conservaron** (favoritos, colecciones,
   proyecto de Studio, historial, preferencia). Un paquete con firma inválida fue rechazado
-  ("The signature verification failed") sin tocar la instalación. Agregado después: comprobar
-  que la app se reabre sola en la versión nueva (resultado en la corrida del último commit).
+  ("The signature verification failed") sin tocar la instalación. **Commit `05a7b5a`: los 9
+  pasos verificados**, incluida la reapertura automática en la versión nueva y la verificación
+  de firma con los mismos scripts que usa la publicación real (`scripts/verify-sig.mjs`,
+  `scripts/make-manifest.mjs`). Corregido en el camino: servidor local de la prueba inestable.
+- YouTube real también en Windows (10 resultados en 585 ms).
 
 **Falta para publicar la 1.0.0 estable (depende del propietario, solo navegador):**
 configurar la firma con el flujo "Configurar firma de actualizaciones" (pasos en `RELEASING.md`).

@@ -95,3 +95,12 @@ detalles, paginación, cupo agotado), huellas visuales y bombas de imagen)
 - [ ] Escenarios: Internet desconectado, poco espacio en disco, permisos insuficientes en la
       carpeta de destino, cierre durante una descarga (cubiertos por pruebas del núcleo; falta
       comprobarlos en la app instalada).
+
+## Prueba real del actualizador (`update-e2e.yml`)
+
+En un Windows limpio del runner y con clave de firma efímera: instala 0.9.0, siembra datos
+(favorito, colección, proyecto de Studio, historial, preferencia), publica 0.9.1 en un servidor
+local, y la app instalada detecta → descarga → verifica la firma → instala → se reabre sola en
+0.9.1 → los datos siguen iguales y la búsqueda real funciona. Después, un manifiesto con firma
+de otro archivo se rechaza y la versión instalada no cambia. Corre en cada push a `main`.
+
