@@ -94,8 +94,15 @@ jobs:
           # Manifiesto con firma de OTRO archivo (la de A): debe rechazarse.
           $a = Get-ChildItem $env:E2E_OUT -Filter '*0.9.0*-setup.exe' | Select-Object -First 1
           node scripts/make-manifest.mjs '0.9.2' "$($a.FullName).sig" 'http://127.0.0.1:8765/b-setup.exe' 'firma inválida' (Join-Path $srv 'bad.json')
-          Start-Process python -ArgumentList '-m', 'http.server', '8765', '--bind', '127.0.0.1' -WorkingDirectory $srv -WindowStyle Hidden
-          Start-Sleep -Seconds 3
+          $py = (Get-Command python).Source
+          Start-Process $py -ArgumentList '-m', 'http.server', '8765', '--bind', '127.0.0.1', '--directory', $srv -WindowStyle Hidden -RedirectStandardError (Join-Path $env:RUNNER_TEMP 'srv.err')
+          # Esperar a que el servidor responda de verdad (no alcanza con una pausa fija).
+          $ok = $false
+          foreach ($i in 1..30) {
+            try { $r = Invoke-WebRequest -UseBasicParsing 'http://127.0.0.1:8765/latest.json' -TimeoutSec 2; if ($r.StatusCode -eq 200) { $ok = $true; break } } catch { Start-Sleep -Seconds 1 }
+          }
+          if (-not $ok) { Get-Content (Join-Path $env:RUNNER_TEMP 'srv.err') -ErrorAction SilentlyContinue | Select-Object -Last 10; Write-Output "::error title=Servidor local::no respondió"; exit 1 }
+          Write-Output "::notice title=Servidor local::sirviendo latest.json y la versión B" 
       - name: A se actualiza a B desde la propia app
         shell: pwsh
         run: |
