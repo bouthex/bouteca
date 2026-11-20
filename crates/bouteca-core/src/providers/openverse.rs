@@ -27,6 +27,7 @@ impl Openverse {
                 native_langs: &[LangCode::En],
                 prefers_english: true,
                 attribution_mark: None,
+                single_query: false,
             },
         }
     }
@@ -86,7 +87,11 @@ fn map(i: Item, audio: bool) -> Option<MediaItem> {
     };
     let license = i.license.map(|l| {
         let l = l.to_uppercase();
-        if l == "CC0" || l == "PDM" { l } else { format!("CC {} {}", l, i.license_version.unwrap_or_default()).trim().to_string() }
+        if l == "CC0" || l == "PDM" {
+            l
+        } else {
+            format!("CC {} {}", l, i.license_version.unwrap_or_default()).trim().to_string()
+        }
     });
     let source = i.source.unwrap_or_default();
     Some(MediaItem {
@@ -118,6 +123,7 @@ fn map(i: Item, audio: bool) -> Option<MediaItem> {
         }],
         needs_resolve: false,
         download_policy: DownloadPolicy::Free,
+        embed_url: None,
         score: 0.0,
         dedupe_key: String::new(),
     })
@@ -145,11 +151,8 @@ impl Provider for Openverse {
         }
         let path = if audio { "audio" } else { "images" };
         let url = format!("{}/v1/{}/", ctx.base("https://api.openverse.org"), path);
-        let mut params: Vec<(&str, String)> = vec![
-            ("q", q.text.clone()),
-            ("page", q.page.to_string()),
-            ("page_size", q.per_page.min(20).to_string()),
-        ];
+        let mut params: Vec<(&str, String)> =
+            vec![("q", q.text.clone()), ("page", q.page.to_string()), ("page_size", q.per_page.min(20).to_string())];
         if q.safe {
             params.push(("mature", "false".into()));
         }
@@ -157,7 +160,7 @@ impl Provider for Openverse {
             params.push(("extension", "gif".into()));
         }
         let resp = http::send("openverse", ctx.client.get(url).query(&params)).await?;
-        let body = resp.bytes().await.map_err(crate::CoreError::from)?;
+        let body = http::body(resp).await?;
         parse(&body, audio)
     }
 }

@@ -68,9 +68,7 @@ fn file_size(p: &Path) -> u64 {
 }
 
 pub fn storage_report(paths: &Paths) -> StorageReport {
-    let db = file_size(&paths.db_file)
-        + file_size(&paths.db_file.with_extension("db-wal"))
-        + file_size(&paths.db_file.with_extension("db-shm"));
+    let db = file_size(&paths.db_file) + file_size(&paths.db_file.with_extension("db-wal")) + file_size(&paths.db_file.with_extension("db-shm"));
     let logs = dir_size(&paths.logs_dir).0;
     let web = paths.web_cache_dir.as_deref().map(|d| dir_size(d).0).unwrap_or(0);
     let (inc, inc_files) = dir_size(&paths.downloads_root.join(INCOMPLETE_DIR));
@@ -126,7 +124,7 @@ pub fn cleanup(paths: &Paths, db: &Db, active_ids: &HashSet<i64>, resumable_ids:
                 md.is_file().then(|| (e.path(), md.modified().unwrap_or(SystemTime::UNIX_EPOCH), md.len()))
             })
             .collect();
-        logs.sort_by(|a, b| b.1.cmp(&a.1)); // más nuevo primero
+        logs.sort_by_key(|l| std::cmp::Reverse(l.1)); // más nuevo primero
         let mut total = 0u64;
         for (i, (p, _, len)) in logs.iter().enumerate() {
             total += len;
@@ -170,7 +168,13 @@ mod tests {
             std::thread::sleep(Duration::from_millis(5));
         }
         let db = Db::open_in_memory().unwrap();
-        let paths = Paths { data_dir: tmp.path().into(), db_file: tmp.path().join("x.db"), logs_dir: logs.clone(), web_cache_dir: None, downloads_root: root.clone() };
+        let paths = Paths {
+            data_dir: tmp.path().into(),
+            db_file: tmp.path().join("x.db"),
+            logs_dir: logs.clone(),
+            web_cache_dir: None,
+            downloads_root: root.clone(),
+        };
         let rep = cleanup(&paths, &db, &HashSet::from([1]), &HashSet::from([2]), u64::MAX);
         assert_eq!(rep.removed_partials, 1);
         assert!(inc.join("1.part").exists());

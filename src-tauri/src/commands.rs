@@ -28,6 +28,7 @@ fn e<E: ToString>(err: E) -> String {
 
 #[tauri::command]
 pub fn app_ready(app: AppHandle) {
+    crate::smoke::UI_READY.store(true, Ordering::SeqCst);
     if let Some(w) = app.get_webview_window("main") {
         if !std::env::args().any(|a| a == "--autostart") {
             let _ = w.show();
@@ -74,7 +75,12 @@ pub fn providers_list(state: S) -> Vec<ProviderView> {
         .iter()
         .map(|p| {
             let id = p.info().id;
-            ProviderView { info: p.info().clone(), status: state.engine.status_of(id), has_key: state.keys.get(id).is_some(), enabled: !disabled.contains(id) }
+            ProviderView {
+                info: p.info().clone(),
+                status: state.engine.status_of(id),
+                has_key: state.keys.get(id).is_some(),
+                enabled: !disabled.contains(id),
+            }
         })
         .collect()
 }
@@ -230,8 +236,85 @@ pub fn history_clear(state: S, what: String) -> R<()> {
 #[tauri::command]
 pub async fn download_start(state: S<'_>, item: MediaItem, rendition_url: Option<String>) -> R<EnqueueOutcome> {
     state.touch();
+    if item.download_policy == bouteca_core::model::DownloadPolicy::PreviewOnly {
+        return Err("esta fuente no ofrece descarga autorizada: podés guardarlo, copiar el enlace o abrirlo en su sitio".into());
+    }
     let item = if item.needs_resolve { state.engine.resolve(item).await.map_err(e)? } else { item };
+    // Defensa en profundidad: solo se descargan URLs que el propio backend entregó (búsqueda o
+    // biblioteca guardada). Una interfaz manipulada no puede pedir direcciones arbitrarias.
+    let item = trusted_item(&state, item)?;
+    if let Some(u) = &rendition_url {
+        if !item.renditions.iter().any(|r| &r.url == u) {
+            return Err("esa versión no pertenece al recurso".into());
+        }
+    }
     state.downloads.enqueue(&item, rendition_url.as_deref()).map_err(e)
+}
+
+fn trusted_item(state: &AppState, item: MediaItem) -> R<MediaItem> {
+    if !item.renditions.is_empty() && item.renditions.iter().all(|r| state.engine.is_known(&r.url)) {
+        return Ok(item);
+    }
+    if let Some(saved) = state.db.find_saved_item(&item.uid).map_err(e)? {
+        if !saved.renditions.is_empty() {
+            return Ok(saved);
+        }
+    }
+    tracing::warn!(uid = %item.uid, "descarga rechazada: URL no emitida por el backend");
+    Err("no se puede verificar el origen de este recurso; volvé a buscarlo".into())
+}
+
+#[derive(Serialize)]
+pub struct VisualMatch {
+    uid: String,
+    similarity: f32,
+    near_duplicate: bool,
+}
+
+#[derive(Serialize)]
+pub struct VisualReport {
+    matches: Vec<VisualMatch>,
+    color: Option<&'static str>,
+    compared: usize,
+    failed: usize,
+}
+
+/// Búsqueda por imagen LOCAL: compara la imagen del usuario con las miniaturas de los
+/// resultados actuales. La imagen no sale del equipo; solo se piden miniaturas públicas que el
+/// backend ya había entregado.
+#[tauri::command]
+pub async fn visual_compare(state: S<'_>, image: Vec<u8>, candidates: Vec<(String, String)>) -> R<VisualReport> {
+    use bouteca_core::visual;
+    use futures::StreamExt;
+    state.touch();
+    if image.len() > visual::MAX_INPUT_BYTES {
+        return Err("la imagen supera 15 MB".into());
+    }
+    let reference = tokio::task::spawn_blocking(move || visual::fingerprint(&image)).await.map_err(e)?.map_err(e)?;
+    let candidates: Vec<(String, String)> = candidates.into_iter().take(120).filter(|(_, url)| state.engine.is_known(url)).collect();
+    let compared = candidates.len();
+    let client = state.http.clone();
+    let reference2 = reference.clone();
+    let results: Vec<Option<VisualMatch>> = futures::stream::iter(candidates)
+        .map(|(uid, url)| {
+            let client = client.clone();
+            let r = reference2.clone();
+            async move {
+                bouteca_core::http::check_external_url(&url).ok()?;
+                let resp = client.get(&url).send().await.ok()?;
+                let resp = bouteca_core::http::check_status("miniatura", resp).await.ok()?;
+                let bytes = bouteca_core::http::read_limited(resp, 3 * 1024 * 1024).await.ok()?;
+                let fp = tokio::task::spawn_blocking(move || bouteca_core::visual::fingerprint(&bytes)).await.ok()?.ok()?;
+                Some(VisualMatch { uid, similarity: visual::similarity(&r, &fp), near_duplicate: visual::is_near_duplicate(&r, &fp) })
+            }
+        })
+        .buffer_unordered(6)
+        .collect()
+        .await;
+    let failed = results.iter().filter(|r| r.is_none()).count();
+    let mut matches: Vec<VisualMatch> = results.into_iter().flatten().collect();
+    matches.sort_by(|a, b| b.similarity.partial_cmp(&a.similarity).unwrap_or(std::cmp::Ordering::Equal));
+    Ok(VisualReport { matches, color: visual::color_name(reference.avg_rgb), compared, failed })
 }
 #[tauri::command]
 pub fn downloads_list(state: S) -> R<Vec<DownloadRow>> {
@@ -318,7 +401,12 @@ pub fn settings_update(app: AppHandle, state: S, mut settings: AppSettings) -> R
     let prev = state.settings.read().clone();
     state.engine.set_settings(settings.engine.clone());
     let root = settings.download_dir.clone().unwrap_or_else(|| crate::state::default_download_root(&app));
-    state.downloads.set_options(DownloadOptions { root, organize_by_kind: settings.organize_by_kind, detect_duplicates: settings.detect_duplicates });
+    state.downloads.set_options(DownloadOptions {
+        root,
+        organize_by_kind: settings.organize_by_kind,
+        detect_duplicates: settings.detect_duplicates,
+        allow_insecure_loopback: false,
+    });
     *state.settings.write() = settings.clone();
     state.save_settings()?;
     system::apply_system_settings(&app, &settings, Some(&prev));
@@ -355,44 +443,7 @@ pub struct Diagnostics {
 pub async fn diagnostics(state: S<'_>) -> R<Diagnostics> {
     // Se mide solo cuando se pide (panel abierto): no hay muestreo en segundo plano.
     let paths = system::maint_paths(&state);
-    let (ram, virt, cpu, webview, uptime) = tokio::task::spawn_blocking(|| {
-        use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
-        let mut sys = System::new();
-        let pid = Pid::from_u32(std::process::id());
-        let kind = ProcessRefreshKind::nothing().with_memory().with_cpu();
-        sys.refresh_processes_specifics(ProcessesToUpdate::All, true, kind);
-        std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
-        sys.refresh_processes_specifics(ProcessesToUpdate::All, true, kind);
-        let me = sys.process(pid);
-        let ram = me.map(|p| p.memory()).unwrap_or(0);
-        let virt = me.map(|p| p.virtual_memory()).unwrap_or(0);
-        let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1) as f32;
-        let cpu = me.map(|p| p.cpu_usage()).unwrap_or(0.0) / cores;
-        let uptime = me.map(|p| p.run_time()).unwrap_or(0);
-        // Procesos descendientes (WebView2 en Windows: proceso navegador + renderizadores).
-        // En Linux sysinfo lista también los hilos como "procesos": se excluyen.
-        let procs = sys.processes();
-        let mut webview: u64 = 0;
-        for proc_ in procs.values() {
-            if proc_.thread_kind().is_some() {
-                continue;
-            }
-            let mut cur = proc_.parent();
-            for _ in 0..8 {
-                match cur {
-                    Some(pp) if pp == pid => {
-                        webview += proc_.memory();
-                        break;
-                    }
-                    Some(pp) => cur = procs.get(&pp).and_then(|x| x.parent()),
-                    None => break,
-                }
-            }
-        }
-        (ram, virt, cpu, webview, uptime)
-    })
-    .await
-    .map_err(e)?;
+    let (ram, virt, cpu, webview, uptime) = tokio::task::spawn_blocking(system::measure_process).await.map_err(e)?;
     let storage = tokio::task::spawn_blocking(move || maintenance::storage_report(&paths)).await.map_err(e)?;
     Ok(Diagnostics {
         ram_bytes: ram,

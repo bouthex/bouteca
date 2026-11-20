@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "../lib/api";
 import * as Icon from "../lib/icons";
-import { query, runSearch, searching } from "../lib/store";
+import { query, runSearch, searching, setVisualImage } from "../lib/store";
 
 // La misma idea en varios idiomas: muestra que Bouteca traduce por vos.
 const CYCLE = ["gato bailando", "cat dancing", "kedi dans", "猫 ダンス", "кот танцует", "gato dançando"];
@@ -14,6 +14,21 @@ export function SearchBar({ hero = false }: { hero?: boolean }) {
   const [cycle, setCycle] = useState(0);
   const timer = useRef<number>();
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+
+  // Pegar una imagen (Ctrl+V) desde cualquier lugar de la búsqueda.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const f = Array.from(e.clipboardData?.files ?? []).find((x) => x.type.startsWith("image/"));
+      if (f) {
+        e.preventDefault();
+        setVisualImage(f);
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, []);
 
   useEffect(() => setText(query.value), [query.value]);
 
@@ -72,7 +87,19 @@ export function SearchBar({ hero = false }: { hero?: boolean }) {
   };
 
   return (
-    <div class="searchbox" role="search">
+    <div
+      class="searchbox"
+      role="search"
+      onDragOver={(e) => { if (e.dataTransfer?.types.includes("Files")) { e.preventDefault(); setDragging(true); } }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragging(false);
+        const f = Array.from(e.dataTransfer?.files ?? []).find((x) => x.type.startsWith("image/"));
+        if (f) setVisualImage(f);
+      }}
+    >
+      {dragging && <div class="drop-hint">Soltá la imagen para buscar parecidos</div>}
       <Icon.Search size={20} class="muted" />
       <label for="q" class="sr-only">Buscar memes, GIFs, videos o sonidos</label>
       {hero && !text && (
@@ -101,6 +128,10 @@ export function SearchBar({ hero = false }: { hero?: boolean }) {
           <Icon.Close size={15} />
         </button>
       )}
+      <button class="btn ghost sm" title="Buscar con una imagen (también podés arrastrarla o pegarla)" aria-label="Buscar con una imagen" onClick={() => fileRef.current?.click()}>
+        <Icon.Image size={17} />
+      </button>
+      <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden onChange={(e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) setVisualImage(f); (e.target as HTMLInputElement).value = ""; }} />
       <button class="go" disabled={!text.trim() || searching.value} onClick={() => submit()}>
         Buscar
       </button>

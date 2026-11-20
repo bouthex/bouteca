@@ -24,10 +24,10 @@ use tokio_util::sync::CancellationToken;
 
 pub const INCOMPLETE_DIR: &str = ".incomplete";
 const MAX_CONCURRENT: usize = 3;
-const MAX_FILE_BYTES: u64 = 4 * 1024 * 1024 * 1024; // 4 GB: protección ante respuestas anómalas
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[allow(clippy::large_enum_variant)] // eventos efímeros; evitar Box simplifica la serialización
 pub enum DownloadEvent {
     Progress { id: i64, done: u64, total: Option<u64>, speed_bps: u64 },
     Updated { row: DownloadRow },
@@ -37,6 +37,7 @@ pub type DownloadSink = Arc<dyn Fn(DownloadEvent) + Send + Sync>;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "outcome", rename_all = "snake_case")]
+#[allow(clippy::large_enum_variant)]
 pub enum EnqueueOutcome {
     Queued { id: i64 },
     AlreadyDownloaded { row: DownloadRow },
@@ -47,6 +48,8 @@ pub struct DownloadOptions {
     pub root: PathBuf,
     pub organize_by_kind: bool,
     pub detect_duplicates: bool,
+    /// Solo pruebas automatizadas: permite http://127.0.0.1. Siempre `false` en la app.
+    pub allow_insecure_loopback: bool,
 }
 
 pub struct DownloadManager {
@@ -102,9 +105,9 @@ impl DownloadManager {
             Some(u) => item.renditions.iter().find(|r| r.url == u).ok_or_else(|| CoreError::NotFound("variante".into()))?,
             None => item.best_rendition().ok_or_else(|| CoreError::NotFound("el recurso no tiene archivos descargables".into()))?,
         };
-        let loopback = rendition.url.starts_with("http://127.0.0.1") || rendition.url.starts_with("http://localhost");
-        if !rendition.url.starts_with("https://") && !loopback {
-            return Err(CoreError::Permission("solo se permiten descargas por HTTPS".into()));
+        let loopback = self.opts.read().allow_insecure_loopback && rendition.url.starts_with("http://127.0.0.1:");
+        if !loopback {
+            crate::http::check_external_url(&rendition.url)?;
         }
         if self.opts.read().detect_duplicates {
             if let Some(row) = self.db.find_completed(Some(&rendition.url), None)? {
@@ -211,7 +214,6 @@ impl DownloadManager {
         let kind = self.kinds.lock().get(&id).copied().or_else(|| MediaKind::parse(&row.kind)).unwrap_or(MediaKind::Image);
         let opts = self.options();
         tokio::fs::create_dir_all(self.incomplete_dir()).await?;
-        hide_dir(&self.incomplete_dir());
         let part = self.part_path(id);
 
         row.status = "downloading".into();
@@ -235,8 +237,13 @@ impl DownloadManager {
             (false, Some(l)) => Some(l),
             _ => row.bytes_total.map(|t| t as u64),
         };
-        if total.unwrap_or(0) > MAX_FILE_BYTES {
-            return Err(CoreError::InvalidFile("el archivo supera el tamaño máximo permitido (4 GB)".into()));
+        let max = validate::max_bytes(kind);
+        if total.unwrap_or(0) > max {
+            return Err(CoreError::InvalidFile(format!(
+                "el archivo supera el tamaño máximo permitido para {} ({} MB)",
+                kind.as_str(),
+                max / 1024 / 1024
+            )));
         }
         let mut file = tokio::fs::OpenOptions::new().create(true).write(true).truncate(!resumed).open(&part).await?;
         let mut done = if resumed {
@@ -264,7 +271,7 @@ impl DownloadManager {
             let Some(chunk) = chunk else { break };
             let chunk = chunk.map_err(CoreError::from)?;
             done += chunk.len() as u64;
-            if done > MAX_FILE_BYTES {
+            if done > max {
                 drop(file);
                 let _ = tokio::fs::remove_file(&part).await;
                 return Err(CoreError::InvalidFile("el archivo supera el tamaño máximo permitido".into()));
@@ -364,6 +371,7 @@ impl DownloadManager {
             let _ = tokio::fs::remove_file(&part).await;
         }
 
+        mark_of_the_web(&final_path, &row.url);
         row.status = "completed".into();
         row.path = Some(final_path.to_string_lossy().to_string());
         row.hash = Some(hash);
@@ -390,18 +398,18 @@ fn unique_path(folder: &Path, stem: &str, ext: &str) -> PathBuf {
     folder.join(format!("{stem} ({}).{ext}", now()))
 }
 
+/// Marca el archivo como descargado de Internet (Zone.Identifier, "Mark of the Web").
+/// Así Windows (SmartScreen, Defender, Office) lo trata con las precauciones de un archivo
+/// externo. No reemplaza ni desactiva ninguna protección del sistema.
 #[cfg(windows)]
-fn hide_dir(p: &Path) {
-    use std::os::windows::ffi::OsStrExt;
-    let wide: Vec<u16> = p.as_os_str().encode_wide().chain(Some(0)).collect();
-    // FILE_ATTRIBUTE_HIDDEN = 0x2
-    extern "system" {
-        fn SetFileAttributesW(lpFileName: *const u16, dwFileAttributes: u32) -> i32;
-    }
-    unsafe {
-        SetFileAttributesW(wide.as_ptr(), 0x2);
+fn mark_of_the_web(path: &Path, url: &str) {
+    let host = url::Url::parse(url).ok().map(|u| format!("{}://{}/", u.scheme(), u.host_str().unwrap_or(""))).unwrap_or_default();
+    let ads = format!("{}:Zone.Identifier", path.display());
+    let content = format!("[ZoneTransfer]\r\nZoneId=3\r\nReferrerUrl={host}\r\nHostUrl={host}\r\n");
+    if let Err(e) = std::fs::write(&ads, content) {
+        tracing::warn!(error = %e, "no se pudo marcar el archivo como descargado de Internet");
     }
 }
 
 #[cfg(not(windows))]
-fn hide_dir(_p: &Path) {}
+fn mark_of_the_web(_path: &Path, _url: &str) {}

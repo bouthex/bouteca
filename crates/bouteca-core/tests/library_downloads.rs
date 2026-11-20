@@ -10,7 +10,8 @@ use std::time::Duration;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-const GIF: &[u8] = b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;";
+const GIF: &[u8] =
+    b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;";
 
 fn item(uid: &str, url: &str, kind: MediaKind) -> MediaItem {
     MediaItem {
@@ -30,9 +31,18 @@ fn item(uid: &str, url: &str, kind: MediaKind) -> MediaItem {
         height: Some(1),
         duration_secs: None,
         popularity: None,
-        renditions: vec![Rendition { label: "Original".into(), url: url.into(), mime: Some("image/gif".into()), width: None, height: None, size_bytes: None, original: true }],
+        renditions: vec![Rendition {
+            label: "Original".into(),
+            url: url.into(),
+            mime: Some("image/gif".into()),
+            width: None,
+            height: None,
+            size_bytes: None,
+            original: true,
+        }],
         needs_resolve: false,
         download_policy: DownloadPolicy::Free,
+        embed_url: None,
         score: 0.0,
         dedupe_key: String::new(),
     }
@@ -87,7 +97,7 @@ fn manager(root: &std::path::Path) -> (Arc<DownloadManager>, Arc<Db>, Arc<Mutex<
     let m = DownloadManager::new(
         db.clone(),
         build_test_client(),
-        DownloadOptions { root: root.to_path_buf(), organize_by_kind: true, detect_duplicates: true },
+        DownloadOptions { root: root.to_path_buf(), organize_by_kind: true, detect_duplicates: true, allow_insecure_loopback: true },
         Arc::new(move |e| e2.lock().push(e)),
     );
     (m, db, events)
@@ -139,7 +149,11 @@ async fn descarga_valida_organiza_y_evita_duplicados() {
 #[tokio::test]
 async fn descarga_corrupta_o_html_falla_y_no_deja_basura() {
     let s = MockServer::start().await;
-    Mock::given(method("GET")).and(path("/fake.gif")).respond_with(ResponseTemplate::new(200).set_body_raw("<!DOCTYPE html><html>login</html>", "text/html")).mount(&s).await;
+    Mock::given(method("GET"))
+        .and(path("/fake.gif"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw("<!DOCTYPE html><html>login</html>", "text/html"))
+        .mount(&s)
+        .await;
     Mock::given(method("GET")).and(path("/404.gif")).respond_with(ResponseTemplate::new(404)).mount(&s).await;
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path().join("Bouteca");
@@ -165,7 +179,11 @@ async fn descarga_corrupta_o_html_falla_y_no_deja_basura() {
 async fn cancelar_borra_el_parcial() {
     let s = MockServer::start().await;
     let big: Vec<u8> = GIF.iter().copied().chain(std::iter::repeat_n(0u8, 2_000_000)).collect();
-    Mock::given(method("GET")).and(path("/slow.gif")).respond_with(ResponseTemplate::new(200).set_body_bytes(big).set_delay(Duration::from_millis(400))).mount(&s).await;
+    Mock::given(method("GET"))
+        .and(path("/slow.gif"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(big).set_delay(Duration::from_millis(400)))
+        .mount(&s)
+        .await;
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path().join("Bouteca");
     let (m, db, _) = manager(&root);
@@ -190,8 +208,22 @@ async fn solo_https_o_loopback() {
 async fn interrumpidas_al_reiniciar() {
     let db = Db::open_in_memory().unwrap();
     let row = bouteca_core::db::DownloadRow {
-        id: 0, uid: "u".into(), provider: "p".into(), title: "t".into(), kind: "gif".into(), url: "https://a".into(), path: None,
-        status: "downloading".into(), bytes_total: None, bytes_done: 10, hash: None, mime: None, error: None, attribution: None, created_at: 0, completed_at: None,
+        id: 0,
+        uid: "u".into(),
+        provider: "p".into(),
+        title: "t".into(),
+        kind: "gif".into(),
+        url: "https://a".into(),
+        path: None,
+        status: "downloading".into(),
+        bytes_total: None,
+        bytes_done: 10,
+        hash: None,
+        mime: None,
+        error: None,
+        attribution: None,
+        created_at: 0,
+        completed_at: None,
     };
     let id = db.insert_download(&row).unwrap();
     assert_eq!(db.mark_interrupted().unwrap(), 1);

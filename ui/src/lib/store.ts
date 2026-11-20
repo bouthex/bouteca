@@ -99,6 +99,7 @@ function handleSearchEvent(e: T.SearchEvent) {
         hasMore.value = e.has_more;
         elapsedMs.value = e.elapsed_ms;
       });
+      if (visual.value) runVisualCompare();
       break;
     }
   }
@@ -213,6 +214,7 @@ export async function saveSettings(next: T.AppSettings) {
   try {
     settings.value = await api.updateSettings(next);
     applyTheme(settings.value.theme);
+    applyMotion(settings.value.motion);
   } catch (e) {
     toast(errText(e), "error");
   }
@@ -220,6 +222,85 @@ export async function saveSettings(next: T.AppSettings) {
 
 export function applyTheme(theme: string) {
   document.documentElement.dataset.theme = theme === "light" ? "light" : "dark";
+}
+
+/** "system": respeta la preferencia de Windows (prefers-reduced-motion, ya en CSS). */
+export function applyMotion(motion: string | undefined) {
+  document.documentElement.dataset.motion = motion === "off" || motion === "reduced" ? "off" : "system";
+}
+
+export async function copyText(text: string, okMsg = "Copiado") {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(okMsg, "ok");
+  } catch {
+    toast("No se pudo copiar al portapapeles", "error");
+  }
+}
+
+// ---------- búsqueda por imagen (local) ----------
+export interface VisualRef {
+  previewUrl: string; // object URL local, nunca sale del equipo
+  bytes: number[]; // imagen reducida a ≤ 512 px
+  color: string | null;
+  scores: Map<string, number>;
+  running: boolean;
+  compared: number;
+}
+export const visual = signal<VisualRef | null>(null);
+
+/** Reduce la imagen en el propio WebView (≤ 512 px, PNG) antes de pasarla al backend. */
+export async function setVisualImage(blob: Blob) {
+  if (!blob.type.startsWith("image/")) {
+    toast("Elegí una imagen (PNG, JPEG, GIF o WebP)", "error");
+    return;
+  }
+  if (blob.size > 25 * 1024 * 1024) {
+    toast("La imagen es demasiado grande (máximo 25 MB)", "error");
+    return;
+  }
+  try {
+    const bmp = await createImageBitmap(blob);
+    const scale = Math.min(1, 512 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(bmp.width * scale));
+    c.height = Math.max(1, Math.round(bmp.height * scale));
+    c.getContext("2d")!.drawImage(bmp, 0, 0, c.width, c.height);
+    bmp.close();
+    const png: Blob = await new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error("canvas"))), "image/png"));
+    const bytes = Array.from(new Uint8Array(await png.arrayBuffer()));
+    const prev = visual.value;
+    if (prev) URL.revokeObjectURL(prev.previewUrl);
+    visual.value = { previewUrl: URL.createObjectURL(png), bytes, color: null, scores: new Map(), running: false, compared: 0 };
+    view.value = "search";
+    if (results.value.length) runVisualCompare();
+    else toast("Imagen cargada. Escribí qué buscás y Bouteca ordenará los resultados por parecido.", "info");
+  } catch {
+    toast("No se pudo leer la imagen", "error");
+  }
+}
+
+export function clearVisual() {
+  const v = visual.value;
+  if (v) URL.revokeObjectURL(v.previewUrl);
+  visual.value = null;
+}
+
+export async function runVisualCompare() {
+  const v = visual.value;
+  if (!v || v.running) return;
+  const candidates = results.value.filter((i) => i.thumbnail).map((i) => [i.uid, i.thumbnail!] as [string, string]);
+  if (!candidates.length) return;
+  visual.value = { ...v, running: true };
+  try {
+    const r = await api.visualCompare(v.bytes, candidates);
+    const scores = new Map(r.matches.map((m) => [m.uid, m.similarity]));
+    visual.value = { ...v, running: false, color: r.color, scores, compared: r.compared };
+    results.value = [...results.value].sort((a, b) => (scores.get(b.uid) ?? -1) - (scores.get(a.uid) ?? -1));
+  } catch (e) {
+    visual.value = { ...v, running: false };
+    toast(errText(e), "error");
+  }
 }
 
 // ---------- reproductores activos (para diagnóstico y modo inactivo) ----------
@@ -239,6 +320,7 @@ export async function boot() {
   const [s, favs] = await Promise.all([api.settings(), api.favoriteUids()]);
   settings.value = s;
   applyTheme(s.theme);
+  applyMotion(s.motion);
   favoriteUids.value = new Set(favs);
   refreshCollections();
   refreshDownloads();

@@ -130,7 +130,8 @@ pub fn run_maintenance(app: &AppHandle) -> maintenance::CleanupReport {
         .filter(|d| matches!(d.status.as_str(), "queued" | "downloading" | "verifying"))
         .map(|d| d.id)
         .collect();
-    let resumable: HashSet<i64> = state.db.list_downloads(500).unwrap_or_default().into_iter().filter(|d| d.status == "interrupted").map(|d| d.id).collect();
+    let resumable: HashSet<i64> =
+        state.db.list_downloads(500).unwrap_or_default().into_iter().filter(|d| d.status == "interrupted").map(|d| d.id).collect();
     let limit = state.settings.read().web_cache_limit_mb * 1024 * 1024;
     let rep = maintenance::cleanup(&maint_paths(&state), &state.db, &active, &resumable, limit);
     if rep.web_cache_over_limit && state.players_active.load(Ordering::Relaxed) == 0 {
@@ -187,4 +188,43 @@ pub fn spawn_background(app: AppHandle) {
             state.activity.notified().await;
         }
     });
+}
+
+/// Mide el proceso principal y sus descendientes (WebView2). Solo se llama a pedido.
+/// Devuelve (RAM, memoria virtual, % CPU, RAM de WebView, segundos de ejecución).
+pub fn measure_process() -> (u64, u64, f32, u64, u64) {
+    use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
+    let mut sys = System::new();
+    let pid = Pid::from_u32(std::process::id());
+    let kind = ProcessRefreshKind::nothing().with_memory().with_cpu();
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, kind);
+    std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, kind);
+    let me = sys.process(pid);
+    let ram = me.map(|p| p.memory()).unwrap_or(0);
+    let virt = me.map(|p| p.virtual_memory()).unwrap_or(0);
+    let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1) as f32;
+    let cpu = me.map(|p| p.cpu_usage()).unwrap_or(0.0) / cores;
+    let uptime = me.map(|p| p.run_time()).unwrap_or(0);
+    // Procesos descendientes (WebView2 en Windows: proceso navegador + renderizadores).
+    // En Linux sysinfo lista también los hilos como "procesos": se excluyen.
+    let procs = sys.processes();
+    let mut webview: u64 = 0;
+    for proc_ in procs.values() {
+        if proc_.thread_kind().is_some() {
+            continue;
+        }
+        let mut cur = proc_.parent();
+        for _ in 0..8 {
+            match cur {
+                Some(pp) if pp == pid => {
+                    webview += proc_.memory();
+                    break;
+                }
+                Some(pp) => cur = procs.get(&pp).and_then(|x| x.parent()),
+                None => break,
+            }
+        }
+    }
+    (ram, virt, cpu, webview, uptime)
 }

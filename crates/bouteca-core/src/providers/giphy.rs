@@ -27,6 +27,7 @@ impl Giphy {
                 native_langs: &[LangCode::Es, LangCode::En, LangCode::Pt, LangCode::Tr, LangCode::Ja, LangCode::Ru],
                 prefers_english: false,
                 attribution_mark: Some("Powered by GIPHY"),
+                single_query: false,
             },
         }
     }
@@ -120,14 +121,7 @@ fn map_gif(g: Gif) -> MediaItem {
     }
     let (w, h) = get("original").map(|o| (num(&o.width), num(&o.height))).unwrap_or((None, None));
     // GIPHY suele poner "GIF by usuario" en el título: lo limpiamos para que el título sea útil.
-    let title = g
-        .title
-        .split(" GIF")
-        .next()
-        .map(str::trim)
-        .filter(|t| !t.is_empty())
-        .unwrap_or("GIF")
-        .to_string();
+    let title = g.title.split(" GIF").next().map(str::trim).filter(|t| !t.is_empty()).unwrap_or("GIF").to_string();
     MediaItem {
         uid: format!("giphy:{}", g.id),
         provider: "giphy".into(),
@@ -148,6 +142,7 @@ fn map_gif(g: Gif) -> MediaItem {
         renditions,
         needs_resolve: false,
         download_policy: DownloadPolicy::Personal,
+        embed_url: None,
         score: 0.0,
         dedupe_key: String::new(),
     }
@@ -174,11 +169,7 @@ impl Provider for Giphy {
         ]);
         let resp: Resp = http::get_json("giphy", req).await?;
         let total = resp.pagination.as_ref().and_then(|p| p.total_count);
-        let has_more = resp
-            .pagination
-            .as_ref()
-            .map(|p| p.offset.unwrap_or(0) + p.count.unwrap_or(0) < p.total_count.unwrap_or(0))
-            .unwrap_or(false);
+        let has_more = resp.pagination.as_ref().map(|p| p.offset.unwrap_or(0) + p.count.unwrap_or(0) < p.total_count.unwrap_or(0)).unwrap_or(false);
         Ok(ProviderPage { items: resp.data.into_iter().map(map_gif).collect(), has_more, total })
     }
 }

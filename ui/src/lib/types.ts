@@ -35,6 +35,7 @@ export interface MediaItem {
   renditions: Rendition[];
   needs_resolve: boolean;
   download_policy: DownloadPolicy;
+  embed_url?: string | null;
   score: number;
   dedupe_key: string;
 }
@@ -146,6 +147,7 @@ export interface AppSettings {
   auto_cleanup: boolean;
   thumbnail_quality: string;
   theme: "dark" | "light";
+  motion: "system" | "reduced" | "off";
 }
 
 export interface StorageReport {
@@ -184,4 +186,11 @@ export interface AppInfo {
   downloads_dir: string;
   platform: string;
   shortcut_error: string | null;
+}
+
+export interface VisualReport {
+  matches: { uid: string; similarity: number; near_duplicate: boolean }[];
+  color: string | null;
+  compared: number;
+  failed: number;
 }

@@ -28,6 +28,7 @@ impl Pixabay {
                 native_langs: &[LangCode::Es, LangCode::En, LangCode::Pt, LangCode::Tr, LangCode::Ja, LangCode::Ru],
                 prefers_english: false,
                 attribution_mark: Some("Imágenes y videos de Pixabay"),
+                single_query: false,
             },
         }
     }
@@ -95,7 +96,11 @@ fn tags(s: &Option<String>) -> Vec<String> {
 
 fn title_from(tags: &[String]) -> String {
     let t = tags.iter().take(3).cloned().collect::<Vec<_>>().join(", ");
-    if t.is_empty() { "Pixabay".into() } else { t }
+    if t.is_empty() {
+        "Pixabay".into()
+    } else {
+        t
+    }
 }
 
 pub(crate) fn parse_images(body: &[u8]) -> Result<ProviderPage> {
@@ -135,6 +140,7 @@ pub(crate) fn parse_images(body: &[u8]) -> Result<ProviderPage> {
                 }],
                 needs_resolve: false,
                 download_policy: DownloadPolicy::Free,
+                embed_url: None,
                 score: 0.0,
                 dedupe_key: String::new(),
             })
@@ -193,6 +199,7 @@ pub(crate) fn parse_videos(body: &[u8]) -> Result<ProviderPage> {
                 renditions,
                 needs_resolve: false,
                 download_policy: DownloadPolicy::Free,
+                embed_url: None,
                 score: 0.0,
                 dedupe_key: String::new(),
             })
@@ -216,7 +223,7 @@ impl Pixabay {
             ("safesearch", q.safe.to_string()),
         ];
         let resp = http::send("pixabay", ctx.client.get(url).query(&params)).await?;
-        let body = resp.bytes().await.map_err(crate::CoreError::from)?;
+        let body = http::body(resp).await?;
         let mut page = if videos { parse_videos(&body)? } else { parse_images(&body)? };
         page.has_more = page.total.map(|t| (q.page as u64) * (per_page as u64) < t.min(500)).unwrap_or(false);
         Ok(page)

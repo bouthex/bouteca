@@ -157,8 +157,18 @@ async fn pixabay_imagenes_y_videos_en_paralelo() {
 #[tokio::test]
 async fn pexels_usa_cabecera_authorization() {
     let s = MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v1/search")).and(header("Authorization", "K")).respond_with(ResponseTemplate::new(200).set_body_raw(fixture("pexels_photos.json"), "application/json")).mount(&s).await;
-    Mock::given(method("GET")).and(path("/v1/videos/search")).and(header("Authorization", "K")).respond_with(ResponseTemplate::new(200).set_body_raw(fixture("pexels_videos.json"), "application/json")).mount(&s).await;
+    Mock::given(method("GET"))
+        .and(path("/v1/search"))
+        .and(header("Authorization", "K"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw(fixture("pexels_photos.json"), "application/json"))
+        .mount(&s)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/v1/videos/search"))
+        .and(header("Authorization", "K"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw(fixture("pexels_videos.json"), "application/json"))
+        .mount(&s)
+        .await;
     let page = pexels::Pexels::new().search(&ctx(&s, Some("K")), &q("bosque", KindFilter::All)).await.unwrap();
     assert_eq!(page.items.len(), 2);
     let v = page.items.iter().find(|i| i.kind == MediaKind::Video).unwrap();
@@ -170,7 +180,12 @@ async fn pexels_usa_cabecera_authorization() {
 #[tokio::test]
 async fn imgflip_filtra_localmente_y_cachea() {
     let s = MockServer::start().await;
-    Mock::given(method("GET")).and(path("/get_memes")).respond_with(ResponseTemplate::new(200).set_body_raw(fixture("imgflip.json"), "application/json")).expect(1).mount(&s).await;
+    Mock::given(method("GET"))
+        .and(path("/get_memes"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw(fixture("imgflip.json"), "application/json"))
+        .expect(1)
+        .mount(&s)
+        .await;
     let p = imgflip::Imgflip::new();
     let c = ctx(&s, None);
     let a = p.search(&c, &q("distracted boyfriend", KindFilter::Meme)).await.unwrap();
@@ -188,7 +203,11 @@ async fn errores_http_se_traducen() {
     assert!(matches!(e, CoreError::RateLimited { retry_after_secs: Some(30), .. }), "{e:?}");
 
     let s2 = MockServer::start().await;
-    Mock::given(method("GET")).and(path("/w/api.php")).respond_with(ResponseTemplate::new(200).set_body_raw("<html>oops</html>", "text/html")).mount(&s2).await;
+    Mock::given(method("GET"))
+        .and(path("/w/api.php"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw("<html>oops</html>", "text/html"))
+        .mount(&s2)
+        .await;
     let e = wikimedia::Wikimedia::new().search(&ctx(&s2, None), &q("x", KindFilter::All)).await.unwrap_err();
     assert!(matches!(e, CoreError::Parse(_)), "{e:?}");
 }
@@ -198,4 +217,65 @@ async fn sin_conexion_es_error_de_red() {
     let c = ProviderCtx { client: build_test_client(), api_key: None, base_url: Some("http://127.0.0.1:9".into()), include_unlicensed: false };
     let e = wikimedia::Wikimedia::new().search(&c, &q("x", KindFilter::All)).await.unwrap_err();
     assert!(matches!(e, CoreError::Network(_)), "{e:?}");
+}
+
+#[tokio::test]
+async fn youtube_busca_detalla_y_no_permite_descargar() {
+    let s = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/youtube/v3/search"))
+        .and(query_param("videoEmbeddable", "true"))
+        .and(query_param("type", "video"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw(fixture("youtube_search.json"), "application/json"))
+        .mount(&s)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/youtube/v3/videos"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw(fixture("youtube_videos.json"), "application/json"))
+        .mount(&s)
+        .await;
+    let yt = youtube::YouTube::new();
+    assert!(matches!(yt.search(&ctx(&s, None), &q("gato", KindFilter::Video)).await, Err(CoreError::MissingKey(_))));
+    let page = yt.search(&ctx(&s, Some("K")), &q("gato", KindFilter::Video)).await.unwrap();
+    assert_eq!(page.items.len(), 1, "se descartan transmisiones en vivo e IDs inválidos");
+    let it = &page.items[0];
+    assert_eq!(it.title, "Gato bailando \"épico\" 'demo'");
+    assert_eq!(it.author.as_deref(), Some("Canal Demo"));
+    assert_eq!(it.duration_secs, Some(63.0));
+    assert_eq!(it.popularity, Some(123456));
+    assert_eq!(it.download_policy, bouteca_core::model::DownloadPolicy::PreviewOnly);
+    assert!(it.renditions.is_empty(), "sin variantes descargables");
+    assert_eq!(it.embed_url.as_deref(), Some("https://www.youtube-nocookie.com/embed/aaaaaaaaaaa"));
+    assert!(page.has_more);
+    // Página 2 usa el pageToken recibido.
+    let mut q2 = q("gato", KindFilter::Video);
+    q2.page = 2;
+    yt.search(&ctx(&s, Some("K")), &q2).await.unwrap();
+    let reqs = s.received_requests().await.unwrap();
+    assert!(reqs.iter().any(|r| r.url.query().unwrap_or("").contains("pageToken=CBkQAA")));
+}
+
+#[tokio::test]
+async fn youtube_cupo_agotado_es_limite() {
+    let s = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/youtube/v3/search"))
+        .respond_with(ResponseTemplate::new(403).set_body_raw(r#"{"error":{"errors":[{"reason":"quotaExceeded"}]}}"#, "application/json"))
+        .mount(&s)
+        .await;
+    let e = youtube::YouTube::new().search(&ctx(&s, Some("K")), &q("x", KindFilter::Video)).await.unwrap_err();
+    assert!(matches!(e, CoreError::RateLimited { retry_after_secs: Some(3600), .. }), "{e:?}");
+}
+
+#[tokio::test]
+async fn respuesta_gigante_se_corta() {
+    let s = MockServer::start().await;
+    let huge = format!("{{\"results\":[{}]}}", vec!["{\"id\":\"x\"}"; 1_000_000].join(","));
+    Mock::given(method("GET"))
+        .and(path("/v1/images/"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw(huge, "application/json"))
+        .mount(&s)
+        .await;
+    let e = openverse::Openverse::new().search(&ctx(&s, None), &q("x", KindFilter::All)).await.unwrap_err();
+    assert!(matches!(e, CoreError::InvalidFile(_)), "{e:?}");
 }

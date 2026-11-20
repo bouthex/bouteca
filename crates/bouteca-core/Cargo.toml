@@ -18,11 +18,12 @@ tracing.workspace = true
 parking_lot.workspace = true
 url.workspace = true
 async-trait = "0.1"
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.43", features = ["bundled"] }
 deunicode = "1"
 infer = "0.16"
 blake3 = "1"
-lru = "0.12"
+lru = "0.19"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
 
 [dev-dependencies]
 tempfile = "3"

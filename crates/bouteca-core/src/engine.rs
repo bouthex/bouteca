@@ -110,6 +110,10 @@ pub struct SearchEngine {
     concurrency: Arc<Semaphore>,
     base_overrides: HashMap<String, String>,
     active: std::sync::atomic::AtomicUsize,
+    /// URLs de medios que este motor entregó a la interfaz. Las descargas y la búsqueda por
+    /// imagen solo aceptan URLs de este conjunto (o de la biblioteca guardada): una interfaz
+    /// comprometida no puede pedirle al backend que descargue direcciones arbitrarias.
+    known: Mutex<lru::LruCache<String, ()>>,
 }
 
 impl SearchEngine {
@@ -128,6 +132,7 @@ impl SearchEngine {
             concurrency: Arc::new(Semaphore::new(6)),
             base_overrides: HashMap::new(),
             active: std::sync::atomic::AtomicUsize::new(0),
+            known: Mutex::new(lru::LruCache::new(NonZeroUsize::new(20_000).unwrap())),
         }
     }
 
@@ -192,6 +197,21 @@ impl SearchEngine {
         }
     }
 
+    /// Registra las URLs de un recurso entregado a la interfaz.
+    pub fn remember(&self, item: &MediaItem) {
+        let mut k = self.known.lock();
+        for r in &item.renditions {
+            k.put(r.url.clone(), ());
+        }
+        for u in [&item.thumbnail, &item.preview].into_iter().flatten() {
+            k.put(u.clone(), ());
+        }
+    }
+
+    pub fn is_known(&self, url: &str) -> bool {
+        self.known.lock().contains(url)
+    }
+
     pub fn cancel(&self, search_id: u64) {
         if let Some(t) = self.cancels.lock().remove(&search_id) {
             t.cancel();
@@ -208,7 +228,11 @@ impl SearchEngine {
     pub async fn resolve(&self, item: MediaItem) -> crate::Result<MediaItem> {
         let p = self.providers.iter().find(|p| p.info().id == item.provider).cloned().ok_or_else(|| CoreError::NotFound(item.provider.clone()))?;
         let ctx = self.ctx_for(&item.provider);
-        tokio::time::timeout(PROVIDER_TIMEOUT, p.resolve(&ctx, item)).await.map_err(|_| CoreError::Network("tiempo de espera agotado".into()))?
+        let r = tokio::time::timeout(PROVIDER_TIMEOUT, p.resolve(&ctx, item))
+            .await
+            .map_err(|_| CoreError::Network("tiempo de espera agotado".into()))??;
+        self.remember(&r);
+        Ok(r)
     }
 
     /// Ejecuta una búsqueda (o la página siguiente) emitiendo eventos progresivos.
@@ -228,7 +252,10 @@ impl SearchEngine {
                     sessions.remove(&oldest);
                 }
             }
-            sessions.insert(req.search_id, Session { plan: plan.clone(), filter: req.filter, more: HashMap::new(), seen: HashSet::new(), created: Instant::now() });
+            sessions.insert(
+                req.search_id,
+                Session { plan: plan.clone(), filter: req.filter, more: HashMap::new(), seen: HashSet::new(), created: Instant::now() },
+            );
             (plan, req.filter)
         } else {
             match self.sessions.lock().get(&req.search_id) {
@@ -247,9 +274,7 @@ impl SearchEngine {
             .iter()
             .filter(|p| p.supports(filter))
             .filter(|p| matches!(self.status_of(p.info().id), ProviderStatus::Ready | ProviderStatus::Error(_)))
-            .filter(|p| {
-                req.page <= 1 || self.sessions.lock().get(&req.search_id).and_then(|s| s.more.get(p.info().id).copied()).unwrap_or(false)
-            })
+            .filter(|p| req.page <= 1 || self.sessions.lock().get(&req.search_id).and_then(|s| s.more.get(p.info().id).copied()).unwrap_or(false))
             .cloned()
             .collect();
 
@@ -273,7 +298,7 @@ impl SearchEngine {
                 plan.variants[0].clone()
             };
             jobs.push((p.clone(), main.clone(), true));
-            if req.page > 1 {
+            if req.page > 1 || info.single_query {
                 continue;
             }
             // Variante de entidad (personaje/meme conocido), si la hay.
@@ -294,7 +319,11 @@ impl SearchEngine {
         // Idiomas extra: solo a proveedores que los entienden de forma nativa, máximo 2 por idioma.
         if req.page <= 1 {
             for v in plan.variants.iter().filter(|v| v.reason == "traducción" && v.lang != LangCode::En) {
-                for p in candidates.iter().filter(|p| !p.info().prefers_english && p.info().native_langs.contains(&v.lang)).take(2) {
+                for p in candidates
+                    .iter()
+                    .filter(|p| !p.info().prefers_english && !p.info().single_query && p.info().native_langs.contains(&v.lang))
+                    .take(2)
+                {
                     jobs.push((p.clone(), v.clone(), false));
                 }
             }
@@ -354,10 +383,17 @@ impl SearchEngine {
                                     None => false,
                                 }
                             };
+                            engine.remember(&item);
                             if dup {
                                 // Mismo recurso desde otra fuente o variante: lo ofrecemos como versión alternativa.
                                 if !token.is_cancelled() {
-                                    sink(SearchEvent::Alternate { search_id, dedupe_key: item.dedupe_key.clone(), provider: id.clone(), uid: item.uid.clone(), renditions: item.renditions.clone() });
+                                    sink(SearchEvent::Alternate {
+                                        search_id,
+                                        dedupe_key: item.dedupe_key.clone(),
+                                        provider: id.clone(),
+                                        uid: item.uid.clone(),
+                                        renditions: item.renditions.clone(),
+                                    });
                                 }
                                 continue;
                             }

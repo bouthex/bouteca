@@ -15,7 +15,7 @@ pub fn relevance(item: &MediaItem, plan: &QueryPlan) -> f32 {
     let haystack = normalize(&format!("{} {}", item.title, item.tags.join(" ")));
     let words: Vec<&str> = haystack.split_whitespace().collect();
     let contains = |form: &str| -> bool {
-        if form.contains(' ') || form.chars().any(|c| !c.is_ascii()) {
+        if form.contains(' ') || !form.is_ascii() {
             haystack.contains(form)
         } else {
             words.iter().any(|w| *w == form || (form.len() >= 4 && w.starts_with(form)))
@@ -98,9 +98,18 @@ mod tests {
             height: Some(360),
             duration_secs: None,
             popularity: None,
-            renditions: vec![Rendition { label: "o".into(), url: url.into(), mime: None, width: None, height: None, size_bytes: None, original: true }],
+            renditions: vec![Rendition {
+                label: "o".into(),
+                url: url.into(),
+                mime: None,
+                width: None,
+                height: None,
+                size_bytes: None,
+                original: true,
+            }],
             needs_resolve: false,
             download_policy: DownloadPolicy::Free,
+            embed_url: None,
             score: 0.0,
             dedupe_key: String::new(),
         }

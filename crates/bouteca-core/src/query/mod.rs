@@ -193,9 +193,9 @@ pub fn plan(query: &str, primary: LangCode, extra_langs: &[LangCode]) -> QueryPl
         }
     }
     // Japonés/chino: no hay espacios, buscamos alias como subcadena.
-    if entities.is_empty() && normalized.chars().any(|c| !c.is_ascii()) {
+    if entities.is_empty() && !normalized.is_ascii() {
         for (alias, &ei) in &lex.entity_index {
-            if alias.chars().any(|c| !c.is_ascii()) && normalized.contains(alias.as_str()) && !entities.contains(&ei) {
+            if !alias.is_ascii() && normalized.contains(alias.as_str()) && !entities.contains(&ei) {
                 entities.push(ei);
             }
         }
@@ -348,13 +348,8 @@ pub fn suggest(prefix: &str, limit: usize) -> Vec<String> {
     if p.chars().count() < 2 {
         return vec![];
     }
-    let mut out: Vec<String> = lex
-        .entity_index
-        .keys()
-        .chain(lex.phrase_index.keys())
-        .filter(|k| k.starts_with(&p) && k.as_str() != p)
-        .cloned()
-        .collect();
+    let mut out: Vec<String> =
+        lex.entity_index.keys().chain(lex.phrase_index.keys()).filter(|k| k.starts_with(&p) && k.as_str() != p).cloned().collect();
     out.sort_by_key(|s| (s.len(), s.clone()));
     out.dedup();
     out.truncate(limit);
@@ -384,7 +379,14 @@ mod tests {
     #[test]
     fn variantes_del_mismo_concepto_coinciden() {
         // Todas estas formas deben compartir el concepto "yellow" y apuntar a resultados comparables.
-        for q in ["Yellow guy", "Tipo amarillo meme", "Personaje amarillo gracioso", "Ese meme del personaje amarillo", "Yellow meme reaction", "Bola amarilla"] {
+        for q in [
+            "Yellow guy",
+            "Tipo amarillo meme",
+            "Personaje amarillo gracioso",
+            "Ese meme del personaje amarillo",
+            "Yellow meme reaction",
+            "Bola amarilla",
+        ] {
             let p = plan(q, LangCode::Es, &[]);
             assert!(p.concepts.contains(&"yellow".to_string()) || !p.entities.is_empty(), "{q}: {:?}", p);
             assert!(p.terms.iter().any(|(t, _)| t == "yellow"), "{q} debería incluir 'yellow' en términos");

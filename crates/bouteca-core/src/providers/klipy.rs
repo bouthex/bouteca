@@ -30,6 +30,7 @@ impl Klipy {
                 native_langs: &[LangCode::Es, LangCode::En, LangCode::Pt, LangCode::Tr, LangCode::Ja, LangCode::Ru],
                 prefers_english: false,
                 attribution_mark: Some("Powered by KLIPY"),
+                single_query: false,
             },
         }
     }
@@ -42,16 +43,12 @@ impl Default for Klipy {
 }
 
 const SIZES: [&str; 4] = ["hd", "md", "sm", "xs"];
-const FORMATS: [(&str, &str); 6] = [
-    ("mp4", "video/mp4"),
-    ("webm", "video/webm"),
-    ("gif", "image/gif"),
-    ("webp", "image/webp"),
-    ("jpg", "image/jpeg"),
-    ("png", "image/png"),
-];
+const FORMATS: [(&str, &str); 6] =
+    [("mp4", "video/mp4"), ("webm", "video/webm"), ("gif", "image/gif"), ("webp", "image/webp"), ("jpg", "image/jpeg"), ("png", "image/png")];
 
-fn fmt_obj(v: &Value) -> Option<(String, Option<u32>, Option<u32>, Option<u64>)> {
+type FmtObj = (String, Option<u32>, Option<u32>, Option<u64>);
+
+fn fmt_obj(v: &Value) -> Option<FmtObj> {
     let url = v.get("url")?.as_str()?.to_string();
     let w = v.get("width").and_then(Value::as_u64).map(|x| x as u32);
     let h = v.get("height").and_then(Value::as_u64).map(|x| x as u32);
@@ -63,11 +60,8 @@ pub(crate) fn map_item(v: &Value, endpoint: &str) -> Option<MediaItem> {
     if v.get("type").and_then(Value::as_str) == Some("ad") {
         return None;
     }
-    let slug = v
-        .get("slug")
-        .and_then(Value::as_str)
-        .map(str::to_string)
-        .or_else(|| v.get("id").map(|i| i.to_string().trim_matches('"').to_string()))?;
+    let slug =
+        v.get("slug").and_then(Value::as_str).map(str::to_string).or_else(|| v.get("id").map(|i| i.to_string().trim_matches('"').to_string()))?;
     let title = v.get("title").and_then(Value::as_str).unwrap_or("").trim().to_string();
     let file = v.get("file")?;
     // Algunos tipos traen los formatos sin nivel de tamaño.
@@ -119,19 +113,13 @@ pub(crate) fn map_item(v: &Value, endpoint: &str) -> Option<MediaItem> {
     let thumb = thumb.or_else(|| preview.clone()).or_else(|| renditions.last().map(|r| r.url.clone()))?;
     let (kind, page_kind) = match endpoint {
         "clips" => (MediaKind::Video, "clips"),
-        "memes" => (
-            if renditions.iter().any(|r| r.mime.as_deref() == Some("image/gif")) { MediaKind::Gif } else { MediaKind::Image },
-            "memes",
-        ),
+        "memes" => (if renditions.iter().any(|r| r.mime.as_deref() == Some("image/gif")) { MediaKind::Gif } else { MediaKind::Image }, "memes"),
         _ => (MediaKind::Gif, "gifs"),
     };
     let (width, height) = renditions.first().map(|r| (r.width, r.height)).unwrap_or((None, None));
     let duration_secs = v.get("duration").and_then(Value::as_f64);
-    let tags = v
-        .get("tags")
-        .and_then(Value::as_array)
-        .map(|a| a.iter().filter_map(|t| t.as_str().map(|s| s.to_lowercase())).collect())
-        .unwrap_or_default();
+    let tags =
+        v.get("tags").and_then(Value::as_array).map(|a| a.iter().filter_map(|t| t.as_str().map(|s| s.to_lowercase())).collect()).unwrap_or_default();
     Some(MediaItem {
         uid: format!("klipy:{page_kind}:{slug}"),
         provider: "klipy".into(),
@@ -152,6 +140,7 @@ pub(crate) fn map_item(v: &Value, endpoint: &str) -> Option<MediaItem> {
         renditions,
         needs_resolve: false,
         download_policy: DownloadPolicy::Personal,
+        embed_url: None,
         score: 0.0,
         dedupe_key: String::new(),
     })
@@ -200,10 +189,7 @@ impl Provider for Klipy {
             KindFilter::Audio => Ok(ProviderPage::default()),
             KindFilter::All => {
                 // GIFs + clips en paralelo; si uno falla, devolvemos el otro.
-                let (a, b) = tokio::join!(
-                    self.search_endpoint(ctx, q, key, "gifs"),
-                    self.search_endpoint(ctx, q, key, "clips")
-                );
+                let (a, b) = tokio::join!(self.search_endpoint(ctx, q, key, "gifs"), self.search_endpoint(ctx, q, key, "clips"));
                 match (a, b) {
                     (Ok(mut a), Ok(b)) => {
                         a.has_more |= b.has_more;

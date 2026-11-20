@@ -53,7 +53,7 @@ pub fn allowed_ext(kind: MediaKind, ext: &str) -> bool {
     let ok: &[&str] = match kind {
         MediaKind::Gif => &["gif", "mp4", "webm", "webp"],
         MediaKind::Video => &["mp4", "webm", "mov", "m4v", "mkv", "ogv", "gif"],
-        MediaKind::Image => &["jpg", "jpeg", "png", "gif", "webp", "svg", "avif", "bmp", "tif", "tiff"],
+        MediaKind::Image => &["jpg", "jpeg", "png", "gif", "webp", "avif", "bmp", "tif", "tiff"],
         MediaKind::Audio => &["mp3", "ogg", "oga", "opus", "wav", "flac", "m4a", "aac", "webm"],
     };
     ok.contains(&e.as_str())
@@ -69,7 +69,6 @@ pub fn ext_for_mime(mime: &str) -> Option<&'static str> {
         "image/avif" => "avif",
         "image/bmp" => "bmp",
         "image/tiff" => "tif",
-        "image/svg+xml" => "svg",
         "video/mp4" => "mp4",
         "video/webm" => "webm",
         "video/quicktime" => "mov",
@@ -116,6 +115,17 @@ pub fn mime_matches_kind(kind: MediaKind, mime: &str) -> bool {
     }
 }
 
+/// Tamaño máximo por tipo (protección ante respuestas anómalas o maliciosas).
+pub fn max_bytes(kind: MediaKind) -> u64 {
+    const MB: u64 = 1024 * 1024;
+    match kind {
+        MediaKind::Image => 100 * MB,
+        MediaKind::Gif => 300 * MB,
+        MediaKind::Audio => 1024 * MB,
+        MediaKind::Video => 4096 * MB,
+    }
+}
+
 /// Valida un archivo descargado: no vacío, tipo real coherente, nunca un ejecutable/HTML.
 pub fn validate_download(kind: MediaKind, head: &[u8], size: u64) -> Result<String> {
     if size == 0 {
@@ -129,6 +139,10 @@ pub fn validate_download(kind: MediaKind, head: &[u8], size: u64) -> Result<Stri
         return Err(CoreError::InvalidFile("el servidor devolvió una página web en lugar del archivo".into()));
     }
     let mime = sniff(head).ok_or_else(|| CoreError::InvalidFile("no se reconoce el formato del archivo".into()))?;
+    if mime == "image/svg+xml" {
+        // Un SVG puede llevar scripts y enlaces activos: no se guarda (se ofrece la versión PNG).
+        return Err(CoreError::InvalidFile("los SVG pueden contener código activo: descargá la versión PNG".into()));
+    }
     if !mime_matches_kind(kind, &mime) {
         return Err(CoreError::InvalidFile(format!("se esperaba {} pero llegó {mime}", kind.as_str())));
     }
@@ -164,5 +178,12 @@ mod tests {
         assert!(validate_download(MediaKind::Image, b"<!DOCTYPE html><html>", 20).is_err());
         assert!(validate_download(MediaKind::Video, b"MZ\x90\x00", 4).is_err());
         assert!(validate_download(MediaKind::Image, b"", 0).is_err());
+        assert!(
+            validate_download(MediaKind::Image, b"<svg xmlns='http://www.w3.org/2000/svg'><script>x()</script></svg>", 60).is_err(),
+            "SVG rechazado"
+        );
+        assert!(validate_download(MediaKind::Image, b"PK\x03\x04zip", 10).is_err(), "ZIP disfrazado rechazado");
+        // Un JPEG real con extensión engañosa en la URL se valida por contenido, no por nombre.
+        assert_eq!(validate_download(MediaKind::Image, b"\xFF\xD8\xFF\xE0\x00\x10JFIF\x00", 12).unwrap(), "image/jpeg");
     }
 }

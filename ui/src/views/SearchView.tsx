@@ -4,7 +4,7 @@ import { providerName } from "../lib/format";
 import * as Icon from "../lib/icons";
 import {
   elapsedMs, filter, hasMore, lastSearched, loadMore, loadingMore, plan, providerErrors, providerState,
-  results, runSearch, searching, userScrolled, view,
+  results, runSearch, searching, userScrolled, view, visual, clearVisual,
 } from "../lib/store";
 import type { KindFilter, SearchEntry } from "../lib/types";
 import { ResultGrid } from "../components/ResultGrid";
@@ -30,7 +30,8 @@ function Hero() {
   return (
     <div class="hero">
       <div class="wordmark">
-        <img src="/logo.png" alt="" />
+        <img class="logo-dark" src="/logo-on-dark.svg" alt="" />
+        <img class="logo-light" src="/logo-on-light.svg" alt="" />
         <span>bouteca</span>
       </div>
       <SearchBar hero />
@@ -42,6 +43,24 @@ function Hero() {
       <p class="hero-note">
         {recent.length ? "Tus búsquedas recientes." : "Escribí en español: Bouteca también busca en inglés, portugués, turco, japonés y ruso."}
       </p>
+    </div>
+  );
+}
+
+function VisualBar() {
+  const v = visual.value;
+  if (!v) return null;
+  return (
+    <div class="visual-bar">
+      <img src={v.previewUrl} alt="Imagen de referencia" />
+      <div style="flex:1;min-width:0">
+        <b>Ordenando por parecido a tu imagen</b>
+        <div class="small muted">
+          {v.running ? "Comparando con las miniaturas…" : v.compared ? `Comparada con ${v.compared} resultados, en tu equipo. La imagen no se envía a ningún servicio.` : "Buscá algo y los resultados se ordenan por parecido. La imagen no sale de tu equipo."}
+        </div>
+      </div>
+      {v.color && <button class="chip" onClick={() => runSearch(`${lastSearched.value || "meme"} ${v.color}`.trim(), filter.value)}>Sumar color: {v.color}</button>}
+      <button class="btn ghost sm" onClick={clearVisual} aria-label="Quitar imagen de referencia"><Icon.Close size={15} /></button>
     </div>
   );
 }
@@ -82,6 +101,7 @@ export function SearchView() {
             ))}
           </div>
         </div>
+        <VisualBar />
         {translations.length > 0 && (
           <div class="translations">
             <Icon.Globe size={14} />
@@ -119,7 +139,9 @@ export function SearchView() {
           <ResultGrid items={items} onNearEnd={loadMore} footer={footer} loadingSkeletons={searching.value && items.length < 12 ? 12 - items.length : loadingMore.value ? 4 : 0} />
         </div>
       )}
-      {items.some((i) => i.provider === "giphy") && <div class="attribution-mark">Powered by GIPHY</div>}
+      {(items.some((i) => i.provider === "giphy") || items.some((i) => i.provider === "youtube")) && (
+        <div class="attribution-mark">{[items.some((i) => i.provider === "giphy") && "Powered by GIPHY", items.some((i) => i.provider === "youtube") && "Videos de YouTube (solo reproducción)"].filter(Boolean).join(" · ")}</div>
+      )}
     </>
   );
 }

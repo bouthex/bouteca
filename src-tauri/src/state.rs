@@ -16,6 +16,8 @@ use tokio::sync::Notify;
 
 pub struct AppState {
     pub engine: Arc<SearchEngine>,
+    /// Cliente HTTP endurecido compartido (miniaturas para la búsqueda por imagen).
+    pub http: reqwest::Client,
     pub db: Arc<Db>,
     pub downloads: Arc<DownloadManager>,
     pub settings: RwLock<AppSettings>,
@@ -70,7 +72,12 @@ impl AppState {
         let downloads = DownloadManager::new(
             db.clone(),
             http::build_download_client(),
-            DownloadOptions { root: downloads_root.clone(), organize_by_kind: settings.organize_by_kind, detect_duplicates: settings.detect_duplicates },
+            DownloadOptions {
+                root: downloads_root.clone(),
+                organize_by_kind: settings.organize_by_kind,
+                detect_duplicates: settings.detect_duplicates,
+                allow_insecure_loopback: false,
+            },
             Arc::new(move |ev| {
                 let _ = h.emit("download-event", ev);
             }),
@@ -80,6 +87,7 @@ impl AppState {
         let web_cache_dir = Some(local_dir.join("EBWebView").join("Default").join("Cache"));
 
         Ok(Arc::new(Self {
+            http: http::build_client(),
             engine,
             db,
             downloads,
@@ -155,9 +163,5 @@ fn build_engine(settings: &AppSettings, keys: Arc<SecureKeys>) -> SearchEngine {
 }
 
 pub fn default_download_root(app: &AppHandle) -> PathBuf {
-    app.path()
-        .download_dir()
-        .or_else(|_| app.path().home_dir())
-        .unwrap_or_else(|_| PathBuf::from("."))
-        .join("Bouteca")
+    app.path().download_dir().or_else(|_| app.path().home_dir()).unwrap_or_else(|_| PathBuf::from(".")).join("Bouteca")
 }

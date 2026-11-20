@@ -27,6 +27,8 @@ pub struct AppSettings {
     /// "low" | "high": tamaño de miniaturas pedidas a los proveedores que lo permiten.
     pub thumbnail_quality: String,
     pub theme: String,
+    /// "system" (respeta la preferencia de Windows), "reduced" o "off".
+    pub motion: String,
 }
 
 impl Default for AppSettings {
@@ -45,6 +47,7 @@ impl Default for AppSettings {
             auto_cleanup: true,
             thumbnail_quality: "low".into(),
             theme: "dark".into(),
+            motion: "system".into(),
         }
     }
 }
@@ -82,8 +85,7 @@ mod tests {
     fn guarda_y_carga() {
         let tmp = tempfile::tempdir().unwrap();
         let p = tmp.path().join("settings.json");
-        let mut s = AppSettings::default();
-        s.minimize_to_tray = true;
+        let s = AppSettings { minimize_to_tray: true, ..Default::default() };
         s.save(&p).unwrap();
         let l = AppSettings::load(&p);
         assert!(l.minimize_to_tray);

@@ -2,7 +2,7 @@ import { memo } from "preact/compat";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { duration, isVideoUrl, kindLabel, providerName, resolution } from "../lib/format";
 import * as Icon from "../lib/icons";
-import { favoriteUids, openPreview, selected, settings, startDownload, toggleFavorite } from "../lib/store";
+import { favoriteUids, openPreview, selected, settings, startDownload, toggleFavorite, visual } from "../lib/store";
 import type { MediaItem } from "../lib/types";
 
 /** Tarjeta de resultado. La vista previa animada solo existe mientras el mouse está encima. */
@@ -47,8 +47,10 @@ export const ResultCard = memo(function ResultCard({ item, style }: { item: Medi
         ) : (
           <div class="fallback"><Icon.Image size={28} /></div>
         )}
-        <span class="kind" data-k={item.kind}>{kindLabel[item.kind]}</span>
-        {item.duration_secs ? <span class="dur">{duration(item.duration_secs)}</span> : null}
+        <span class="kind" data-k={item.kind} data-src={item.provider}>{item.provider === "youtube" ? "YouTube" : kindLabel[item.kind]}</span>
+        {visual.value?.scores.has(item.uid) && <span class="sim" title="Parecido con tu imagen">{Math.round((visual.value.scores.get(item.uid) ?? 0) * 100)}%</span>}
+        {item.download_policy === "preview_only" && !item.duration_secs && <span class="stream-only">Solo ver</span>}
+        {item.duration_secs && !visual.value?.scores.has(item.uid) ? <span class="dur">{duration(item.duration_secs)}</span> : null}
         <div class={`card-actions ${fav ? "on" : ""}`} onClick={(e) => e.stopPropagation()}>
           <button class={`icon-btn ${fav ? "fav-on" : ""}`} title={fav ? "Quitar de favoritos" : "Guardar en favoritos"} onClick={() => toggleFavorite(item)}>
             {fav ? <Icon.HeartFill size={16} /> : <Icon.Heart size={16} />}

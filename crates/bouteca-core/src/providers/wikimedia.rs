@@ -30,6 +30,7 @@ impl Wikimedia {
                 native_langs: &[LangCode::En, LangCode::Es, LangCode::Pt, LangCode::Tr, LangCode::Ja, LangCode::Ru],
                 prefers_english: true,
                 attribution_mark: None,
+                single_query: false,
             },
         }
     }
@@ -98,11 +99,13 @@ struct Derivative {
 }
 
 fn meta(info: &Info, key: &str) -> Option<String> {
-    info.extmetadata.get(key).map(|m| match &m.value {
-        serde_json::Value::String(s) => strip_html(s),
-        other => other.to_string(),
-    })
-    .filter(|s| !s.is_empty())
+    info.extmetadata
+        .get(key)
+        .map(|m| match &m.value {
+            serde_json::Value::String(s) => strip_html(s),
+            other => other.to_string(),
+        })
+        .filter(|s| !s.is_empty())
 }
 
 fn filter_clause(f: KindFilter) -> &'static str {
@@ -126,32 +129,40 @@ fn map_page(p: Page) -> Option<MediaItem> {
         "BITMAP" | "DRAWING" => MediaKind::Image,
         _ => return None, // PDF, DjVu, 3D, etc. no aportan aquí.
     };
-    let clean_title = p
-        .title
-        .trim_start_matches("File:")
-        .rsplit_once('.')
-        .map(|(a, _)| a)
-        .unwrap_or(&p.title)
-        .replace('_', " ");
+    let clean_title = p.title.trim_start_matches("File:").rsplit_once('.').map(|(a, _)| a).unwrap_or(&p.title).replace('_', " ");
     let title = meta(&info, "ObjectName").filter(|t| t.len() < 120).unwrap_or(clean_title);
     let description = meta(&info, "ImageDescription").unwrap_or_default();
-    let mut tags: Vec<String> = description
-        .split(|c: char| !c.is_alphanumeric())
-        .filter(|w| w.chars().count() > 2)
-        .take(24)
-        .map(str::to_lowercase)
-        .collect();
+    let mut tags: Vec<String> =
+        description.split(|c: char| !c.is_alphanumeric()).filter(|w| w.chars().count() > 2).take(24).map(str::to_lowercase).collect();
     tags.dedup();
 
-    let mut renditions = vec![Rendition {
-        label: "Original".into(),
-        url: url.clone(),
-        mime: info.mime.clone(),
-        width: info.width,
-        height: info.height,
-        size_bytes: info.size,
-        original: true,
-    }];
+    let mut renditions = if mime == "image/svg+xml" {
+        // Los SVG pueden contener scripts: se ofrece el PNG que renderiza Wikimedia.
+        info.thumburl
+            .as_deref()
+            .map(|t| {
+                vec![Rendition {
+                    label: "PNG 1280 px (renderizado del SVG)".into(),
+                    url: t.replace("/360px-", "/1280px-"),
+                    mime: Some("image/png".into()),
+                    width: Some(1280),
+                    height: None,
+                    size_bytes: None,
+                    original: false,
+                }]
+            })
+            .unwrap_or_default()
+    } else {
+        vec![Rendition {
+            label: "Original".into(),
+            url: url.clone(),
+            mime: info.mime.clone(),
+            width: info.width,
+            height: info.height,
+            size_bytes: info.size,
+            original: true,
+        }]
+    };
     // Derivados WebM (videos): útiles para reproducir y para editores que no leen OGV.
     for d in info.derivatives.iter().filter(|d| d.mime.as_deref().map(|m| m.starts_with("video/webm")).unwrap_or(false)) {
         renditions.push(Rendition {
@@ -197,6 +208,7 @@ fn map_page(p: Page) -> Option<MediaItem> {
         renditions,
         needs_resolve: false,
         download_policy: DownloadPolicy::Free,
+        embed_url: None,
         score: 0.0,
         dedupe_key: String::new(),
     })

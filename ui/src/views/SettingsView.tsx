@@ -154,6 +154,12 @@ export function SettingsView() {
                 <option value="light">Clara</option>
               </select>
             </Setting>
+            <Setting title="Animaciones" desc="«Según Windows» respeta la opción de reducir movimiento del sistema.">
+              <select class="field" value={s.motion === "off" || s.motion === "reduced" ? "off" : "system"} onChange={(e) => set({ motion: (e.target as HTMLSelectElement).value as AppSettings["motion"] })}>
+                <option value="system">Según Windows</option>
+                <option value="off">Desactivadas</option>
+              </select>
+            </Setting>
             <Setting title="Atajo global" desc={info?.shortcut_error ?? "Abre Bouteca y enfoca el buscador desde cualquier programa."}>
               <ShortcutRecorder value={s.global_shortcut} onChange={(v) => set({ global_shortcut: v })} />
             </Setting>
@@ -220,6 +226,23 @@ export function SettingsView() {
           <h2>Fuentes</h2>
           <p class="small muted" style="margin:-4px 0 10px">Las fuentes sin clave funcionan de inmediato. Las demás necesitan una clave gratuita de su sitio; se guarda cifrada en tu equipo y nunca sale de él salvo hacia esa fuente.</p>
           <div class="rows">{providers.map((p) => <ProviderRow key={p.info.id} p={p} reload={loadProviders} />)}</div>
+        </section>
+
+        <section class="group">
+          <h2>Privacidad</h2>
+          <div class="rows">
+            <div class="setting"><div class="txt">
+              <b>Qué se envía y a quién</b>
+              <span>
+                Al buscar, el texto de la búsqueda (y sus traducciones) se envía solo a las fuentes activadas, junto con tu dirección IP como en cualquier conexión.
+                Cada clave de API viaja únicamente a su propio proveedor. La búsqueda por imagen se calcula en tu equipo: tu imagen nunca se envía; solo se piden las miniaturas públicas de los resultados.
+                No hay publicidad, telemetría ni cuentas. Historial, favoritos y descargas se guardan solo en este equipo.
+              </span>
+            </div></div>
+            <Setting title="Borrar historial" desc="Búsquedas y recursos vistos. No toca favoritos, colecciones ni archivos descargados.">
+              <button class="btn sm" onClick={() => Promise.all([api.historyClear("searches"), api.historyClear("views")]).then(() => toast("Historial borrado", "ok"), (e) => toast(errText(e), "error"))}>Borrar</button>
+            </Setting>
+          </div>
         </section>
 
         <section class="group">

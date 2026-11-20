@@ -26,5 +26,6 @@ pub mod query;
 pub mod rank;
 pub mod settings;
 pub mod validate;
+pub mod visual;
 
 pub use error::{CoreError, Result};

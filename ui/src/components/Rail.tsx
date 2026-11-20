@@ -20,7 +20,8 @@ export function Rail() {
   );
   return (
     <nav class="rail" aria-label="Secciones">
-      <img class="rail-logo" src="/logo.png" alt="Bouteca" />
+      <img class="rail-logo logo-dark" src="/logo-on-dark.svg" alt="Bouteca" />
+      <img class="rail-logo logo-light" src="/logo-on-light.svg" alt="Bouteca" />
       {items.map((i) => btn(i.id, i.label, i.icon, i.id === "downloads" ? activeDownloads.value : undefined))}
       <div class="rail-spacer" />
       {btn("diagnostics", "Recursos", Icon.Pulse)}

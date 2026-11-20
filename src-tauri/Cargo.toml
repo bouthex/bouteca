@@ -29,6 +29,8 @@ tracing.workspace = true
 parking_lot.workspace = true
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "ansi"] }
 tracing-appender = "0.2"
+futures.workspace = true
+reqwest.workspace = true
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 
 [target.'cfg(windows)'.dependencies]

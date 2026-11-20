@@ -29,6 +29,7 @@ impl InternetArchive {
                 native_langs: &[LangCode::En],
                 prefers_english: true,
                 attribution_mark: None,
+                single_query: false,
             },
         }
     }
@@ -99,6 +100,7 @@ pub(crate) fn map_doc(d: &Value) -> Option<MediaItem> {
         renditions: vec![],
         needs_resolve: true,
         download_policy: if license_url.is_some() { DownloadPolicy::Free } else { DownloadPolicy::Personal },
+        embed_url: None,
         score: 0.0,
         dedupe_key: String::new(),
     })
@@ -190,7 +192,9 @@ pub(crate) fn apply_metadata(mut item: MediaItem, body: &[u8]) -> Result<MediaIt
         return Err(crate::CoreError::NotFound("el elemento no tiene archivos reproducibles".into()));
     }
     let base = format!("https://archive.org/download/{}", item.provider_id);
-    let encode = |n: &str| n.split('/').map(|p| url::form_urlencoded::byte_serialize(p.as_bytes()).collect::<String>().replace('+', "%20")).collect::<Vec<_>>().join("/");
+    let encode = |n: &str| {
+        n.split('/').map(|p| url::form_urlencoded::byte_serialize(p.as_bytes()).collect::<String>().replace('+', "%20")).collect::<Vec<_>>().join("/")
+    };
     item.renditions = files
         .iter()
         .map(|(_, f)| Rendition {
@@ -263,7 +267,7 @@ impl Provider for InternetArchive {
         }
         let url = format!("{}/metadata/{}", ctx.base("https://archive.org"), item.provider_id);
         let resp = http::send("archive", ctx.client.get(url)).await?;
-        let body = resp.bytes().await.map_err(crate::CoreError::from)?;
+        let body = http::body(resp).await?;
         apply_metadata(item, &body)
     }
 }

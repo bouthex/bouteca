@@ -3,12 +3,30 @@
 
 mod commands;
 mod keys;
+mod smoke;
 mod state;
 mod system;
 
 use state::AppState;
 use std::sync::Arc;
 use tauri::{Manager, RunEvent, WindowEvent};
+
+/// La ventana principal nunca navega fuera de la propia interfaz de Bouteca: un enlace o un
+/// contenido manipulado no puede llevar el WebView (con acceso a los comandos) a un sitio externo.
+/// Los enlaces externos se abren en el navegador del sistema mediante `open_external`.
+fn navigation_guard<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    tauri::plugin::Builder::new("navigation-guard")
+        .on_navigation(|_webview, url| {
+            let ok = matches!(url.scheme(), "tauri" | "about")
+                || (matches!(url.scheme(), "http" | "https") && matches!(url.host_str(), Some("tauri.localhost")))
+                || (cfg!(debug_assertions) && url.scheme() == "http" && url.host_str() == Some("localhost") && url.port() == Some(5174));
+            if !ok {
+                tracing::warn!(scheme = url.scheme(), host = url.host_str().unwrap_or(""), "navegación bloqueada");
+            }
+            ok
+        })
+        .build()
+}
 
 pub fn run() {
     let app = tauri::Builder::default()
@@ -26,12 +44,16 @@ pub fn run() {
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec!["--autostart"])))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(navigation_guard())
         .setup(|app| {
             let state = AppState::init(app.handle())?;
             app.manage(state);
             let state = app.state::<Arc<AppState>>();
             system::apply_system_settings(app.handle(), &state.settings.read().clone(), None);
             system::spawn_background(app.handle().clone());
+            if let Some(out) = smoke::requested() {
+                smoke::run(app.handle().clone(), out);
+            }
             // La ventana se muestra cuando la interfaz avisa que está lista (sin parpadeo blanco);
             // como respaldo, a los 4 s se muestra igual.
             let h = app.handle().clone();
@@ -88,6 +110,7 @@ pub fn run() {
             commands::history_views,
             commands::history_clear,
             commands::download_start,
+            commands::visual_compare,
             commands::downloads_list,
             commands::download_cancel,
             commands::download_retry,

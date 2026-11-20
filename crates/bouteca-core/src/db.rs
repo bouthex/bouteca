@@ -164,6 +164,21 @@ impl Db {
         Ok(())
     }
 
+    /// Recurso guardado por el usuario (favoritos, colecciones o vistos), tal como se guardó.
+    pub fn find_saved_item(&self, uid: &str) -> Result<Option<MediaItem>> {
+        let c = self.conn.lock();
+        for sql in [
+            "SELECT item_json FROM favorites WHERE uid = ?1",
+            "SELECT item_json FROM collection_items WHERE uid = ?1 LIMIT 1",
+            "SELECT item_json FROM view_history WHERE uid = ?1",
+        ] {
+            if let Some(j) = c.query_row(sql, params![uid], |r| r.get::<_, String>(0)).optional()? {
+                return Ok(Self::from_json(&j));
+            }
+        }
+        Ok(None)
+    }
+
     // ---------- colecciones ----------
 
     pub fn create_collection(&self, name: &str) -> Result<i64> {
@@ -213,9 +228,7 @@ impl Db {
              FROM collections c LEFT JOIN collection_items ci ON ci.collection_id = c.id
              GROUP BY c.id ORDER BY c.name COLLATE NOCASE",
         )?;
-        let rows = st.query_map([], |r| {
-            Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?, r.get::<_, Option<String>>(3)?))
-        })?;
+        let rows = st.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?, r.get::<_, Option<String>>(3)?)))?;
         Ok(rows
             .filter_map(|r| r.ok())
             .map(|(id, name, count, j)| Collection { id, name, count, cover: j.and_then(|j| Self::from_json(&j)).and_then(|i| i.thumbnail) })
@@ -304,7 +317,10 @@ impl Db {
         let c = self.conn.lock();
         let mut st = c.prepare("SELECT item_json, viewed_at FROM view_history ORDER BY viewed_at DESC LIMIT ?1")?;
         let rows = st.query_map(params![limit], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?;
-        Ok(rows.filter_map(|r| r.ok()).filter_map(|(j, at)| Self::from_json(&j).map(|item| SavedItem { item, added_at: at, available: true })).collect())
+        Ok(rows
+            .filter_map(|r| r.ok())
+            .filter_map(|(j, at)| Self::from_json(&j).map(|item| SavedItem { item, added_at: at, available: true }))
+            .collect())
     }
 
     /// Borra historial. `what`: "searches", "views", "downloads" (solo registros terminados), "all".
@@ -359,7 +375,10 @@ impl Db {
     pub fn find_completed(&self, url: Option<&str>, hash: Option<&str>) -> Result<Option<DownloadRow>> {
         let c = self.conn.lock();
         Ok(c.query_row(
-            &format!("{} WHERE status='completed' AND ((?1 IS NOT NULL AND url = ?1) OR (?2 IS NOT NULL AND hash = ?2)) ORDER BY id DESC LIMIT 1", DL_SELECT),
+            &format!(
+                "{} WHERE status='completed' AND ((?1 IS NOT NULL AND url = ?1) OR (?2 IS NOT NULL AND hash = ?2)) ORDER BY id DESC LIMIT 1",
+                DL_SELECT
+            ),
             params![url, hash],
             map_dl,
         )

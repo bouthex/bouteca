@@ -52,6 +52,7 @@ export const api = {
   updateSettings: (settings: T.AppSettings) => call<T.AppSettings>("settings_update", { settings }),
   chooseDownloadDir: () => call<string | null>("choose_download_dir"),
 
+  visualCompare: (image: number[], candidates: [string, string][]) => call<T.VisualReport>("visual_compare", { image, candidates }),
   diagnostics: () => call<T.Diagnostics>("diagnostics"),
   runCleanup: () => call<T.CleanupReport>("run_cleanup"),
   clearWebCache: () => call<void>("clear_web_cache"),

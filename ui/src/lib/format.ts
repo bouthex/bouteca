@@ -57,6 +57,7 @@ export const providerNames: Record<string, string> = {
   freesound: "Freesound",
   pixabay: "Pixabay",
   pexels: "Pexels",
+  youtube: "YouTube",
 };
 
 export const providerName = (id: string) => providerNames[id] ?? id;

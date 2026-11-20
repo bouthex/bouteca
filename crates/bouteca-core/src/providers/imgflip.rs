@@ -29,6 +29,7 @@ impl Imgflip {
                 native_langs: &[LangCode::En],
                 prefers_english: true,
                 attribution_mark: None,
+                single_query: false,
             },
             cache: Mutex::new(None),
         }
@@ -104,6 +105,7 @@ fn map(m: Meme) -> MediaItem {
         }],
         needs_resolve: false,
         download_policy: DownloadPolicy::Personal,
+        embed_url: None,
         score: 0.0,
         dedupe_key: String::new(),
     }

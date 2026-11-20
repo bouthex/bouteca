@@ -23,28 +23,41 @@
         "theme": "Dark",
         "backgroundColor": "#0D0E13",
         "visible": false,
-        "dragDropEnabled": false
+        "dragDropEnabled": false,
+        "useHttpsScheme": true
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' https: data: blob:; media-src 'self' https: blob:; connect-src ipc: http://ipc.localhost; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; object-src 'none'; base-uri 'none'; frame-src 'none'",
+      "csp": "default-src 'self'; img-src 'self' https: data: blob:; media-src 'self' https: blob:; connect-src ipc: http://ipc.localhost https://ipc.localhost; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src https://www.youtube-nocookie.com; frame-ancestors 'none'",
       "dangerousDisableAssetCspModification": false
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "publisher": "bout",
     "copyright": "© 2026 bout",
     "category": "Utility",
     "shortDescription": "Buscador universal de memes, GIFs, videos y sonidos",
     "longDescription": "Bouteca reúne múltiples fuentes legales de memes, GIFs, videos, imágenes y efectos de sonido en una sola aplicación: buscá, previsualizá, organizá y descargá.",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
     "windows": {
-      "webviewInstallMode": { "type": "downloadBootstrapper" },
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["Spanish", "English"],
+        "languages": [
+          "Spanish",
+          "English"
+        ],
         "displayLanguageSelector": false,
         "installerIcon": "icons/icon.ico"
       }

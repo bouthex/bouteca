@@ -27,6 +27,7 @@ impl Pexels {
                 native_langs: &[LangCode::Es, LangCode::En, LangCode::Pt, LangCode::Tr, LangCode::Ja, LangCode::Ru],
                 prefers_english: false,
                 attribution_mark: Some("Fotos y videos de Pexels"),
+                single_query: false,
             },
         }
     }
@@ -141,14 +142,29 @@ pub(crate) fn parse_photos(body: &[u8]) -> Result<ProviderPage> {
                 height: p.height,
                 duration_secs: None,
                 popularity: None,
-                renditions: vec![
-                    Rendition { label: "Original".into(), mime: guess_mime(&original), url: original, width: p.width, height: p.height, size_bytes: None, original: true },
-                ]
+                renditions: vec![Rendition {
+                    label: "Original".into(),
+                    mime: guess_mime(&original),
+                    url: original,
+                    width: p.width,
+                    height: p.height,
+                    size_bytes: None,
+                    original: true,
+                }]
                 .into_iter()
-                .chain(src.get("large2x").map(|u| Rendition { label: "Grande".into(), url: u.clone(), mime: Some("image/jpeg".into()), width: None, height: None, size_bytes: None, original: false }))
+                .chain(src.get("large2x").map(|u| Rendition {
+                    label: "Grande".into(),
+                    url: u.clone(),
+                    mime: Some("image/jpeg".into()),
+                    width: None,
+                    height: None,
+                    size_bytes: None,
+                    original: false,
+                }))
                 .collect(),
                 needs_resolve: false,
                 download_policy: DownloadPolicy::Free,
+                embed_url: None,
                 score: 0.0,
                 dedupe_key: String::new(),
             })
@@ -163,7 +179,8 @@ pub(crate) fn parse_videos(body: &[u8]) -> Result<ProviderPage> {
         .videos
         .into_iter()
         .filter_map(|v| {
-            let mut files: Vec<&VideoFile> = v.video_files.iter().filter(|f| f.link.is_some() && f.file_type.as_deref() == Some("video/mp4")).collect();
+            let mut files: Vec<&VideoFile> =
+                v.video_files.iter().filter(|f| f.link.is_some() && f.file_type.as_deref() == Some("video/mp4")).collect();
             files.sort_by_key(|f| std::cmp::Reverse(f.height.unwrap_or(0)));
             if files.is_empty() {
                 return None;
@@ -182,7 +199,8 @@ pub(crate) fn parse_videos(body: &[u8]) -> Result<ProviderPage> {
                     original: i == 0,
                 })
                 .collect();
-            let preview = files.iter().filter(|f| f.height.unwrap_or(0) >= 240).min_by_key(|f| f.height.unwrap_or(u32::MAX)).and_then(|f| f.link.clone());
+            let preview =
+                files.iter().filter(|f| f.height.unwrap_or(0) >= 240).min_by_key(|f| f.height.unwrap_or(u32::MAX)).and_then(|f| f.link.clone());
             let title = title_from_url(&v.url, "Video de Pexels");
             Some(MediaItem {
                 uid: format!("pexels:vid:{}", v.id),
@@ -204,6 +222,7 @@ pub(crate) fn parse_videos(body: &[u8]) -> Result<ProviderPage> {
                 renditions,
                 needs_resolve: false,
                 download_policy: DownloadPolicy::Free,
+                embed_url: None,
                 score: 0.0,
                 dedupe_key: String::new(),
             })
@@ -223,8 +242,12 @@ impl Pexels {
             ("locale", locale(q.lang)),
         ]);
         let resp = http::send("pexels", req).await?;
-        let body = resp.bytes().await.map_err(crate::CoreError::from)?;
-        if videos { parse_videos(&body) } else { parse_photos(&body) }
+        let body = http::body(resp).await?;
+        if videos {
+            parse_videos(&body)
+        } else {
+            parse_photos(&body)
+        }
     }
 }
 

@@ -13,6 +13,7 @@ pub mod openverse;
 pub mod pexels;
 pub mod pixabay;
 pub mod wikimedia;
+pub mod youtube;
 
 use crate::error::Result;
 use crate::model::{KindFilter, MediaItem, MediaKind, ProviderPage};
@@ -42,6 +43,8 @@ pub struct ProviderInfo {
     pub prefers_english: bool,
     /// Atribución obligatoria a mostrar en la interfaz (p. ej. "Powered by GIPHY").
     pub attribution_mark: Option<&'static str>,
+    /// Cupo muy limitado: el motor le envía solo la consulta principal (sin variantes extra).
+    pub single_query: bool,
 }
 
 /// Consulta concreta que el motor envía a un proveedor.
@@ -101,6 +104,7 @@ pub type DynProvider = Arc<dyn Provider>;
 pub fn registry() -> Vec<DynProvider> {
     vec![
         Arc::new(giphy::Giphy::new()),
+        Arc::new(youtube::YouTube::new()),
         Arc::new(klipy::Klipy::new()),
         Arc::new(wikimedia::Wikimedia::new()),
         Arc::new(openverse::Openverse::new()),
@@ -130,15 +134,41 @@ pub(crate) fn strip_html(s: &str) -> String {
             _ => {}
         }
     }
-    out.replace("&amp;", "&")
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&nbsp;", " ")
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+    decode_entities(&out).split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Decodifica entidades HTML comunes y numéricas (&#39; &#x27;). El resultado se muestra
+/// siempre como texto (nunca como HTML), así que no reintroduce riesgo de inyección.
+pub(crate) fn decode_entities(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = rest.find('&') {
+        out.push_str(&rest[..i]);
+        let tail = &rest[i..];
+        if let Some(end) = tail[..tail.len().min(12)].find(';') {
+            let ent = &tail[1..end];
+            let decoded = match ent {
+                "amp" => Some('&'),
+                "quot" => Some('"'),
+                "apos" => Some('\''),
+                "lt" => Some('<'),
+                "gt" => Some('>'),
+                "nbsp" => Some(' '),
+                _ if ent.starts_with("#x") || ent.starts_with("#X") => u32::from_str_radix(&ent[2..], 16).ok().and_then(char::from_u32),
+                _ if ent.starts_with('#') => ent[1..].parse::<u32>().ok().and_then(char::from_u32),
+                _ => None,
+            };
+            if let Some(c) = decoded.filter(|c| !c.is_control()) {
+                out.push(c);
+                rest = &tail[end + 1..];
+                continue;
+            }
+        }
+        out.push('&');
+        rest = &tail[1..];
+    }
+    out.push_str(rest);
+    out
 }
 
 pub(crate) fn guess_mime(url: &str) -> Option<String> {

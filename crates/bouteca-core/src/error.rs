@@ -50,6 +50,8 @@ impl From<std::io::Error> for CoreError {
 
 impl From<reqwest::Error> for CoreError {
     fn from(e: reqwest::Error) -> Self {
+        // Sin URL: algunas APIs exigen la clave en la URL y no debe filtrarse a logs ni a la interfaz.
+        let e = e.without_url();
         if let Some(s) = e.status() {
             CoreError::Http { status: s.as_u16(), message: e.to_string() }
         } else if e.is_decode() {

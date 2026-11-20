@@ -32,8 +32,18 @@ fn collect() -> (EventSink, Arc<Mutex<Vec<SearchEvent>>>) {
 #[tokio::test]
 async fn busqueda_federada_con_proveedor_caido_y_duplicados() {
     let s = MockServer::start().await;
-    Mock::given(method("GET")).and(path("/w/api.php")).respond_with(ResponseTemplate::new(200).set_body_raw(fixture("wikimedia.json"), "application/json")).mount(&s).await;
-    Mock::given(method("GET")).and(path("/v1/images/")).respond_with(ResponseTemplate::new(200).set_body_raw(fixture("openverse_images.json"), "application/json").set_delay(Duration::from_millis(150))).mount(&s).await;
+    Mock::given(method("GET"))
+        .and(path("/w/api.php"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw(fixture("wikimedia.json"), "application/json"))
+        .mount(&s)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/v1/images/"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_raw(fixture("openverse_images.json"), "application/json").set_delay(Duration::from_millis(150)),
+        )
+        .mount(&s)
+        .await;
     // Internet Archive caído.
     Mock::given(method("GET")).and(path("/advancedsearch.php")).respond_with(ResponseTemplate::new(503)).mount(&s).await;
 
@@ -51,7 +61,8 @@ async fn busqueda_federada_con_proveedor_caido_y_duplicados() {
     assert!(!providers.contains(&"giphy".to_string()), "sin clave no participa");
     assert!(variants.iter().any(|v| v.text == "cat dance"));
 
-    let items: Vec<_> = ev.iter().filter_map(|e| if let SearchEvent::Batch { items, .. } = e { Some(items.clone()) } else { None }).flatten().collect();
+    let items: Vec<_> =
+        ev.iter().filter_map(|e| if let SearchEvent::Batch { items, .. } = e { Some(items.clone()) } else { None }).flatten().collect();
     // wikimedia: 2 (gif + video) ; openverse: 2, pero 1 es el mismo GIF de Wikimedia → alternativa.
     assert_eq!(items.len(), 3, "{:#?}", items.iter().map(|i| &i.uid).collect::<Vec<_>>());
     assert!(ev.iter().any(|e| matches!(e, SearchEvent::Alternate { provider, .. } if provider == "openverse")));
@@ -69,11 +80,19 @@ async fn busqueda_federada_con_proveedor_caido_y_duplicados() {
 #[tokio::test]
 async fn cancelar_detiene_eventos() {
     let s = MockServer::start().await;
-    Mock::given(method("GET")).and(path("/w/api.php")).respond_with(ResponseTemplate::new(200).set_body_raw(fixture("wikimedia.json"), "application/json").set_delay(Duration::from_millis(800))).mount(&s).await;
-    let engine = Arc::new(SearchEngine::new(vec![Arc::new(providers::wikimedia::Wikimedia::new())], build_test_client(), EngineSettings::default(), Arc::new(NoKeys)).with_base_override("wikimedia", &s.uri()));
+    Mock::given(method("GET"))
+        .and(path("/w/api.php"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw(fixture("wikimedia.json"), "application/json").set_delay(Duration::from_millis(800)))
+        .mount(&s)
+        .await;
+    let engine = Arc::new(
+        SearchEngine::new(vec![Arc::new(providers::wikimedia::Wikimedia::new())], build_test_client(), EngineSettings::default(), Arc::new(NoKeys))
+            .with_base_override("wikimedia", &s.uri()),
+    );
     let (sink, events) = collect();
     let e2 = engine.clone();
-    let h = tokio::spawn(async move { e2.search(SearchRequest { search_id: 7, query: "gato".into(), filter: KindFilter::All, page: 1 }, sink).await });
+    let h =
+        tokio::spawn(async move { e2.search(SearchRequest { search_id: 7, query: "gato".into(), filter: KindFilter::All, page: 1 }, sink).await });
     tokio::time::sleep(Duration::from_millis(100)).await;
     engine.cancel(7);
     h.await.unwrap();
@@ -85,7 +104,12 @@ async fn cancelar_detiene_eventos() {
 async fn limite_429_pausa_al_proveedor_y_cachea_respuestas() {
     let s = MockServer::start().await;
     Mock::given(method("GET")).and(path("/v1/images/")).respond_with(ResponseTemplate::new(429).insert_header("retry-after", "120")).mount(&s).await;
-    Mock::given(method("GET")).and(path("/w/api.php")).respond_with(ResponseTemplate::new(200).set_body_raw(fixture("wikimedia.json"), "application/json")).expect(1).mount(&s).await;
+    Mock::given(method("GET"))
+        .and(path("/w/api.php"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw(fixture("wikimedia.json"), "application/json"))
+        .expect(1)
+        .mount(&s)
+        .await;
     let engine = Arc::new(
         SearchEngine::new(keyless(), build_test_client(), EngineSettings { extra_langs: vec![], ..Default::default() }, Arc::new(NoKeys))
             .with_base_override("wikimedia", &s.uri())
@@ -107,8 +131,16 @@ async fn limite_429_pausa_al_proveedor_y_cachea_respuestas() {
 #[tokio::test]
 async fn paginacion_solo_consulta_proveedores_con_mas() {
     let s = MockServer::start().await;
-    Mock::given(method("GET")).and(path("/w/api.php")).respond_with(ResponseTemplate::new(200).set_body_raw(fixture("wikimedia.json"), "application/json")).mount(&s).await;
-    Mock::given(method("GET")).and(path("/v1/images/")).respond_with(ResponseTemplate::new(200).set_body_raw(fixture("openverse_images.json"), "application/json")).mount(&s).await;
+    Mock::given(method("GET"))
+        .and(path("/w/api.php"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw(fixture("wikimedia.json"), "application/json"))
+        .mount(&s)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/v1/images/"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw(fixture("openverse_images.json"), "application/json"))
+        .mount(&s)
+        .await;
     let engine = Arc::new(
         SearchEngine::new(keyless(), build_test_client(), EngineSettings { extra_langs: vec![], ..Default::default() }, Arc::new(NoKeys))
             .with_base_override("wikimedia", &s.uri())

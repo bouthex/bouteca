@@ -126,6 +126,10 @@ pub struct MediaItem {
     /// `true` si las variantes deben resolverse bajo demanda (`Provider::resolve`).
     pub needs_resolve: bool,
     pub download_policy: DownloadPolicy,
+    /// Reproductor oficial incrustable del proveedor (YouTube). Si existe, la vista previa usa
+    /// ese reproductor y no hay descarga.
+    #[serde(default)]
+    pub embed_url: Option<String>,
     /// Puntuación de relevancia calculada por el motor (0–100 aprox.).
     #[serde(default)]
     pub score: f32,
@@ -140,12 +144,7 @@ impl MediaItem {
         if let Some(r) = self.renditions.iter().find(|r| r.original) {
             return Some(r);
         }
-        self.renditions.iter().max_by_key(|r| {
-            (
-                r.width.unwrap_or(0) as u64 * r.height.unwrap_or(0) as u64,
-                r.size_bytes.unwrap_or(0),
-            )
-        })
+        self.renditions.iter().max_by_key(|r| (r.width.unwrap_or(0) as u64 * r.height.unwrap_or(0) as u64, r.size_bytes.unwrap_or(0)))
     }
 
     pub fn attribution(&self) -> String {
