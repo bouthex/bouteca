@@ -56,6 +56,11 @@ pub fn run() {
             if let Some(out) = smoke::requested() {
                 smoke::run(app.handle().clone(), out);
             } else {
+                #[cfg(feature = "update-test")]
+                if let Some(out) = updates::selftest_requested() {
+                    updates::run_selftest(app.handle().clone(), out);
+                    return Ok(());
+                }
                 updates::schedule_startup_check(app.handle());
             }
             // La ventana se muestra cuando la interfaz avisa que está lista (sin parpadeo blanco);

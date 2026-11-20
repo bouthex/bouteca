@@ -36,7 +36,7 @@ struct Mem {
 struct Report {
     ok: bool,
     os: String,
-    version: &'static str,
+    version: String,
     ui_ready_ms: Option<u128>,
     idle: Mem,
     after_search: Mem,
@@ -48,6 +48,48 @@ struct Report {
     errors: Vec<String>,
     /// Procesos descendientes (WebView2) con su memoria, para diagnóstico.
     processes: Vec<(String, f64)>,
+    /// Ida y vuelta de una clave por el almacén seguro (Administrador de credenciales).
+    keyring_ok: bool,
+    /// Datos del usuario presentes (para comprobar que sobreviven a una actualización).
+    library: Library,
+}
+
+#[derive(Serialize, Default, PartialEq)]
+struct Library {
+    favorites: usize,
+    collections: usize,
+    collection_items: usize,
+    studio_projects: usize,
+    searches: usize,
+    theme: String,
+}
+
+fn library(state: &AppState) -> Library {
+    let cols = state.db.list_collections().unwrap_or_default();
+    Library {
+        favorites: state.db.list_favorites().map(|v| v.len()).unwrap_or(0),
+        collection_items: cols.iter().map(|c| c.count as usize).sum(),
+        collections: cols.len(),
+        studio_projects: state.db.studio_list().map(|v| v.len()).unwrap_or(0),
+        searches: state.db.recent_searches(100).map(|v| v.len()).unwrap_or(0),
+        theme: state.settings.read().theme.clone(),
+    }
+}
+
+/// `--smoke-seed`: crea datos de ejemplo (favorito, colección, proyecto de Studio, búsqueda y
+/// una preferencia) para verificar después que una actualización no los pierde.
+fn seed(state: &AppState) -> Result<(), String> {
+    let mut it = bouteca_core::model::MediaItem::new("wikimedia", "smoke-seed", bouteca_core::model::MediaKind::Image, "Semilla de prueba");
+    it.page_url = Some("https://commons.wikimedia.org/wiki/Main_Page".into());
+    it.license = Some("CC0".into());
+    state.db.add_favorite(&it).map_err(|e| e.to_string())?;
+    let c = state.db.create_collection("Prueba de actualización").map_err(|e| e.to_string())?;
+    state.db.add_to_collection(c, &it).map_err(|e| e.to_string())?;
+    let p = state.db.studio_create("Terror", "kit para un video de terror").map_err(|e| e.to_string())?;
+    state.db.studio_add(p, "image", &it).map_err(|e| e.to_string())?;
+    state.db.record_search("gato bailando", "all").map_err(|e| e.to_string())?;
+    state.settings.write().theme = "light".into();
+    state.save_settings()
 }
 
 fn process_breakdown() -> Vec<(String, f64)> {
@@ -96,8 +138,11 @@ fn mem() -> Mem {
 pub fn run(app: AppHandle, out: PathBuf) {
     tauri::async_runtime::spawn(async move {
         let started = Instant::now();
-        let mut rep =
-            Report { os: format!("{} {}", std::env::consts::OS, std::env::consts::ARCH), version: env!("CARGO_PKG_VERSION"), ..Default::default() };
+        let mut rep = Report {
+            os: format!("{} {}", std::env::consts::OS, std::env::consts::ARCH),
+            version: app.package_info().version.to_string(),
+            ..Default::default()
+        };
         while !UI_READY.load(Ordering::SeqCst) && started.elapsed() < Duration::from_secs(90) {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
@@ -111,6 +156,20 @@ pub fn run(app: AppHandle, out: PathBuf) {
         rep.processes = tokio::task::spawn_blocking(process_breakdown).await.unwrap_or_default();
 
         let state = app.state::<Arc<AppState>>().inner().clone();
+        if std::env::args().any(|a| a == "--smoke-seed") {
+            if let Err(e) = seed(&state) {
+                rep.errors.push(format!("semilla: {e}"));
+            }
+        }
+        rep.library = library(&state);
+        {
+            let probe = "smoke-test-provider";
+            rep.keyring_ok = state.keys.set(probe, Some("prueba-123")).is_ok() && state.keys.load_uncached(probe).as_deref() == Some("prueba-123");
+            let _ = state.keys.set(probe, None);
+            if !rep.keyring_ok {
+                rep.errors.push("el almacén seguro de claves no devolvió la clave guardada".into());
+            }
+        }
         let events: Arc<Mutex<Vec<SearchEvent>>> = Arc::new(Mutex::new(Vec::new()));
         let ev2 = events.clone();
         let t = Instant::now();

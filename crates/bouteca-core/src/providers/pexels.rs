@@ -167,6 +167,7 @@ pub(crate) fn parse_photos(body: &[u8]) -> Result<ProviderPage> {
                 embed_url: None,
                 rights: Default::default(),
                 variants: vec![],
+                notices: vec![],
                 score: 0.0,
                 dedupe_key: String::new(),
             })
@@ -227,6 +228,7 @@ pub(crate) fn parse_videos(body: &[u8]) -> Result<ProviderPage> {
                 embed_url: None,
                 rights: Default::default(),
                 variants: vec![],
+                notices: vec![],
                 score: 0.0,
                 dedupe_key: String::new(),
             })

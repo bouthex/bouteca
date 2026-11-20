@@ -405,3 +405,45 @@ async fn agrupar_se_puede_desactivar() {
     let shown: usize = ev.iter().map(|e| if let SearchEvent::Batch { items, .. } = e { items.len() } else { 0 }).sum();
     assert_eq!(shown, 2, "sin agrupar, ambas tarjetas se muestran");
 }
+
+// ---------- Las claves configuradas llegan al proveedor ----------
+
+struct KeyEcho(ProviderInfo);
+#[async_trait::async_trait]
+impl Provider for KeyEcho {
+    fn info(&self) -> &ProviderInfo {
+        &self.0
+    }
+    async fn search(&self, ctx: &ProviderCtx, _: &ProviderQuery) -> bouteca_core::Result<ProviderPage> {
+        let key = ctx.api_key.clone().ok_or_else(|| bouteca_core::CoreError::MissingKey("x".into()))?;
+        let mut m = media("pexels", "k", MediaKind::Image, &format!("clave:{key}"), "https://e.org/k-1234567.jpg", None, 10, 10);
+        m.tags = vec!["gato".into()];
+        Ok(ProviderPage { items: vec![m], has_more: false, total: None })
+    }
+}
+
+struct OneKey;
+impl KeyStore for OneKey {
+    fn get(&self, provider: &str) -> Option<String> {
+        (provider == "pexels").then(|| "k-123".to_string())
+    }
+}
+
+#[tokio::test]
+async fn la_clave_guardada_llega_al_componente_que_consulta() {
+    let mut info = fake("pexels", 0, vec![]).info().clone();
+    info.needs_key = true;
+    let p: DynProvider = Arc::new(KeyEcho(info));
+    // Sin clave: el proveedor no participa (no se inventan resultados).
+    let e = Arc::new(SearchEngine::new(vec![p.clone()], build_test_client(), EngineSettings::default(), Arc::new(NoKeys)));
+    let (sink, events) = collect();
+    e.search(SearchRequest { search_id: 30, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None }, sink).await;
+    assert!(!events.lock().iter().any(|x| matches!(x, SearchEvent::Batch { .. })));
+    // Con clave: llega intacta al proveedor.
+    let e = Arc::new(SearchEngine::new(vec![p], build_test_client(), EngineSettings::default(), Arc::new(OneKey)));
+    let (sink, events) = collect();
+    e.search(SearchRequest { search_id: 31, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None }, sink).await;
+    let titles: Vec<String> =
+        events.lock().iter().filter_map(|x| if let SearchEvent::Batch { items, .. } = x { Some(items[0].title.clone()) } else { None }).collect();
+    assert_eq!(titles, vec!["clave:k-123"]);
+}

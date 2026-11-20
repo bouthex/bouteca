@@ -37,6 +37,7 @@ pub struct AppState {
     pub update_ready: Mutex<Option<(String, Vec<u8>)>>,
     pub update_pending: Mutex<Option<tauri_plugin_updater::Update>>,
     pub update_downloading: std::sync::atomic::AtomicBool,
+    pub update_error: Mutex<Option<String>>,
     _log_guard: Mutex<Option<tracing_appender::non_blocking::WorkerGuard>>,
 }
 
@@ -114,6 +115,7 @@ impl AppState {
             update_ready: Mutex::new(None),
             update_pending: Mutex::new(None),
             update_downloading: std::sync::atomic::AtomicBool::new(false),
+            update_error: Mutex::new(None),
             _log_guard: Mutex::new(Some(guard)),
         }))
     }

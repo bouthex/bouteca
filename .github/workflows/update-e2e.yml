@@ -1,0 +1,154 @@
+name: Actualización de punta a punta (Windows)
+
+# Prueba REAL del actualizador entre dos versiones instaladas, en un Windows controlado (runner):
+#  1. Genera un par de claves EFÍMERO dentro del runner (nunca sale de él ni se guarda).
+#  2. Compila la versión A (0.9.0) y la B (0.9.1) firmada, con la clave pública incluida.
+#  3. Instala A, crea datos del usuario (favorito, colección, proyecto de Studio, historial,
+#     preferencia) y verifica el almacén seguro de claves.
+#  4. Sirve B desde un servidor local y deja que A se actualice sola (buscar, descargar,
+#     verificar firma, instalar, reiniciar).
+#  5. Comprueba que quedó instalada B y que los datos siguen intactos.
+#  6. Intenta una "actualización" con firma inválida y comprueba que se rechaza sin tocar nada.
+# Las compilaciones de esta prueba usan la característica `update-test` (servidor local) y no se
+# publican.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  update-e2e:
+    runs-on: windows-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Dependencias de la interfaz
+        working-directory: ui
+        run: npm ci
+      - name: Clave efímera de prueba (solo en este runner)
+        shell: pwsh
+        working-directory: ui
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'e2ekey'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          $pw = [guid]::NewGuid().ToString('N')
+          npx tauri signer generate --ci -p $pw -w (Join-Path $dir 'k.key') | Out-Null
+          "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$pw" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          "E2E_KEYDIR=$dir" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+      - name: Compilar A (0.9.0) y B (0.9.1) firmadas
+        shell: pwsh
+        working-directory: ui
+        run: |
+          $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content (Join-Path $env:E2E_KEYDIR 'k.key') -Raw
+          $pub = (Get-Content (Join-Path $env:E2E_KEYDIR 'k.key.pub') -Raw).Trim()
+          $out = Join-Path $env:RUNNER_TEMP 'e2e'
+          New-Item -ItemType Directory -Force $out | Out-Null
+          foreach ($v in '0.9.0', '0.9.1') {
+            $cfg = @{ version = $v; bundle = @{ createUpdaterArtifacts = $true }; plugins = @{ updater = @{ pubkey = $pub; dangerousInsecureTransportProtocol = $true } } } | ConvertTo-Json -Depth 5 -Compress
+            $cfgFile = Join-Path $env:RUNNER_TEMP "cfg-$v.json"
+            Set-Content -Path $cfgFile -Value $cfg -Encoding utf8
+            npx tauri build --features update-test --config $cfgFile
+            if ($LASTEXITCODE -ne 0) { Write-Output "::error title=Compilación $v::falló"; exit 1 }
+            Get-ChildItem ../target/release/bundle/nsis/*$v*-setup.exe* | Copy-Item -Destination $out
+          }
+          Get-ChildItem $out | ForEach-Object { Write-Output "::notice title=Artefacto de prueba::$($_.Name) ($([math]::Round($_.Length/1MB,2)) MB)" }
+          "E2E_OUT=$out" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+      - name: Instalar A y crear datos del usuario
+        shell: pwsh
+        run: |
+          $a = Get-ChildItem $env:E2E_OUT -Filter '*0.9.0*-setup.exe' | Select-Object -First 1
+          Start-Process $a.FullName -ArgumentList '/S' -Wait
+          $exe = Join-Path $env:LOCALAPPDATA 'Bouteca\bouteca.exe'
+          if (-not (Test-Path $exe)) { Write-Output "::error title=Instalación A::no se encontró $exe"; exit 1 }
+          "BOUTECA_EXE=$exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          $out = Join-Path $env:RUNNER_TEMP 'seed.json'
+          $p = Start-Process $exe -ArgumentList '--smoke-seed', "--smoke-test=$out" -PassThru
+          if (-not $p.WaitForExit(180000)) { $p.Kill(); Write-Output "::error title=Semilla::no terminó"; exit 1 }
+          $r = Get-Content $out -Raw | ConvertFrom-Json
+          if ($r.version -ne '0.9.0') { Write-Output "::error title=Instalación A::versión $($r.version)"; exit 1 }
+          if (-not $r.keyring_ok) { Write-Output "::error title=Claves::el Administrador de credenciales no devolvió la clave"; exit 1 }
+          Write-Output "::notice title=Antes de actualizar (0.9.0)::$(($r.library | ConvertTo-Json -Compress)); almacén de claves OK"
+          ($r.library | ConvertTo-Json -Compress) | Out-File (Join-Path $env:RUNNER_TEMP 'lib-before.json') -Encoding utf8
+      - name: Servidor local con la versión B
+        shell: pwsh
+        run: |
+          $b = Get-ChildItem $env:E2E_OUT -Filter '*0.9.1*-setup.exe' | Select-Object -First 1
+          $sig = (Get-Content "$($b.FullName).sig" -Raw).Trim()
+          $srv = Join-Path $env:RUNNER_TEMP 'srv'
+          New-Item -ItemType Directory -Force $srv | Out-Null
+          Copy-Item $b.FullName (Join-Path $srv 'b-setup.exe')
+          $m = @{ version = '0.9.1'; notes = 'Prueba de actualización'; pub_date = (Get-Date).ToUniversalTime().ToString('o'); platforms = @{ 'windows-x86_64' = @{ signature = $sig; url = 'http://127.0.0.1:8765/b-setup.exe' } } }
+          $m | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $srv 'latest.json') -Encoding utf8
+          # Manifiesto con firma de OTRO archivo (la de A): debe rechazarse.
+          $a = Get-ChildItem $env:E2E_OUT -Filter '*0.9.0*-setup.exe' | Select-Object -First 1
+          $bad = @{ version = '0.9.2'; notes = 'firma inválida'; pub_date = (Get-Date).ToUniversalTime().ToString('o'); platforms = @{ 'windows-x86_64' = @{ signature = (Get-Content "$($a.FullName).sig" -Raw).Trim(); url = 'http://127.0.0.1:8765/b-setup.exe' } } }
+          $bad | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $srv 'bad.json') -Encoding utf8
+          Start-Process python -ArgumentList '-m', 'http.server', '8765', '--bind', '127.0.0.1' -WorkingDirectory $srv -WindowStyle Hidden
+          Start-Sleep -Seconds 3
+      - name: A se actualiza a B desde la propia app
+        shell: pwsh
+        run: |
+          $rep = Join-Path $env:RUNNER_TEMP 'update.json'
+          $env:BOUTECA_UPDATE_ENDPOINT = 'http://127.0.0.1:8765/latest.json'
+          $p = Start-Process $env:BOUTECA_EXE -ArgumentList "--update-selftest=$rep" -PassThru
+          $p.WaitForExit(240000) | Out-Null
+          if (-not (Test-Path $rep)) { Write-Output "::error title=Actualización::sin informe (código $($p.ExitCode))"; exit 1 }
+          $u = Get-Content $rep -Raw | ConvertFrom-Json
+          Write-Output "::notice title=Actualizador — descarga y firma::$(($u | ConvertTo-Json -Compress))"
+          if (-not $u.ok) { exit 1 }
+          # Esperar a que el instalador pasivo termine y reemplace el ejecutable.
+          $deadline = (Get-Date).AddSeconds(180)
+          do {
+            Start-Sleep -Seconds 3
+            $ver = (Get-Item $env:BOUTECA_EXE -ErrorAction SilentlyContinue).VersionInfo.ProductVersion
+          } while ($ver -notlike '0.9.1*' -and (Get-Date) -lt $deadline)
+          Write-Output "::notice title=Actualizador — instalado::versión del ejecutable: $ver"
+          if ($ver -notlike '0.9.1*') { Write-Output "::error title=Actualización::no quedó instalada la 0.9.1"; exit 1 }
+          Start-Sleep -Seconds 5
+          Get-Process bouteca -ErrorAction SilentlyContinue | Stop-Process -Force
+      - name: Verificar B y conservación de datos
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP 'after.json'
+          $p = Start-Process $env:BOUTECA_EXE -ArgumentList "--smoke-test=$out" -PassThru
+          if (-not $p.WaitForExit(180000)) { $p.Kill(); Write-Output "::error title=Después::no terminó"; exit 1 }
+          $r = Get-Content $out -Raw | ConvertFrom-Json
+          $before = Get-Content (Join-Path $env:RUNNER_TEMP 'lib-before.json') -Raw
+          $after = $r.library | ConvertTo-Json -Compress
+          Write-Output "::notice title=Después de actualizar ($($r.version))::$after; búsqueda real: $($r.total_results) resultados"
+          if ($r.version -ne '0.9.1') { Write-Output "::error title=Versión::$($r.version)"; exit 1 }
+          if ($before.Trim() -ne $after.Trim()) { Write-Output "::error title=Datos::cambiaron: antes $before, después $after"; exit 1 }
+          if ($r.library.favorites -lt 1 -or $r.library.studio_projects -lt 1 -or $r.library.theme -ne 'light') { Write-Output "::error title=Datos::faltan datos sembrados"; exit 1 }
+          Write-Output "::notice title=Datos del usuario::conservados tras la actualización"
+      - name: Firma inválida se rechaza
+        shell: pwsh
+        run: |
+          $rep = Join-Path $env:RUNNER_TEMP 'bad.json'
+          $env:BOUTECA_UPDATE_ENDPOINT = 'http://127.0.0.1:8765/bad.json'
+          $p = Start-Process $env:BOUTECA_EXE -ArgumentList "--update-selftest=$rep" -PassThru
+          $p.WaitForExit(240000) | Out-Null
+          $u = Get-Content $rep -Raw | ConvertFrom-Json
+          Write-Output "::notice title=Actualizador — firma inválida::$(($u | ConvertTo-Json -Compress))"
+          if ($u.ok) { Write-Output "::error title=Seguridad::se aceptó un paquete con firma inválida"; exit 1 }
+          Start-Sleep -Seconds 5
+          $ver = (Get-Item $env:BOUTECA_EXE).VersionInfo.ProductVersion
+          if ($ver -notlike '0.9.1*') { Write-Output "::error title=Seguridad::cambió la versión instalada ($ver)"; exit 1 }
+          Write-Output "::notice title=Actualizador — rechazo::paquete con firma inválida rechazado; sigue instalada $ver"
+      - name: Limpieza
+        if: always()
+        shell: pwsh
+        run: |
+          Get-Process bouteca -ErrorAction SilentlyContinue | Stop-Process -Force
+          $u = Join-Path $env:LOCALAPPDATA 'Bouteca\uninstall.exe'
+          if (Test-Path $u) { Start-Process $u -ArgumentList '/S' -Wait }
+          if ($env:E2E_KEYDIR) { Remove-Item -Recurse -Force $env:E2E_KEYDIR -ErrorAction SilentlyContinue }

@@ -112,6 +112,7 @@ mod tests {
             embed_url: None,
             rights: Default::default(),
             variants: vec![],
+            notices: vec![],
             score: 0.0,
             dedupe_key: String::new(),
         }

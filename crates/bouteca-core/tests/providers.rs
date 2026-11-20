@@ -247,6 +247,10 @@ async fn youtube_busca_detalla_y_no_permite_descargar() {
     assert!(it.renditions.is_empty(), "sin variantes descargables");
     assert_eq!(it.embed_url.as_deref(), Some("https://www.youtube-nocookie.com/embed/aaaaaaaaaaa"));
     assert!(page.has_more);
+    // Estado real del video: edad, países y licencia; la licencia CC no habilita descargar de YouTube.
+    assert!(it.notices.iter().any(|n| n.contains("edad")) && it.notices.iter().any(|n| n.contains("DE, FR")), "{:?}", it.notices);
+    assert_eq!(it.license.as_deref(), Some("CC BY (YouTube)"));
+    assert!(!bouteca_core::rights::derive(it).download);
     // Página 2 usa el pageToken recibido.
     let mut q2 = q("gato", KindFilter::Video);
     q2.page = 2;

@@ -109,12 +109,40 @@ struct VideoDetail {
     #[serde(rename = "contentDetails")]
     content: Option<ContentDetails>,
     statistics: Option<Statistics>,
+    status: Option<Status>,
 }
 
 #[derive(Deserialize)]
 struct ContentDetails {
     duration: Option<String>,
     definition: Option<String>,
+    #[serde(rename = "regionRestriction")]
+    region: Option<RegionRestriction>,
+    #[serde(rename = "contentRating")]
+    rating: Option<ContentRating>,
+}
+
+#[derive(Deserialize)]
+struct RegionRestriction {
+    #[serde(default)]
+    allowed: Option<Vec<String>>,
+    #[serde(default)]
+    blocked: Option<Vec<String>>,
+}
+
+#[derive(Deserialize)]
+struct ContentRating {
+    #[serde(rename = "ytRating")]
+    yt_rating: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct Status {
+    embeddable: Option<bool>,
+    #[serde(rename = "privacyStatus")]
+    privacy: Option<String>,
+    /// "youtube" (licencia estándar) o "creativeCommon" (CC BY).
+    license: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -200,6 +228,7 @@ pub(crate) fn map_search(body: &[u8]) -> Result<(Vec<MediaItem>, Option<String>,
                 embed_url: Some(format!("https://www.youtube-nocookie.com/embed/{id}")),
                 rights: Default::default(),
                 variants: vec![],
+                notices: vec![],
                 score: 0.0,
                 dedupe_key: String::new(),
             })
@@ -208,10 +237,37 @@ pub(crate) fn map_search(body: &[u8]) -> Result<(Vec<MediaItem>, Option<String>,
     Ok((items, r.next_page_token, r.page_info.and_then(|p| p.total_results)))
 }
 
-pub(crate) fn apply_details(items: &mut [MediaItem], body: &[u8]) -> Result<()> {
+/// Completa duración, vistas, licencia y avisos de disponibilidad. Devuelve los ids que no se
+/// pueden reproducir dentro de Bouteca (privados o con la inserción desactivada) para quitarlos.
+pub(crate) fn apply_details(items: &mut [MediaItem], body: &[u8]) -> Result<Vec<String>> {
     let r: VideosResp = serde_json::from_slice(body).map_err(|e| crate::CoreError::Parse(format!("youtube videos: {e}")))?;
+    let mut unplayable = Vec::new();
     for d in r.items {
         if let Some(it) = items.iter_mut().find(|i| i.provider_id == d.id) {
+            if let Some(st) = &d.status {
+                if st.embeddable == Some(false) || matches!(st.privacy.as_deref(), Some("private")) {
+                    unplayable.push(d.id.clone());
+                }
+                if st.license.as_deref() == Some("creativeCommon") {
+                    // Reutilizable bajo CC BY (p. ej. en el editor de YouTube); descargar desde
+                    // YouTube sigue sin estar autorizado fuera de sus mecanismos.
+                    it.license = Some("CC BY (YouTube)".into());
+                    it.license_url = Some("https://support.google.com/youtube/answer/2797468".into());
+                }
+            }
+            if let Some(c) = &d.content {
+                if c.rating.as_ref().and_then(|r| r.yt_rating.as_deref()) == Some("ytAgeRestricted") {
+                    it.notices.push("Con restricción de edad: puede requerir abrirlo en YouTube con tu cuenta.".into());
+                }
+                if let Some(rr) = &c.region {
+                    if let Some(a) = rr.allowed.as_ref().filter(|a| !a.is_empty()) {
+                        it.notices.push(format!("Solo disponible en {} países.", a.len()));
+                    } else if let Some(b) = rr.blocked.as_ref().filter(|b| !b.is_empty()) {
+                        let list = b.iter().take(8).cloned().collect::<Vec<_>>().join(", ");
+                        it.notices.push(format!("Bloqueado en algunos países ({list}{}).", if b.len() > 8 { "…" } else { "" }));
+                    }
+                }
+            }
             if let Some(c) = &d.content {
                 it.duration_secs = c.duration.as_deref().and_then(parse_iso_duration);
                 // La resolución real no la informa la API; solo si es HD.
@@ -226,7 +282,7 @@ pub(crate) fn apply_details(items: &mut [MediaItem], body: &[u8]) -> Result<()> 
             it.popularity = d.statistics.and_then(|s| s.view_count).and_then(|v| v.parse().ok());
         }
     }
-    Ok(())
+    Ok(unplayable)
 }
 
 #[async_trait]
@@ -274,14 +330,16 @@ impl Provider for YouTube {
         if !items.is_empty() {
             let ids = items.iter().map(|i| i.provider_id.as_str()).collect::<Vec<_>>().join(",");
             let req = ctx.client.get(format!("{base}/youtube/v3/videos")).query(&[
-                ("part", "contentDetails,statistics"),
+                ("part", "contentDetails,statistics,status"),
                 ("id", ids.as_str()),
                 ("key", key),
             ]);
             match http::send("youtube", req).await {
                 Ok(r) => {
                     if let Ok(b) = http::body(r).await {
-                        let _ = apply_details(&mut items, &b);
+                        if let Ok(drop) = apply_details(&mut items, &b) {
+                            items.retain(|i| !drop.contains(&i.provider_id));
+                        }
                     }
                 }
                 Err(e) => tracing::warn!(error = %e, "youtube: sin detalles de videos"),

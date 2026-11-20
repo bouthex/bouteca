@@ -21,6 +21,14 @@ const REPO: &str = "bouthex/bouteca";
 
 pub use bouteca_core::settings::UpdateChannel as Channel;
 
+fn endpoint_url(channel: Channel) -> String {
+    #[cfg(feature = "update-test")]
+    if let Ok(u) = std::env::var("BOUTECA_UPDATE_ENDPOINT") {
+        return u;
+    }
+    endpoint(channel)
+}
+
 pub fn endpoint(channel: Channel) -> String {
     match channel {
         Channel::Stable => format!("https://github.com/{REPO}/releases/latest/download/latest.json"),
@@ -69,7 +77,7 @@ async fn find(app: &AppHandle) -> Result<Option<tauri_plugin_updater::Update>, S
         return Err("las actualizaciones automáticas no están configuradas en esta compilación".into());
     }
     let channel = app.state::<std::sync::Arc<AppState>>().settings.read().updates.channel;
-    let url = tauri::Url::parse(&endpoint(channel)).map_err(|e| e.to_string())?;
+    let url = tauri::Url::parse(&endpoint_url(channel)).map_err(|e| e.to_string())?;
     let updater =
         app.updater_builder().endpoints(vec![url]).map_err(|e| e.to_string())?.timeout(Duration::from_secs(30)).build().map_err(|e| e.to_string())?;
     updater.check().await.map_err(|e| format!("no se pudo consultar actualizaciones: {e}"))
@@ -108,6 +116,7 @@ async fn download_update(app: AppHandle, update: tauri_plugin_updater::Update) {
     if state.update_downloading.swap(true, std::sync::atomic::Ordering::SeqCst) {
         return; // ya hay una descarga en curso
     }
+    *state.update_error.lock() = None;
     let mut done: u64 = 0;
     let mut last = std::time::Instant::now() - Duration::from_secs(1);
     let app_p = app.clone();
@@ -134,6 +143,7 @@ async fn download_update(app: AppHandle, update: tauri_plugin_updater::Update) {
         }
         Err(e) => {
             tracing::warn!(error = %e, "descarga de actualización fallida");
+            *state.update_error.lock() = Some(e.to_string());
             emit(&app, UpdateEvent::Error { message: format!("no se pudo descargar la actualización (la versión actual sigue intacta): {e}") });
         }
     }
@@ -171,6 +181,59 @@ pub fn schedule_startup_check(app: &AppHandle) {
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_secs(10)).await;
         let _ = check(app, auto).await;
+    });
+}
+
+/// Prueba de punta a punta (solo con la característica `update-test`): busca, descarga,
+/// verifica e instala; deja un informe antes de instalar.
+#[cfg(feature = "update-test")]
+pub fn selftest_requested() -> Option<std::path::PathBuf> {
+    std::env::args().find_map(|a| a.strip_prefix("--update-selftest=").map(std::path::PathBuf::from))
+}
+
+#[cfg(feature = "update-test")]
+pub fn run_selftest(app: AppHandle, out: std::path::PathBuf) {
+    tauri::async_runtime::spawn(async move {
+        let write = |v: serde_json::Value| {
+            let _ = std::fs::write(&out, serde_json::to_vec_pretty(&v).unwrap_or_default());
+        };
+        let from = app.package_info().version.to_string();
+        let info = match check(app.clone(), true).await {
+            Ok(i) => i,
+            Err(e) => {
+                write(serde_json::json!({"ok": false, "from": from, "stage": "check", "error": e}));
+                app.exit(3);
+                return;
+            }
+        };
+        let Some(to) = info.available else {
+            write(serde_json::json!({"ok": false, "from": from, "stage": "check", "error": "sin actualización"}));
+            app.exit(4);
+            return;
+        };
+        let state = app.state::<std::sync::Arc<AppState>>();
+        let started = std::time::Instant::now();
+        loop {
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            if state.update_ready.lock().is_some() {
+                break;
+            }
+            if let Some(e) = state.update_error.lock().clone() {
+                write(serde_json::json!({"ok": false, "from": from, "to": to, "stage": "download_verify", "error": e}));
+                app.exit(5);
+                return;
+            }
+            if started.elapsed() > Duration::from_secs(180) {
+                write(serde_json::json!({"ok": false, "from": from, "to": to, "stage": "download", "error": "tiempo agotado"}));
+                app.exit(6);
+                return;
+            }
+        }
+        write(serde_json::json!({"ok": true, "from": from, "to": to, "stage": "verified_installing"}));
+        if let Err(e) = install(&app) {
+            write(serde_json::json!({"ok": false, "from": from, "to": to, "stage": "install", "error": e}));
+            app.exit(7);
+        }
     });
 }
 

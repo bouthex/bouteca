@@ -40,3 +40,9 @@ keyring = { version = "3", features = ["windows-native"] }
 # API oficial de WebView2 para pedirle que reduzca memoria en reposo (MemoryUsageTargetLevel).
 webview2-com = "0.39"
 windows-core = "0.62"
+
+[features]
+# Solo para la prueba automática de actualización en CI: permite apuntar el actualizador a un
+# servidor local con `BOUTECA_UPDATE_ENDPOINT` y agrega `--update-selftest`. Nunca se usa en
+# las compilaciones publicadas.
+update-test = []

@@ -87,6 +87,13 @@ impl SecureKeys {
     }
 }
 
+impl SecureKeys {
+    /// Lee directamente del almacén del sistema, sin caché (diagnóstico y prueba de humo).
+    pub fn load_uncached(&self, provider: &str) -> Option<String> {
+        self.load(provider)
+    }
+}
+
 impl KeyStore for SecureKeys {
     fn get(&self, provider: &str) -> Option<String> {
         if let Some(v) = self.cache.read().get(provider) {

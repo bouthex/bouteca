@@ -148,6 +148,9 @@ pub struct MediaItem {
     /// Versiones del mismo contenido en otras fuentes o formatos (deduplicación).
     #[serde(default)]
     pub variants: Vec<Variant>,
+    /// Avisos de disponibilidad informados por la fuente (restricción de edad, países…).
+    #[serde(default)]
+    pub notices: Vec<String>,
     /// Puntuación de relevancia calculada por el motor (0–100 aprox.).
     #[serde(default)]
     pub score: f32,
@@ -200,6 +203,7 @@ impl MediaItem {
             embed_url: None,
             rights: Default::default(),
             variants: vec![],
+            notices: vec![],
             score: 0.0,
             dedupe_key: String::new(),
         }

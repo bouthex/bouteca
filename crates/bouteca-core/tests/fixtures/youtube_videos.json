@@ -1,1 +1,1 @@
-{"items":[{"id":"aaaaaaaaaaa","contentDetails":{"duration":"PT1M3S","definition":"hd"},"statistics":{"viewCount":"123456"}}]}
+{"items":[{"id":"aaaaaaaaaaa","contentDetails":{"duration":"PT1M3S","definition":"hd","contentRating":{"ytRating":"ytAgeRestricted"},"regionRestriction":{"blocked":["DE","FR"]}},"statistics":{"viewCount":"123456"},"status":{"embeddable":true,"privacyStatus":"public","license":"creativeCommon"}}]}
