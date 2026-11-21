@@ -1,0 +1,130 @@
+name: Actualización real desde la versión publicada (Windows)
+
+# Prueba la actualización como la vive el usuario: instala la versión PUBLICADA en GitHub
+# Releases (la que tienen las personas), carga datos de usuario y la actualiza a la versión
+# candidata compilada en este commit y firmada con la clave PERMANENTE (la misma que verifica la
+# clave pública incluida en las instalaciones existentes). La app usa su propio actualizador;
+# el manifiesto y el instalador se sirven localmente mediante un proxy de prueba (mitmproxy),
+# así no se publica nada. Requiere los secretos de firma; sin ellos, no corre.
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Versión publicada desde la que se actualiza (etiqueta)"
+        default: "v1.1.0"
+        required: true
+  push:
+    branches: [main]
+    paths-ignore: ["**.md", "relay/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-from-release
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: windows-latest
+    timeout-minutes: 75
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY }}
+      GH_TOKEN: ${{ github.token }}
+      BASE: ${{ inputs.base || 'v1.1.0' }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Requisitos y versión candidata
+        shell: bash
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ] || [ -z "$PUBKEY" ]; then
+            echo "::warning title=Sin firma::No hay secretos de firma: no se puede probar la actualización real."; echo "SKIP=1" >> "$GITHUB_ENV"; exit 0
+          fi
+          conf=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          base="${BASE#v}"
+          # Si la versión del commit todavía no supera a la publicada, se prueba con una
+          # versión de prueba mayor (solo cambia el número; el código es el mismo).
+          newer=$(node -e "const [a,b]=process.argv.slice(1).map(v=>v.split(/[.-]/).slice(0,3).map(Number));console.log(a[0]-b[0]||a[1]-b[1]||a[2]-b[2])" "$conf" "$base")
+          if [ "$newer" -gt 0 ]; then cand="$conf"; else IFS=. read -r M m p <<< "$base"; cand="$M.$m.$((p+1))-e2e.${GITHUB_RUN_NUMBER}"; fi
+          echo "CAND=$cand" >> "$GITHUB_ENV"
+          echo "::notice title=Actualización a probar::$base (publicada) → $cand (este commit, firma permanente)"
+      - uses: dtolnay/rust-toolchain@stable
+        if: env.SKIP != '1'
+      - uses: Swatinem/rust-cache@v2
+        if: env.SKIP != '1'
+      - uses: actions/setup-node@v5
+        if: env.SKIP != '1'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Compilar la candidata firmada con la clave permanente
+        if: env.SKIP != '1'
+        shell: bash
+        run: |
+          (cd ui && npm ci)
+          node -e "process.stdout.write(JSON.stringify({version:process.env.CAND,bundle:{createUpdaterArtifacts:true},plugins:{updater:{pubkey:process.env.PUBKEY}}}))" > "$RUNNER_TEMP/cand.json"
+          node ui/node_modules/@tauri-apps/cli/tauri.js build --config "$RUNNER_TEMP/cand.json"
+          exe=$(ls target/release/bundle/nsis/*_${CAND}_x64-setup.exe | head -1)
+          node scripts/verify-sig.mjs "$exe" "$exe.sig" "$PUBKEY"
+          mkdir -p "$RUNNER_TEMP/srv"
+          cp "$exe" "$RUNNER_TEMP/srv/setup.exe"
+          node scripts/make-manifest.mjs "$CAND" "$exe.sig" "https://bouteca-update.test/setup.exe" "Prueba de actualización" "$RUNNER_TEMP/srv/latest.json"
+      - name: Instalar la versión publicada
+        if: env.SKIP != '1'
+        shell: pwsh
+        run: |
+          gh release download $env:BASE -p "*-setup.exe" -D "$env:RUNNER_TEMP\base" --clobber
+          $setup = Get-ChildItem "$env:RUNNER_TEMP\base\*-setup.exe" | Select-Object -First 1
+          Start-Process $setup.FullName -ArgumentList '/S' -Wait
+          $exe = Join-Path $env:LOCALAPPDATA 'Bouteca\bouteca.exe'
+          if (-not (Test-Path $exe)) { Write-Output "::error::no se instaló $env:BASE"; exit 1 }
+          "BOUTECA_EXE=$exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          Write-Output "::notice title=Instalada::$($setup.Name)"
+      - name: Proxy de prueba (sirve el manifiesto y el instalador candidatos)
+        if: env.SKIP != '1'
+        shell: pwsh
+        run: |
+          python -m pip install --quiet mitmproxy
+          # Genera la autoridad de prueba del proxy y la confía solo en este runner efímero.
+          $p = Start-Process mitmdump -ArgumentList '-p','8899','-q' -PassThru; Start-Sleep 6; Stop-Process $p -Force
+          certutil -addstore -f Root "$env:USERPROFILE\.mitmproxy\mitmproxy-ca-cert.cer" | Out-Null
+          $srv = "$env:RUNNER_TEMP\srv".Replace('\','/')
+          @"
+          from mitmproxy import http
+          SRV = r"$srv"
+          def request(flow: http.HTTPFlow):
+              h, path = flow.request.pretty_host, flow.request.path
+              if h == "github.com" and path.endswith("/releases/latest/download/latest.json"):
+                  flow.response = http.Response.make(200, open(SRV + "/latest.json", "rb").read(), {"Content-Type": "application/json"})
+              elif h == "bouteca-update.test":
+                  flow.response = http.Response.make(200, open(SRV + "/setup.exe", "rb").read(), {"Content-Type": "application/octet-stream"})
+          "@ | Out-File -Encoding utf8 "$env:RUNNER_TEMP\addon.py"
+          Start-Process mitmdump -ArgumentList '-p','8899','-q','-s',"$env:RUNNER_TEMP\addon.py" -WindowStyle Hidden
+          Start-Sleep 4
+          "HTTPS_PROXY=http://127.0.0.1:8899" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+      - name: Actualizar con el actualizador de la app y verificar datos
+        if: env.SKIP != '1'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:RUNNER_TEMP\upd | Out-Null
+          Copy-Item scripts/update-from-release.mjs $env:RUNNER_TEMP\upd\
+          Push-Location $env:RUNNER_TEMP\upd
+          npm init -y | Out-Null
+          $env:HTTPS_PROXY = ""; npm install --no-audit --no-fund playwright-core@1 | Out-Null; $env:HTTPS_PROXY = "http://127.0.0.1:8899"
+          node update-from-release.mjs $env:BOUTECA_EXE $env:CAND update-report.json
+          $code = $LASTEXITCODE
+          Copy-Item update-report.json $env:GITHUB_WORKSPACE\ -ErrorAction SilentlyContinue
+          Pop-Location
+          $r = Get-Content $env:GITHUB_WORKSPACE\update-report.json -Raw | ConvertFrom-Json
+          foreach ($s in $r.steps) { Write-Output "::notice title=$(if ($s.ok) {'OK'} else {'FALLA'}) — $($s.name)::$($s.detail)" }
+          if ($code -ne 0) { Write-Output "::error title=Actualización desde $env:BASE::$($r.error)"; exit 1 }
+          Write-Output "::notice title=Actualización real::$($r.from) → $($r.to) con datos y claves conservados"
+      - uses: actions/upload-artifact@v4
+        if: always() && env.SKIP != '1'
+        with:
+          name: update-from-release
+          path: update-report.json
+          if-no-files-found: ignore
