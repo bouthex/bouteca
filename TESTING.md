@@ -21,6 +21,27 @@ para revisar la interfaz en un navegador (no forman parte de la app ni del insta
 
 Los resultados se publican como anotaciones de cada corrida (pestaña Actions del repositorio).
 
+## Resultados reales — 2026-11-21 (1.1.0)
+
+Prueba real en Windows (runner, commit `cd64d15`, sin claves de proveedores en ese equipo:
+solo fuentes sin clave). La app instalada ejecuta `--smoke-test`, que mide y busca de verdad:
+
+| Búsqueda | Consulta principal | Resultados | Primeros arriba |
+|---|---|---|---|
+| pepe llorando | pepe the frog cry | 70 | videos sobre Pepe the Frog (Dailymotion) |
+| peppo cry | pepe the frog cry | 66 | ídem |
+| Pepe the Frog crying | pepe the frog cry | 63 | ídem |
+| cursed memes | cursed image weird meme | 106 | "CURSED MEMES 2", "Cursed Plankton" |
+| Martin Cirio | Martin Cirio | 89 | Martín Cirio (Wikimedia, Dailymotion) |
+| reaction gif | reaction (en GIFs) | 35 | **flojo**: sin GIPHY/KLIPY solo hay GIFs de Wikimedia/Openverse |
+
+Antes del ajuste (commit `ec10ce2`) "pepe llorando" traía ranas de museo y "cursed memes"
+pinturas: se corrigió omitiendo catálogos de arte/naturaleza/espacio en búsquedas de memes.
+Los GIFs de reacción dependen de GIPHY/KLIPY (servicio central o clave propia).
+
+Rendimiento en esa corrida: interfaz lista 202 ms; reposo 316 MB (Rust 38 MB); CPU 0 %;
+primeros resultados 75 ms, búsqueda completa 950 ms.
+
 ## Resultados reales — 2026-11-20
 
 ### APIs reales (Linux y Windows) ✅ código de salida 0 en ambos

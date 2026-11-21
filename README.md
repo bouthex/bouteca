@@ -10,8 +10,9 @@ Bout + biblioteca: escribí lo que necesitás, previsualizalo y descargalo, todo
 
 - **Busca en 18 fuentes oficiales a la vez**: 12 sin clave (Wikimedia Commons, Openverse,
   Internet Archive, Imgflip, NASA, Art Institute of Chicago, The Met, Cleveland Museum of Art,
-  iNaturalist, ccMixter, PeerTube y Dailymotion) y 6 con clave gratuita tuya (GIPHY, KLIPY,
-  YouTube, Freesound, Pixabay y Pexels). No cubre "todo Internet": solo fuentes con API oficial
+  iNaturalist, ccMixter, PeerTube y Dailymotion) y 6 con clave (GIPHY, KLIPY, YouTube,
+  Freesound, Pixabay y Pexels), que funcionan a través del servicio de Bouteca o con tu propia
+  clave gratuita. No cubre "todo Internet": solo fuentes con API oficial
   (detalle en `PROVIDERS.md`).
 - **Música** como sección propia: pedidos en lenguaje natural ("música de tensión para un video
   de terror sin atribución"), filtros de derechos (sin atribución, con atribución, licencia
@@ -32,11 +33,19 @@ Bout + biblioteca: escribí lo que necesitás, previsualizalo y descargalo, todo
   parecido. Se calcula en tu equipo: la imagen no se envía a ningún servicio.
 - **Entiende tu idioma:** escribís en español y Bouteca también busca en inglés (y en portugués,
   turco, japonés o ruso si lo activás). Reconoce sinónimos y personajes conocidos
-  ("bob esponja", "tipo amarillo", "coffin dance").
+  ("bob esponja", "tipo amarillo", "coffin dance") y memes aunque estén mal escritos
+  ("peppo cry" → Pepe the Frog llorando).
+- **Clips cortos primero:** elegí la duración (muy cortos, 30 s, 1, 5 o 10 minutos, o cualquiera);
+  los resultados recientes suben en el orden.
+- **Navegación como en el navegador:** atrás/adelante (Alt+←/→ o los botones del mouse) conserva
+  resultados, filtros y posición.
 - **Resultados progresivos:** cada fuente aparece apenas responde; una fuente caída no frena a las demás.
 - **Previsualización integrada** de videos, GIFs, imágenes y audios, sin abrir ventanas.
-- **Descargas en un clic** (con pausa y reanudación), validadas, sin duplicados y organizadas en
-  `Descargas\Bouteca\{Videos, GIFs, Audios, Imágenes}`.
+- **Descargas en un clic** (con pausa y reanudación, y calidad elegible aparte), validadas, sin
+  duplicados y organizadas en `Descargas\Bouteca\{Videos, GIFs, Audios, Imágenes}`. Desde
+  Descargas podés borrar archivos (con confirmación) o solo quitarlos de la lista; la lista se
+  sincroniza sola con la carpeta.
+- **Copiar imagen** al portapapeles para pegarla en Discord, OBS o un editor.
 - **Favoritos, colecciones e historial** guardados solo en tu equipo.
 - **Liviana y prolija:** cuadrícula virtualizada, modo inactivo, autolimpieza de temporales y
   caché con límite. Sin publicidad ni telemetría.

@@ -1,39 +1,37 @@
 # Progreso real
 
-## Estado actual (2026-11-20, noche) — versión 1.0.0 lista para publicar
+## Estado actual (2026-11-21) — 1.1.0 en preparación (1.0.0 publicada y estable)
 
-**Último commit verificado:** `05a7b5a` (CI ✅, Windows ✅, Actualización de punta a punta ✅).
+**1.0.0** está publicada y firmada (https://github.com/bouthex/bouteca/releases/tag/v1.0.0).
 
-**Verificado con evidencia**
-- CI (Linux): formato, clippy, 88 pruebas Rust + 12 TypeScript, `cargo audit`, `npm audit`,
-  APIs reales. **YouTube real con la clave `BOUTECA_KEY_YOUTUBE`: 11 resultados en 577 ms.**
-- Windows (runner Windows Server, CI): compilación, instalador NSIS, instalación silenciosa
-  por usuario, arranque, búsqueda real (161 resultados de 10 fuentes ≈ 1,3 s), Administrador
-  de credenciales (ida y vuelta de una clave), desinstalación.
-- **Actualizador de punta a punta (CI, commit `5e761a6`)**: se instaló 0.9.0 con datos del
-  usuario; la app detectó 0.9.1, la descargó, verificó la firma, la instaló, quedó 0.9.1, la
-  búsqueda real siguió funcionando y **los datos se conservaron** (favoritos, colecciones,
-  proyecto de Studio, historial, preferencia). Un paquete con firma inválida fue rechazado
-  ("The signature verification failed") sin tocar la instalación. **Commit `05a7b5a`: los 9
-  pasos verificados**, incluida la reapertura automática en la versión nueva y la verificación
-  de firma con los mismos scripts que usa la publicación real (`scripts/verify-sig.mjs`,
-  `scripts/make-manifest.mjs`). Corregido en el camino: servidor local de la prueba inestable.
-- YouTube real también en Windows (10 resultados en 585 ms).
+**Etapa 1.1.0 — hecho y verificado** (CI ✅, Windows ✅, actualización de punta a punta ✅ en
+cada commit; números de la prueba real en Windows del commit `cd64d15`):
 
-**Falta para publicar la 1.0.0 estable (depende del propietario, solo navegador):**
-configurar la firma con el flujo "Configurar firma de actualizaciones" (pasos en `RELEASING.md`).
-CI informa hoy: clave privada=false, contraseña=false, clave pública=false. Sin firma no se
-publica una estable porque después no podría actualizarse sola.
+| Área | Qué cambió | Evidencia |
+|---|---|---|
+| Búsqueda de memes | 72 memes/personajes con alias es/en y tolerancia a errores ("peppo cry" → Pepe the Frog, sin confundir con el futbolista); la forma reconocida es la consulta principal; en búsquedas de memes no se consultan catálogos de arte, naturaleza ni espacio; "gif" en la consulta elige GIFs | Windows real: "pepe llorando", "peppo cry" y "Pepe the Frog crying" → consulta "pepe the frog cry", primeros resultados de Pepe; "cursed memes" → "CURSED MEMES 2", "Cursed Plankton"; "Martin Cirio" → clips de Martín Cirio |
+| Clips cortos y recientes | Duración (muy cortos / 30 s / 1 / 5 / 10 min / cualquiera; por defecto hasta 1 min) y frescura por fecha de publicación en el orden | Auto |
+| Sugerencias y navegación | "También podés buscar" clickeable; atrás/adelante (botones, Alt+←/→, botones del mouse) conserva resultados, filtros y desplazamiento | Auto + capturas |
+| Vista previa | Se adapta a vertical/horizontal/cuadrado sin márgenes enormes; sonido al pasar el mouse (uno a la vez), botón de silencio; YouTube con reproductor oficial | Capturas |
+| Descargar | Botón "Descargar" + selector "Calidad" separado con solo opciones reales (1080p, 720p…) | Auto + capturas |
+| Filtros | Menús propios legibles; derechos y uso al final y menos prominentes; licencias siguen calculándose | Capturas |
+| Contenido sensible | "Mostrar contenido sensible y NSFW" (desactivado por defecto): sensible desenfocado hasta abrirlo; nunca contenido ilegal | Auto |
+| Descargas | Eliminar con confirmación (archivo + registro) o "solo quitar de la lista", selección múltiple, sincronización con la carpeta (borrados, movidos y renombrados), archivo en uso, buscar/filtrar/ordenar | Auto (incl. archivo en uso en Windows) |
+| Fuentes sin claves | Servicio central (Cloudflare Worker gratuito) con claves solo del lado del servidor; la clave propia siempre tiene prioridad; claves guardadas intactas | Auto (Worker + motor); **despliegue pendiente del propietario** |
+| Portapapeles | "Copiar imagen" (PNG validado; GIF como primer cuadro) | Auto (conversión) |
 
-**Después de la firma:** Actions → "Publicar versión (firmada)" → Run workflow. Publica
-`Bouteca_1.0.0_x64-setup.exe`, su `.sig`, `latest.json` y `SHA256SUMS.txt` en
-https://github.com/bouthex/bouteca/releases/latest y comprueba el manifiesto del canal estable.
+**Medido en Windows (runner):** interfaz lista 202 ms; reposo 316 MB (Rust 38 MB); CPU 0 %;
+primeros resultados 75 ms y búsqueda completa 950 ms (161 resultados, 10 fuentes).
 
-**No verificado:** Windows 10/11 de escritorio (solo runner de CI); fuentes con clave salvo
-YouTube (GIPHY, KLIPY, Freesound, Pixabay, Pexels: sin claves en el repositorio).
+**Depende del propietario (solo navegador, gratis):** activar el servicio central
+(`relay/README.md`): cuenta gratuita de Cloudflare, secretos `CLOUDFLARE_API_TOKEN` y
+`CLOUDFLARE_ACCOUNT_ID`, y `BOUTECA_KEY_GIPHY` (la clave de GIPHY cargada en la app vive en el
+Administrador de credenciales de esa PC; el servidor necesita la suya como secreto). Hasta
+entonces las fuentes con clave funcionan solo con clave propia, como en 1.0.0.
 
-**Workflows:** `ci.yml`, `build-windows.yml`, `update-e2e.yml` (push a main/manual),
-`release.yml` (manual o etiqueta `v*`), `setup-signing.yml` (manual, una vez). Permisos mínimos.
+**No verificado:** Windows 10/11 de escritorio (solo runner de CI); arrastrar resultados a otras
+apps (no implementado: requiere arrastre nativo de archivos; pendiente); fuentes con clave salvo
+YouTube.
 
 ---
 
