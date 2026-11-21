@@ -1,6 +1,67 @@
 # Progreso real
 
-## Estado actual (2026-11-21) — 1.1.0 publicada y estable
+## Estado actual (2026-11-21) — 1.2.0
+
+### Probado en Windows real (runners de GitHub, Windows Server x64)
+
+**Actualización real desde la versión publicada** (flujo "Actualización real desde la versión
+publicada", commit `1672219`): se instaló la **1.1.0 de GitHub Releases**, se sembraron un
+favorito, una colección, un proyecto de Studio, una búsqueda, el tema claro y una clave en el
+Administrador de credenciales; la 1.1.0 detectó, descargó y verificó sola la 1.2.0 firmada con
+la **clave permanente** (11 s), se hizo clic real en "Reiniciar y actualizar" y la app se abrió
+sola en **1.2.0** con **todos los datos y la clave conservados**. Además pasa la prueba
+0.9.0 → 0.9.1 con instalación silenciosa y el rechazo de una firma inválida.
+
+**Interfaz real (WebView2)**: la app compilada (con depuración local solo para la prueba)
+busca, abre la vista previa de los primeros 6 resultados de 10 búsquedas y mide si se ve o
+reproduce. Commit `1672219`: **42 de 54 vistas previas correctas (78 %)**. Las 12 fallas: 7
+audios de Wikimedia que quedaron cargando (Wikimedia limita a los servidores en la nube con
+HTTP 429; **desde una conexión doméstica los mismos audios reproducen 8 de 8 en 250–700 ms**),
+4 videos de instancias de PeerTube que bloquean o no responden (la app lo informa con
+"Reintentar") y 1 archivo de Internet Archive que la fuente no entrega.
+
+| Búsqueda | Sección | Resultados | Vistas previas OK |
+|---|---|---|---|
+| pepe sad | Memes | 24 | 6/6 |
+| cursed memes | Memes | 24 | 3/6 (PeerTube) |
+| reaction gif | Memes (GIFs) | 0 | — sin GIPHY/KLIPY no hay GIFs de reacción |
+| Martin Cirio | Memes | 17 | 6/6 (clips de su podcast en Internet Archive) |
+| peppo (Videos) | Memes | 18 | 5/6 |
+| museos | Archivo | 24 | 5/6 |
+| naturaleza | Archivo | 24 | 5/6 |
+| terror (Música) | — | 24 | 6/6 |
+| Classic Horror 3 (Música) | — | 17 | 3/6 (Wikimedia, ver arriba) |
+| risa (Sonidos) | — | 24 | 3/6 (Wikimedia, ver arriba) |
+
+Tiempos (caché del motor caliente por la prueba de humo previa, por eso son bajos): primer
+resultado 11–37 ms, todas las fuentes 0,2–1 s. Primera vista previa: imágenes ~150–300 ms,
+audio de Internet Archive 0,9–2,4 s, video de PeerTube 0,8–4,4 s. Memoria: reposo 320 MB
+(Rust 38 MB), tras búsquedas 350 MB, tras liberar 308 MB; CPU en reposo 0 %; interfaz lista
+en 203 ms.
+
+### Auditoría real de previsualizaciones (CI, por fuente, por contenido de cada URL)
+Encontró causas reales: Wikimedia responde 429 a miniaturas de tamaño no estándar (corregido:
+330/960 px); videos de Internet Archive con un GIF como vista previa (corregido); ccMixter sin
+nada reproducible (retirado); Art Institute of Chicago responde 403 a todas sus imágenes desde
+la nube (no verificado desde una conexión doméstica).
+
+### Fuentes
+- Retiradas: **Dailymotion** (su reproductor no reprodujo en 13 de 13 intentos dentro de la
+  app; sin descarga), **ccMixter** (0 de 16 reproducibles).
+- Probadas y no integradas: **BetterTTV** (su búsqueda ya exige autorización: 403
+  "unauthorized" también desde una conexión doméstica), **Twitch** (sin búsqueda de clips por
+  texto; requiere una app de Twitch del propietario), **Kick** (sin API oficial de clips).
+
+### Pendiente / depende del propietario
+- **Servicio central** (Cloudflare gratis, `relay/README.md`): sin él, GIPHY/KLIPY/YouTube
+  solo funcionan con clave propia, y búsquedas como "reaction gif" o "pepe sad" en GIFs quedan
+  pobres. Es lo que más mejoraría los resultados de memes.
+- Twitch: crear una app gratuita en dev.twitch.tv para poder integrarlo por el servicio central.
+- Reproductor de YouTube dentro de la app: no se pudo probar en Windows (sin clave en el
+  runner y el cupo de la clave del repositorio se agotó durante las pruebas del día).
+- Windows 10/11 de escritorio: las pruebas corren en Windows Server.
+
+## Estado anterior (2026-11-21) — 1.1.0 publicada y estable
 
 **1.1.0** publicada y firmada con la misma clave que 1.0.0
 (https://github.com/bouthex/bouteca/releases/tag/v1.1.0). El canal estable (`latest.json`)

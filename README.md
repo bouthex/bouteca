@@ -8,12 +8,16 @@ Bout + biblioteca: escribí lo que necesitás, previsualizalo y descargalo, todo
 
 ## Qué hace
 
-- **Busca en 18 fuentes oficiales a la vez**: 12 sin clave (Wikimedia Commons, Openverse,
+- **Busca en 16 fuentes oficiales a la vez**: 10 sin clave (Wikimedia Commons, Openverse,
   Internet Archive, Imgflip, NASA, Art Institute of Chicago, The Met, Cleveland Museum of Art,
-  iNaturalist, ccMixter, PeerTube y Dailymotion) y 6 con clave (GIPHY, KLIPY, YouTube,
-  Freesound, Pixabay y Pexels), que funcionan a través del servicio de Bouteca o con tu propia
-  clave gratuita. No cubre "todo Internet": solo fuentes con API oficial
-  (detalle en `PROVIDERS.md`).
+  iNaturalist y PeerTube) y 6 con clave (GIPHY, KLIPY, YouTube, Freesound, Pixabay y Pexels),
+  que funcionan a través del servicio de Bouteca o con tu propia clave gratuita. No cubre "todo
+  Internet": solo fuentes con API oficial que se pueden ver o escuchar de verdad (detalle y
+  fuentes retiradas en `PROVIDERS.md`).
+- **Memes o Archivo, según lo que buscás:** "pepe sad" va a memes y reacciones; "pepe the frog
+  history", "museos" o "naturaleza" van a material documental. Se puede cambiar con un toque.
+- **Orden:** lo mejor (relevancia + vistas + actualidad + clips cortos), tendencias, más
+  recientes, más populares o relevancia, con datos reales de cada fuente.
 - **Música** como sección propia: pedidos en lenguaje natural ("música de tensión para un video
   de terror sin atribución"), filtros de derechos (sin atribución, con atribución, licencia
   comercial, uso restringido) y de uso (YouTube, monetizado, TikTok/Instagram, streams, juegos,
@@ -25,8 +29,9 @@ Bout + biblioteca: escribí lo que necesitás, previsualizalo y descargalo, todo
 - **Calidades reales** (Original/Alta/Media/Baja solo si la fuente las publica) y calidad preferida.
 - **Bouteca Studio**: una sección aparte para armar kits por proyecto (música, efectos, videos e
   imágenes) con créditos del kit; nunca interfiere con la búsqueda normal.
-- **Actualizaciones firmadas** con canal estable (predeterminado) o beta; instalar siempre lo
-  confirmás vos.
+- **Actualizaciones firmadas e integradas:** al abrir, Bouteca se fija si hay una versión
+  nueva; la descarga y verificación se ven dentro de la app y la instalación es silenciosa,
+  con reapertura automática. "Actualizar ahora" o "Más tarde" (te la vuelve a ofrecer en 24 h).
 - **YouTube en Videos:** buscá y reproducí con el reproductor oficial. YouTube no permite
   descargar desde apps de terceros: Bouteca ofrece guardar, copiar el enlace o abrirlo en YouTube.
 - **Búsqueda por imagen:** arrastrá, pegá o elegí una imagen y Bouteca ordena los resultados por

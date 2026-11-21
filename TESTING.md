@@ -21,6 +21,16 @@ para revisar la interfaz en un navegador (no forman parte de la app ni del insta
 
 Los resultados se publican como anotaciones de cada corrida (pestaña Actions del repositorio).
 
+## Pruebas reales nuevas en 1.2.0 (GitHub Actions)
+
+| Flujo | Qué prueba de verdad |
+|---|---|
+| `ci.yml` → "Auditoría real de previsualizaciones" | Busca en cada fuente y descarga los primeros bytes de cada miniatura y archivo reproducible; los clasifica por contenido (imagen, GIF, video, audio, HTML, 403/404/429, hotlink con y sin Referer, agente de navegador). |
+| `build-windows.yml` → "Prueba real de la interfaz (WebView2)" | Maneja la app en Windows (`scripts/ui-e2e.mjs`): 10 búsquedas, abre 6 vistas previas por búsqueda y mide si se ven o reproducen, tiempos y memoria. Usa una compilación del mismo código con depuración local habilitada (`scripts/e2e-config.mjs`); el instalador publicado no la tiene. |
+| `update-from-release.yml` | Instala la versión publicada (1.1.0), siembra datos, la deja actualizarse sola a la candidata firmada con la clave permanente (clic real con UI Automation) y verifica versión, datos y claves. |
+
+Resultados detallados en `PROGRESS.md` (sección 1.2.0).
+
 ## Resultados reales — 2026-11-21 (1.1.0)
 
 Prueba real en Windows (runner, commit `cd64d15`, sin claves de proveedores en ese equipo:
