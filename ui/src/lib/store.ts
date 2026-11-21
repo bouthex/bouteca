@@ -303,10 +303,18 @@ function handleDownloadEvent(e: T.DownloadEvent) {
     progress.value = { ...progress.value, [e.id]: { done: e.done, total: e.total, speed: e.speed_bps } };
     return;
   }
+  if (e.type === "removed") {
+    downloads.value = downloads.value.filter((d) => d.id !== e.id);
+    return;
+  }
   const row = e.row;
   const list = downloads.value;
   const i = list.findIndex((d) => d.id === row.id);
+  const prev = i >= 0 ? list[i].status : null;
   downloads.value = i >= 0 ? list.map((d) => (d.id === row.id ? row : d)) : [row, ...list];
+  // Avisos solo en transiciones reales (no al sincronizar con la carpeta).
+  const wasRunning = prev === null || prev === "queued" || prev === "downloading" || prev === "verifying";
+  if (!wasRunning) return;
   if (row.status === "completed") {
     const p = { ...progress.value };
     delete p[row.id];

@@ -29,8 +29,19 @@ const MAX_CONCURRENT: usize = 3;
 #[serde(tag = "type", rename_all = "snake_case")]
 #[allow(clippy::large_enum_variant)] // eventos efímeros; evitar Box simplifica la serialización
 pub enum DownloadEvent {
-    Progress { id: i64, done: u64, total: Option<u64>, speed_bps: u64 },
-    Updated { row: DownloadRow },
+    Progress {
+        id: i64,
+        done: u64,
+        total: Option<u64>,
+        speed_bps: u64,
+    },
+    Updated {
+        row: DownloadRow,
+    },
+    /// El registro se eliminó (la interfaz lo quita de la lista).
+    Removed {
+        id: i64,
+    },
 }
 
 pub type DownloadSink = Arc<dyn Fn(DownloadEvent) + Send + Sync>;
@@ -414,7 +425,175 @@ impl DownloadManager {
     }
 }
 
+/// Resultado de eliminar una descarga.
+#[derive(Debug, Clone, serde::Serialize, PartialEq)]
+pub struct DeleteOutcome {
+    pub id: i64,
+    pub ok: bool,
+    /// Se borró el archivo del disco (además del registro).
+    pub file_deleted: bool,
+    pub error: Option<String>,
+}
+
+/// Resultado de comparar el registro con la carpeta real.
+#[derive(Debug, Clone, Default, serde::Serialize, PartialEq)]
+pub struct ReconcileReport {
+    pub checked: usize,
+    pub missing: usize,
+    pub relocated: usize,
+    pub restored: usize,
+}
+
+fn blake3_file(p: &Path) -> std::io::Result<String> {
+    use std::io::Read;
+    let mut f = std::fs::File::open(p)?;
+    let mut h = blake3::Hasher::new();
+    let mut buf = vec![0u8; 256 * 1024];
+    loop {
+        let n = f.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        h.update(&buf[..n]);
+    }
+    Ok(h.finalize().to_hex().to_string())
+}
+
 impl DownloadManager {
+    /// Comprueba que `path` sea un archivo que Bouteca puede borrar: archivo común (no carpeta
+    /// ni enlace simbólico) dentro de la carpeta de descargas actual, o fuera de ella solo si su
+    /// contenido coincide con el hash que Bouteca registró al descargarlo.
+    fn deletable(&self, row: &DownloadRow, path: &Path) -> std::result::Result<(), String> {
+        let meta = std::fs::symlink_metadata(path).map_err(|_| "el archivo ya no existe".to_string())?;
+        if meta.file_type().is_symlink() || !meta.is_file() {
+            return Err("por seguridad solo se borran archivos comunes (no carpetas ni accesos directos)".into());
+        }
+        let canon = path.canonicalize().map_err(|e| e.to_string())?;
+        let root = self.options().root;
+        let inside = root.canonicalize().map(|r| canon.starts_with(&r) && canon != r).unwrap_or(false);
+        if inside {
+            return Ok(());
+        }
+        match (&row.hash, blake3_file(&canon)) {
+            (Some(h), Ok(actual)) if *h == actual => Ok(()),
+            _ => Err("el archivo está fuera de la carpeta de Bouteca y no se pudo confirmar que sea el que descargó; no se borra".into()),
+        }
+    }
+
+    /// Elimina descargas: con `delete_file`, también el archivo del disco (con validación de
+    /// ruta); sin él, solo el registro. Nunca toca favoritos, colecciones ni proyectos.
+    pub fn delete(&self, ids: &[i64], delete_file: bool) -> Vec<DeleteOutcome> {
+        ids.iter()
+            .map(|&id| {
+                let fail = |e: String| DeleteOutcome { id, ok: false, file_deleted: false, error: Some(e) };
+                let row = match self.db.get_download(id) {
+                    Ok(Some(r)) => r,
+                    Ok(None) => return fail("no encontrado".into()),
+                    Err(e) => return fail(e.to_string()),
+                };
+                if matches!(row.status.as_str(), "queued" | "downloading" | "verifying" | "paused") {
+                    let _ = self.cancel(id);
+                }
+                let mut file_deleted = false;
+                if delete_file {
+                    if let Some(p) = row.path.as_deref().map(PathBuf::from).filter(|p| p.exists()) {
+                        if let Err(e) = self.deletable(&row, &p) {
+                            return fail(e);
+                        }
+                        if let Err(e) = std::fs::remove_file(&p) {
+                            let msg = if e.kind() == std::io::ErrorKind::PermissionDenied || e.raw_os_error() == Some(32) {
+                                "el archivo está en uso o protegido: cerralo en el otro programa y reintentá".to_string()
+                            } else {
+                                format!("no se pudo borrar el archivo: {e}")
+                            };
+                            return fail(msg);
+                        }
+                        file_deleted = true;
+                    }
+                }
+                match self.db.delete_download_row(id) {
+                    Ok(()) => {
+                        (self.sink)(DownloadEvent::Removed { id });
+                        DeleteOutcome { id, ok: true, file_deleted, error: None }
+                    }
+                    Err(e) => fail(e.to_string()),
+                }
+            })
+            .collect()
+    }
+
+    /// Sincroniza el registro con la carpeta real: marca "missing" lo que ya no existe; si un
+    /// archivo se movió o renombró dentro de la carpeta de descargas (mismo tamaño y mismo
+    /// hash), actualiza la ruta; si un archivo marcado como no disponible vuelve, lo restaura.
+    pub fn reconcile(&self) -> Result<ReconcileReport> {
+        let mut rep = ReconcileReport::default();
+        let rows: Vec<DownloadRow> =
+            self.db.list_downloads(5000)?.into_iter().filter(|r| matches!(r.status.as_str(), "completed" | "missing")).collect();
+        let mut lost: Vec<DownloadRow> = Vec::new();
+        for mut r in rows {
+            rep.checked += 1;
+            let exists = r.path.as_deref().map(|p| Path::new(p).is_file()).unwrap_or(false);
+            if exists && r.status == "missing" {
+                r.status = "completed".into();
+                self.db.update_download(&r)?;
+                (self.sink)(DownloadEvent::Updated { row: r });
+                rep.restored += 1;
+            } else if !exists {
+                lost.push(r);
+            }
+        }
+        if lost.is_empty() {
+            return Ok(rep);
+        }
+        // Buscar archivos movidos/renombrados: solo dentro de la carpeta de descargas, como
+        // máximo 5000 archivos y comparando primero el tamaño (barato) y después el hash.
+        let root = self.options().root;
+        let mut candidates: Vec<(PathBuf, u64)> = Vec::new();
+        let mut stack = vec![(root.clone(), 0usize)];
+        while let Some((dir, depth)) = stack.pop() {
+            let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+            for e in rd.flatten() {
+                let Ok(ft) = e.file_type() else { continue };
+                let p = e.path();
+                if ft.is_dir() && depth < 4 && p.file_name().map(|n| n != ".incomplete").unwrap_or(true) {
+                    stack.push((p, depth + 1));
+                } else if ft.is_file() {
+                    if let Ok(m) = e.metadata() {
+                        candidates.push((p, m.len()));
+                    }
+                }
+                if candidates.len() >= 5000 {
+                    break;
+                }
+            }
+        }
+        let known: std::collections::HashSet<String> = self.db.list_downloads(5000)?.into_iter().filter_map(|r| r.path).collect();
+        for mut r in lost {
+            let found = r.hash.as_ref().and_then(|h| {
+                candidates
+                    .iter()
+                    .filter(|(p, len)| Some(*len as i64) == r.bytes_total && !known.contains(&p.to_string_lossy().to_string()))
+                    .find(|(p, _)| blake3_file(p).map(|x| &x == h).unwrap_or(false))
+                    .map(|(p, _)| p.clone())
+            });
+            match found {
+                Some(p) => {
+                    r.path = Some(p.to_string_lossy().to_string());
+                    r.status = "completed".into();
+                    rep.relocated += 1;
+                }
+                None if r.status != "missing" => {
+                    r.status = "missing".into();
+                    rep.missing += 1;
+                }
+                None => continue,
+            }
+            self.db.update_download(&r)?;
+            (self.sink)(DownloadEvent::Updated { row: r });
+        }
+        Ok(rep)
+    }
+
     /// Agrega a la biblioteca un archivo que el usuario ya tiene por una vía autorizada (por
     /// ejemplo, la descarga de su propio video desde YouTube Studio o el archivo que le dio el
     /// creador). Se valida el contenido real, se copia (nunca se mueve el original) a la carpeta

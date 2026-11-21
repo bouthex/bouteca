@@ -371,6 +371,29 @@ pub fn download_remove(state: S, id: i64) -> R<()> {
     state.db.delete_download_row(id).map_err(e)
 }
 
+/// Elimina descargas: con `delete_file` también borra el archivo (rutas validadas); sin él,
+/// solo quita el registro. Devuelve el resultado de cada una.
+#[tauri::command]
+pub fn downloads_delete(state: S, ids: Vec<i64>, delete_file: bool) -> R<Vec<bouteca_core::downloads::DeleteOutcome>> {
+    if ids.len() > 1000 {
+        return Err("demasiados elementos a la vez".into());
+    }
+    Ok(state.downloads.delete(&ids, delete_file))
+}
+
+/// Compara el registro con la carpeta real (archivos borrados, movidos o renombrados).
+#[tauri::command]
+pub async fn downloads_reconcile(state: S<'_>) -> R<bouteca_core::downloads::ReconcileReport> {
+    let dm = state.downloads.clone();
+    tokio::task::spawn_blocking(move || dm.reconcile()).await.map_err(e)?.map_err(e)
+}
+
+/// Copia la ruta completa del archivo descargado (validada) para pegarla en otro programa.
+#[tauri::command]
+pub fn download_path(state: S, id: i64) -> R<String> {
+    completed_path(&state, id).map(|p| p.to_string_lossy().to_string())
+}
+
 fn completed_path(state: &AppState, id: i64) -> R<PathBuf> {
     let row = state.db.get_download(id).map_err(e)?.ok_or("no encontrado")?;
     let p = PathBuf::from(row.path.ok_or("la descarga no tiene archivo")?);

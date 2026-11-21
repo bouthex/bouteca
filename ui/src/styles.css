@@ -566,3 +566,17 @@ select, option { color-scheme: dark; }
 .sensitive-gate p { margin: 0; max-width: 320px; font-size: 13px; }
 .link-btn { background: none; border: 0; padding: 0; color: var(--text); text-decoration: underline; text-underline-offset: 2px; font: inherit; font-size: 12.5px; cursor: pointer; }
 .rights-panel { padding: 10px 12px; gap: 8px; }
+
+/* Descargas: selección, filtros y confirmación */
+.dl { grid-template-columns: auto 44px minmax(0, 1fr) auto; }
+.dl-check { width: 16px; height: 16px; accent-color: var(--text); }
+.dl.gone { opacity: .6; }
+.dl-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.dl-toolbar .field[type="search"] { width: 220px; }
+.dl-toolbar label { display: inline-flex; align-items: center; gap: 6px; }
+.dl-bulk { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: var(--r-md); font-size: 13px; }
+.btn.danger { color: #ff8a8a; border-color: color-mix(in srgb, #ff8a8a 40%, var(--line)); }
+.modal-bg { position: fixed; inset: 0; z-index: 80; background: rgba(0, 0, 0, .55); display: grid; place-items: center; }
+.modal { width: min(460px, calc(100vw - 32px)); display: grid; gap: 12px; padding: 18px; background: var(--raised); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow); }
+.modal h2 { margin: 0; font-size: 16px; }
+.modal-actions { display: flex; flex-wrap: wrap; gap: 8px; }

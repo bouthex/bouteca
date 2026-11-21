@@ -170,7 +170,7 @@ export interface DownloadRow {
   kind: MediaKind;
   url: string;
   path: string | null;
-  status: "queued" | "downloading" | "verifying" | "completed" | "failed" | "cancelled" | "interrupted" | "paused";
+  status: "queued" | "downloading" | "verifying" | "completed" | "failed" | "cancelled" | "interrupted" | "paused" | "missing";
   bytes_total: number | null;
   bytes_done: number;
   hash: string | null;
@@ -183,7 +183,11 @@ export interface DownloadRow {
 
 export type DownloadEvent =
   | { type: "progress"; id: number; done: number; total: number | null; speed_bps: number }
-  | { type: "updated"; row: DownloadRow };
+  | { type: "updated"; row: DownloadRow }
+  | { type: "removed"; id: number };
+
+export interface DeleteOutcome { id: number; ok: boolean; file_deleted: boolean; error: string | null }
+export interface ReconcileReport { checked: number; missing: number; relocated: number; restored: number }
 
 export type EnqueueOutcome = { outcome: "queued"; id: number } | { outcome: "already_downloaded"; row: DownloadRow };
 

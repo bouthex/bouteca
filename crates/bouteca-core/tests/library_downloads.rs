@@ -317,3 +317,89 @@ async fn importar_archivo_propio_valida_y_copia() {
     std::fs::write(&fake, b"<html>no</html>").unwrap();
     assert!(m.import_local(&it, &fake).await.is_err(), "se valida el contenido real");
 }
+
+async fn completed_download(m: &std::sync::Arc<DownloadManager>, db: &Db, s: &MockServer, name: &str) -> bouteca_core::db::DownloadRow {
+    Mock::given(method("GET"))
+        .and(path(format!("/{name}")))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes([GIF, name.as_bytes()].concat()))
+        .mount(s)
+        .await;
+    let EnqueueOutcome::Queued { id } = m.enqueue(&item(name, &format!("{}/{name}", s.uri()), MediaKind::Gif), None).unwrap() else { panic!() };
+    wait_status(db, id, &["completed"]).await
+}
+
+#[tokio::test]
+async fn eliminar_archivo_y_registro_con_rutas_validadas() {
+    let s = MockServer::start().await;
+    let tmp = tempfile::tempdir().unwrap();
+    let (m, db, _) = manager(&tmp.path().join("Bouteca"));
+    // 1) Borrar archivo + registro.
+    let a = completed_download(&m, &db, &s, "a.gif").await;
+    let pa = std::path::PathBuf::from(a.path.clone().unwrap());
+    let r = m.delete(&[a.id], true);
+    assert!(r[0].ok && r[0].file_deleted, "{r:?}");
+    assert!(!pa.exists() && db.get_download(a.id).unwrap().is_none());
+    // 2) Solo el registro: el archivo queda.
+    let b = completed_download(&m, &db, &s, "b.gif").await;
+    let pb = std::path::PathBuf::from(b.path.clone().unwrap());
+    assert!(m.delete(&[b.id], false)[0].ok);
+    assert!(pb.exists());
+    // 3) Un registro manipulado que apunta a un archivo ajeno fuera de la carpeta: no se borra.
+    let c = completed_download(&m, &db, &s, "c.gif").await;
+    let ajeno = tmp.path().join("ajeno.txt");
+    std::fs::write(&ajeno, b"importante").unwrap();
+    let mut row = db.get_download(c.id).unwrap().unwrap();
+    row.path = Some(ajeno.to_string_lossy().to_string());
+    db.update_download(&row).unwrap();
+    let r = m.delete(&[c.id], true);
+    assert!(!r[0].ok && ajeno.exists(), "{r:?}");
+    // 4) Nunca una carpeta.
+    let mut row = db.get_download(c.id).unwrap().unwrap();
+    row.path = Some(tmp.path().join("Bouteca").to_string_lossy().to_string());
+    db.update_download(&row).unwrap();
+    assert!(!m.delete(&[c.id], true)[0].ok);
+    assert!(tmp.path().join("Bouteca").is_dir());
+}
+
+#[tokio::test]
+async fn sincroniza_con_la_carpeta_real() {
+    let s = MockServer::start().await;
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("Bouteca");
+    let (m, db, _) = manager(&root);
+    let a = completed_download(&m, &db, &s, "x.gif").await;
+    let b = completed_download(&m, &db, &s, "y.gif").await;
+    let pa = std::path::PathBuf::from(a.path.clone().unwrap());
+    let pb = std::path::PathBuf::from(b.path.clone().unwrap());
+    // Se borra uno desde el Explorador y el otro se renombra dentro de la carpeta.
+    std::fs::remove_file(&pa).unwrap();
+    let moved = root.join("renombrado.gif");
+    std::fs::rename(&pb, &moved).unwrap();
+    let rep = m.reconcile().unwrap();
+    assert_eq!((rep.missing, rep.relocated), (1, 1), "{rep:?}");
+    assert_eq!(db.get_download(a.id).unwrap().unwrap().status, "missing");
+    assert_eq!(db.get_download(b.id).unwrap().unwrap().path.as_deref(), Some(moved.to_string_lossy().as_ref()));
+    // Si el archivo vuelve, se restaura.
+    std::fs::write(&pa, [GIF, b"x.gif".as_slice()].concat()).unwrap();
+    assert_eq!(m.reconcile().unwrap().restored, 1);
+    assert_eq!(db.get_download(a.id).unwrap().unwrap().status, "completed");
+}
+
+/// En Windows un archivo abierto por otro programa no se puede borrar: se informa y se puede
+/// reintentar; el registro no se pierde.
+#[cfg(windows)]
+#[tokio::test]
+async fn archivo_en_uso_se_informa() {
+    let s = MockServer::start().await;
+    let tmp = tempfile::tempdir().unwrap();
+    let (m, db, _) = manager(&tmp.path().join("Bouteca"));
+    let a = completed_download(&m, &db, &s, "uso.gif").await;
+    let p = std::path::PathBuf::from(a.path.clone().unwrap());
+    use std::os::windows::fs::OpenOptionsExt;
+    let lock = std::fs::OpenOptions::new().read(true).share_mode(0).open(&p).unwrap();
+    let r = m.delete(&[a.id], true);
+    assert!(!r[0].ok && r[0].error.as_deref().unwrap_or("").contains("en uso"), "{r:?}");
+    assert!(db.get_download(a.id).unwrap().is_some(), "el registro se conserva para reintentar");
+    drop(lock);
+    assert!(m.delete(&[a.id], true)[0].ok);
+}
