@@ -62,6 +62,8 @@ pub struct ProviderView {
     info: ProviderInfo,
     status: ProviderStatus,
     has_key: bool,
+    /// Funciona sin clave propia gracias al servicio central de Bouteca.
+    via_relay: bool,
     enabled: bool,
 }
 
@@ -79,6 +81,7 @@ pub fn providers_list(state: S) -> Vec<ProviderView> {
                 info: p.info().clone(),
                 status: state.engine.status_of(id),
                 has_key: state.keys.get(id).is_some(),
+                via_relay: state.keys.get(id).is_none() && state.engine.relay_serves(id),
                 enabled: !disabled.contains(id),
             }
         })
@@ -695,4 +698,10 @@ pub fn studio_remove(state: S, id: i64, uid: String) -> R<()> {
 pub fn studio_credits(state: S, id: i64) -> R<String> {
     let items: Vec<MediaItem> = state.db.studio_items(id).map_err(e)?.into_iter().map(|(_, i)| i).collect();
     Ok(bouteca_core::studio::credits(&items))
+}
+
+/// Vuelve a consultar el servicio central (por ejemplo, al activarlo en Ajustes).
+#[tauri::command]
+pub async fn relay_refresh(state: S<'_>) -> R<Vec<String>> {
+    crate::relay::refresh(&state).await
 }

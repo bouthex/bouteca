@@ -3,6 +3,7 @@
 
 mod commands;
 mod keys;
+mod relay;
 mod smoke;
 mod state;
 mod system;
@@ -62,6 +63,7 @@ pub fn run() {
                     return Ok(());
                 }
                 updates::schedule_startup_check(app.handle());
+                relay::schedule(app.state::<std::sync::Arc<state::AppState>>().inner().clone());
             }
             // La ventana se muestra cuando la interfaz avisa que está lista (sin parpadeo blanco);
             // como respaldo, a los 4 s se muestra igual.
@@ -131,6 +133,7 @@ pub fn run() {
             commands::studio_add,
             commands::studio_remove,
             commands::studio_credits,
+            commands::relay_refresh,
             commands::update_check,
             commands::update_install,
             commands::update_history,

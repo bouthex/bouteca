@@ -500,3 +500,33 @@ async fn la_clave_guardada_llega_al_componente_que_consulta() {
         events.lock().iter().filter_map(|x| if let SearchEvent::Batch { items, .. } = x { Some(items[0].title.clone()) } else { None }).collect();
     assert_eq!(titles, vec!["clave:k-123"]);
 }
+
+struct GiphyKey;
+impl KeyStore for GiphyKey {
+    fn get(&self, provider: &str) -> Option<String> {
+        (provider == "giphy").then(|| "clave-propia".to_string())
+    }
+}
+
+#[test]
+fn servicio_central_y_prioridad_de_la_clave_propia() {
+    let engine = SearchEngine::new(providers::registry(), build_test_client(), EngineSettings::default(), Arc::new(GiphyKey));
+    let relay = Relay { base: "https://bouteca-relay.ejemplo.workers.dev".into(), providers: ["giphy".to_string(), "youtube".to_string()].into() };
+    engine.set_relay(Some(relay)).unwrap();
+    // Sin clave propia: va por el servicio central, con la marca pública (no un secreto).
+    let yt = engine.ctx_for("youtube");
+    assert_eq!(yt.base_url.as_deref(), Some("https://bouteca-relay.ejemplo.workers.dev/p/youtube"));
+    assert_eq!(yt.api_key.as_deref(), Some(RELAY_KEY));
+    assert!(engine.relay_serves("youtube"));
+    // Con clave propia: directo al proveedor con la clave del usuario.
+    let gi = engine.ctx_for("giphy");
+    assert_eq!(gi.base_url, None);
+    assert_eq!(gi.api_key.as_deref(), Some("clave-propia"));
+    // Fuente que el servicio no atiende: sin cambios.
+    assert_eq!(engine.ctx_for("pexels").base_url, None);
+    // Solo HTTPS.
+    let bad = Relay { base: "http://x.workers.dev".into(), providers: Default::default() };
+    assert!(engine.set_relay(Some(bad)).is_err());
+    engine.set_relay(None).unwrap();
+    assert_eq!(engine.ctx_for("youtube").api_key, None);
+}

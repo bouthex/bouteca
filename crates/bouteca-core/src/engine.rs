@@ -207,11 +207,27 @@ pub fn clip_and_freshness(item: &MediaItem, max_duration: Option<u32>, explicit_
     s as f32
 }
 
+/// Marcador que reemplaza la clave cuando la consulta va por el servicio central (el servidor
+/// lo sustituye por la clave real; nunca viaja una clave verdadera desde la app).
+pub const RELAY_KEY: &str = "bouteca-relay";
+
 /// Puntos extra para resultados de fuentes favoritas.
 const FAVORITE_BOOST: f32 = 6.0;
 const PROVIDER_TIMEOUT: Duration = Duration::from_secs(12);
 
+/// Servicio central de Bouteca ("relay"): reenvía las búsquedas de las fuentes con clave
+/// agregando la clave del proyecto en el servidor, para que el usuario no tenga que crear
+/// cuentas. Las claves nunca llegan a la app.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Relay {
+    /// URL base HTTPS (sin barra final).
+    pub base: String,
+    /// Fuentes que el servicio atiende hoy (configuración remota).
+    pub providers: HashSet<String>,
+}
+
 pub struct SearchEngine {
+    relay: RwLock<Option<Relay>>,
     providers: Vec<DynProvider>,
     client: Client,
     settings: RwLock<EngineSettings>,
@@ -238,6 +254,7 @@ pub struct SearchEngine {
 impl SearchEngine {
     pub fn new(providers: Vec<DynProvider>, client: Client, settings: EngineSettings, keys: Arc<dyn KeyStore>) -> Self {
         Self {
+            relay: RwLock::new(None),
             providers,
             client,
             settings: RwLock::new(settings),
@@ -305,7 +322,7 @@ impl SearchEngine {
         if self.settings.read().disabled_providers.contains(provider) {
             return ProviderStatus::Disabled;
         }
-        if p.info().needs_key && self.keys.get(provider).is_none() {
+        if p.info().needs_key && self.keys.get(provider).is_none() && !self.relay_serves(provider) {
             return ProviderStatus::NeedsKey;
         }
         if let Some(until) = self.cooldown.lock().get(provider) {
@@ -317,12 +334,41 @@ impl SearchEngine {
     }
 
     pub fn ctx_for(&self, provider: &str) -> ProviderCtx {
-        ProviderCtx {
-            client: self.client.clone(),
-            api_key: self.keys.get(provider),
-            base_url: self.base_overrides.get(provider).cloned(),
-            include_unlicensed: self.settings.read().include_unlicensed,
+        let own = self.keys.get(provider);
+        let mut base_url = self.base_overrides.get(provider).cloned();
+        let mut api_key = own.clone();
+        // La clave propia del usuario (si la cargó) tiene prioridad: su cupo es solo suyo.
+        // Si no hay, se usa el servicio central para las fuentes que atiende.
+        if own.is_none() {
+            if let Some(r) = self.relay.read().as_ref().filter(|r| r.providers.contains(provider)) {
+                if base_url.is_none() {
+                    base_url = Some(format!("{}/p/{provider}", r.base));
+                }
+                api_key = Some(RELAY_KEY.into());
+            }
         }
+        ProviderCtx { client: self.client.clone(), api_key, base_url, include_unlicensed: self.settings.read().include_unlicensed }
+    }
+
+    /// Configura (o quita) el servicio central. Solo se aceptan URLs HTTPS sin credenciales.
+    pub fn set_relay(&self, relay: Option<Relay>) -> crate::Result<()> {
+        if let Some(r) = &relay {
+            let u = url::Url::parse(&r.base).map_err(|_| CoreError::Other("URL del servicio inválida".into()))?;
+            if u.scheme() != "https" || !u.username().is_empty() || u.password().is_some() || u.query().is_some() || r.base.ends_with('/') {
+                return Err(CoreError::Other("el servicio central debe usar HTTPS y una URL base limpia".into()));
+            }
+        }
+        *self.relay.write() = relay;
+        self.cache.lock().clear();
+        Ok(())
+    }
+
+    pub fn relay(&self) -> Option<Relay> {
+        self.relay.read().clone()
+    }
+
+    pub fn relay_serves(&self, provider: &str) -> bool {
+        self.relay.read().as_ref().is_some_and(|r| r.providers.contains(provider))
     }
 
     /// Registra las URLs de un recurso entregado a la interfaz.

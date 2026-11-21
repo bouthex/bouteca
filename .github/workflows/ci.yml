@@ -31,6 +31,8 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: ui/package-lock.json
+      - name: Pruebas del servicio central (relay)
+        run: node relay/worker.test.mjs
       - name: Dependencias de sistema (WebKitGTK para compilar la capa Tauri)
         run: |
           sudo apt-get update

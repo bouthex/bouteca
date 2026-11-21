@@ -140,6 +140,8 @@ export interface ProviderView {
   info: ProviderInfo;
   status: ProviderStatus;
   has_key: boolean;
+  /** Funciona sin clave propia gracias al servicio central de Bouteca. */
+  via_relay: boolean;
   enabled: boolean;
 }
 
@@ -238,6 +240,7 @@ export interface AppSettings {
   preferred_quality: QualityPref;
   saved_filters: SavedFilter[];
   updates: { check_on_start: boolean; auto_download: boolean; channel: "stable" | "beta" };
+  use_relay: boolean;
 }
 
 export type UpdateEvent =

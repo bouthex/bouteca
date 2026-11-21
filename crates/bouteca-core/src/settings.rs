@@ -34,6 +34,9 @@ pub struct AppSettings {
     /// Combinaciones de filtros guardadas por el usuario (la interfaz define su contenido).
     pub saved_filters: Vec<SavedFilter>,
     pub updates: UpdateSettings,
+    /// Usar el servicio central de Bouteca para las fuentes que exigen clave (si el usuario no
+    /// cargó la suya). Las búsquedas de esas fuentes pasan por ese servicio.
+    pub use_relay: bool,
 }
 
 /// Actualizaciones: canal estable por defecto; instalar siempre requiere confirmación.
@@ -109,6 +112,7 @@ impl Default for AppSettings {
             preferred_quality: Default::default(),
             saved_filters: Vec::new(),
             updates: UpdateSettings::default(),
+            use_relay: true,
         }
     }
 }

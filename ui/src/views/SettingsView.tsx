@@ -171,12 +171,19 @@ function ProviderRow({ p, reload }: { p: ProviderView; reload: () => void }) {
         <Switch on={p.enabled} label={`Usar ${p.info.name}`} onChange={async (v) => { await api.setProviderEnabled(p.info.id, v).catch((e) => toast(errText(e), "error")); reload(); }} />
       </div>
       <span class="small muted">{p.info.terms} Límite: {p.info.rate_limit}.</span>
-      {p.info.needs_key && (
+      {p.info.needs_key && p.via_relay && !editing && (
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="small muted"><Icon.Check size={13} /> Funciona sin clave gracias al servicio de Bouteca. Si cargás tu propia clave, se usa la tuya.</span>
+          <button class="btn sm ghost" onClick={() => setEditing(true)}>Usar mi clave</button>
+        </div>
+      )}
+      {p.info.needs_key && (!p.via_relay || editing) && (
         editing || !p.has_key ? (
           <form onSubmit={save}>
             <input class="field" type="password" autocomplete="off" placeholder={p.has_key ? "Nueva clave (vacío para eliminar)" : "Pegá tu clave gratuita"} value={key} onInput={(e) => setKey((e.target as HTMLInputElement).value)} />
             <button class="btn sm primary" disabled={!key.trim() && !p.has_key}>Guardar</button>
             {p.info.key_url && <button type="button" class="btn sm ghost" onClick={() => api.openExternal(p.info.key_url!)}><Icon.Key size={14} /> Conseguir clave</button>}
+            {editing && <button type="button" class="btn sm ghost" onClick={() => { setEditing(false); setKey(""); }}>Cancelar</button>}
           </form>
         ) : (
           <div style="display:flex;gap:8px;align-items:center">
@@ -321,7 +328,12 @@ export function SettingsView() {
 
         <section class="group">
           <h2>Fuentes</h2>
-          <p class="small muted" style="margin:-4px 0 10px">Las fuentes sin clave funcionan de inmediato. Las demás necesitan una clave gratuita de su sitio; se guarda cifrada en tu equipo y nunca sale de él salvo hacia esa fuente.</p>
+          <p class="small muted" style="margin:-4px 0 10px">Las fuentes sin clave funcionan de inmediato. Las que piden clave pueden funcionar a través del servicio de Bouteca, o con tu propia clave gratuita: se guarda cifrada en tu equipo y solo viaja hacia esa fuente.</p>
+          <div class="rows">
+            <Setting title="Servicio de Bouteca para fuentes con clave" desc="Permite usar esas fuentes sin cargar claves. Lo que buscás en ellas pasa por el servicio de Bouteca (no guarda tus búsquedas ni datos personales). Si lo desactivás, solo funcionan con tu propia clave.">
+              <Switch on={s.use_relay !== false} label="Servicio de Bouteca" onChange={async (v) => { await set({ use_relay: v }); await api.relayRefresh().catch((e) => toast(errText(e), "error")); loadProviders(); }} />
+            </Setting>
+          </div>
           <div class="rows">{providers.map((p) => <ProviderRow key={p.info.id} p={p} reload={loadProviders} />)}</div>
         </section>
 
@@ -332,7 +344,7 @@ export function SettingsView() {
               <b>Qué se envía y a quién</b>
               <span>
                 Al buscar, el texto de la búsqueda (y sus traducciones) se envía solo a las fuentes activadas, junto con tu dirección IP como en cualquier conexión.
-                Cada clave de API viaja únicamente a su propio proveedor. La búsqueda por imagen se calcula en tu equipo: tu imagen nunca se envía; solo se piden las miniaturas públicas de los resultados.
+                Cada clave de API propia viaja únicamente a su proveedor. Si usás el servicio de Bouteca, las búsquedas de las fuentes con clave pasan por él: no las guarda ni las asocia a vos, y las claves del servicio nunca llegan a tu equipo. La búsqueda por imagen se calcula en tu equipo: tu imagen nunca se envía; solo se piden las miniaturas públicas de los resultados.
                 No hay publicidad, telemetría ni cuentas. Historial, favoritos y descargas se guardan solo en este equipo.
               </span>
             </div></div>

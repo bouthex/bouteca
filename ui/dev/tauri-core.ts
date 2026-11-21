@@ -44,7 +44,7 @@ export async function invoke(cmd: string, args?: Record<string, any>): Promise<a
     case "settings_get":
       return { engine: { primary_lang: "es", extra_langs: ["pt"], disabled_providers: [], safe_search: true, include_unlicensed: false, per_page: 24, group_duplicates: true, visual_dedup: true, favorite_providers: [] },
         download_dir: null, organize_by_kind: true, detect_duplicates: true, global_shortcut: "CommandOrControl+Shift+B", minimize_to_tray: false, launch_at_startup: false,
-        hover_previews: true, autoplay_gifs: false, web_cache_limit_mb: 150, auto_cleanup: true, thumbnail_quality: "low", theme: "dark", motion: "system", preferred_quality: "auto", saved_filters: [{ name: "Música sin créditos", data: { rights: "sin_atribucion" } }], updates: { check_on_start: true, auto_download: true, channel: "stable" } };
+        hover_previews: true, autoplay_gifs: false, web_cache_limit_mb: 150, auto_cleanup: true, thumbnail_quality: "low", theme: "dark", motion: "system", preferred_quality: "auto", saved_filters: [{ name: "Música sin créditos", data: { rights: "sin_atribucion" } }], updates: { check_on_start: true, auto_download: true, channel: "stable" }, use_relay: true };
     case "favorite_uids": case "collections_list": case "downloads_list": case "history_searches": case "history_views": case "favorites_list": case "suggestions":
       return [];
     case "app_info":
@@ -104,6 +104,12 @@ export async function invoke(cmd: string, args?: Record<string, any>): Promise<a
       kit = kit.filter((k) => !(k.pid === args!.id && k.item.uid === args!.uid)); return;
     case "studio_credits":
       return "créditos";
+    case "providers_list": {
+      const pv = (id: string, name: string, needs_key: boolean, via_relay: boolean, has_key = false) => ({ info: { id, name, needs_key, terms: "Términos del proveedor.", rate_limit: "100/h", key_url: needs_key ? "https://example.org" : null }, status: { state: needs_key && !via_relay && !has_key ? "needs_key" : "ready" }, has_key, via_relay, enabled: true });
+      return [pv("openverse", "Openverse", false, false), pv("giphy", "GIPHY", true, false, true), pv("youtube", "YouTube", true, true), pv("pexels", "Pexels", true, false)];
+    }
+    case "relay_refresh":
+      return ["youtube"];
     default:
       return null;
   }
