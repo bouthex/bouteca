@@ -42,6 +42,10 @@ struct Report {
     after_search: Mem,
     after_idle_release: Mem,
     search_ms: u128,
+    /// Tiempo hasta el primer lote de resultados (lo que ve el usuario primero).
+    first_results_ms: Option<u128>,
+    /// Búsquedas de memes reales: consulta → (ms hasta el primer lote, total, títulos principales).
+    meme_queries: BTreeMap<String, MemeProbe>,
     results_by_provider: BTreeMap<String, usize>,
     provider_errors: BTreeMap<String, String>,
     total_results: usize,
@@ -52,6 +56,15 @@ struct Report {
     keyring_ok: bool,
     /// Datos del usuario presentes (para comprobar que sobreviven a una actualización).
     library: Library,
+}
+
+#[derive(Serialize, Default)]
+struct MemeProbe {
+    first_ms: Option<u128>,
+    total_ms: u128,
+    results: usize,
+    main_variant: Option<String>,
+    top_titles: Vec<String>,
 }
 
 #[derive(Serialize, Default, PartialEq)]
@@ -171,7 +184,8 @@ pub fn run(app: AppHandle, out: PathBuf) {
             }
         }
         let events: Arc<Mutex<Vec<SearchEvent>>> = Arc::new(Mutex::new(Vec::new()));
-        let ev2 = events.clone();
+        let first: Arc<Mutex<Option<u128>>> = Arc::new(Mutex::new(None));
+        let (ev2, first2) = (events.clone(), first.clone());
         let t = Instant::now();
         state
             .engine
@@ -185,10 +199,16 @@ pub fn run(app: AppHandle, out: PathBuf) {
                     usage: None,
                     max_duration: None,
                 },
-                Arc::new(move |e| ev2.lock().push(e)),
+                Arc::new(move |e| {
+                    if matches!(e, SearchEvent::Batch { .. }) {
+                        first2.lock().get_or_insert(t.elapsed().as_millis());
+                    }
+                    ev2.lock().push(e)
+                }),
             )
             .await;
         rep.search_ms = t.elapsed().as_millis();
+        rep.first_results_ms = *first.lock();
         for e in events.lock().iter() {
             match e {
                 SearchEvent::Batch { provider, items, .. } => *rep.results_by_provider.entry(provider.clone()).or_default() += items.len(),
@@ -199,6 +219,50 @@ pub fn run(app: AppHandle, out: PathBuf) {
             }
         }
         rep.total_results = rep.results_by_provider.values().sum();
+        // Búsquedas de memes reales (fuentes sin clave + las que tengan clave en este equipo).
+        for (i, q) in ["pepe llorando", "peppo cry", "Pepe the Frog crying", "Martin Cirio", "cursed memes", "reaction gif"].iter().enumerate() {
+            let evs: Arc<Mutex<Vec<SearchEvent>>> = Arc::new(Mutex::new(Vec::new()));
+            let fst: Arc<Mutex<Option<u128>>> = Arc::new(Mutex::new(None));
+            let (e2, f2) = (evs.clone(), fst.clone());
+            let t = Instant::now();
+            let req = SearchRequest {
+                search_id: 500_000 + i as u64,
+                query: (*q).into(),
+                filter: KindFilter::All,
+                page: 1,
+                rights: None,
+                usage: None,
+                max_duration: Some(60),
+            };
+            state
+                .engine
+                .search(
+                    req,
+                    Arc::new(move |e| {
+                        if matches!(e, SearchEvent::Batch { .. }) {
+                            f2.lock().get_or_insert(t.elapsed().as_millis());
+                        }
+                        e2.lock().push(e)
+                    }),
+                )
+                .await;
+            let mut probe = MemeProbe { first_ms: *fst.lock(), total_ms: t.elapsed().as_millis(), ..Default::default() };
+            for e in evs.lock().iter() {
+                match e {
+                    SearchEvent::Plan { variants, .. } => probe.main_variant = variants.first().map(|v| v.text.clone()),
+                    SearchEvent::Batch { items, .. } => {
+                        probe.results += items.len();
+                        for it in items.iter().take(3) {
+                            if probe.top_titles.len() < 8 {
+                                probe.top_titles.push(it.title.chars().take(80).collect());
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            rep.meme_queries.insert((*q).into(), probe);
+        }
         tokio::time::sleep(Duration::from_secs(3)).await;
         rep.after_search = tokio::task::spawn_blocking(mem).await.unwrap_or_default();
         state.release_idle_resources();
