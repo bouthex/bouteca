@@ -269,7 +269,7 @@ async fn auditoria_de_previsualizaciones() {
                 }
             }
         }
-        let pct = |a: usize, b: usize| if b == 0 { "—".to_string() } else { format!("{}%", a * 100 / b) };
+        let pct = |a: usize, b: usize| (a * 100).checked_div(b).map_or("—".to_string(), |v| format!("{v}%"));
         println!(
             "AUDIT|{}|miniaturas {} ({}/{}) · reproducción {} ({}/{}) · solo reproductor oficial {} · sin reproducible {} · {:?}{}",
             info.id,
