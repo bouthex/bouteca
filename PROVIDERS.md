@@ -8,7 +8,7 @@ integran APIs oficiales; no hay scraping ni resultados simulados. Cada proveedor
 
 | Proveedor | Contenido | Clave | Límite documentado | Descarga | Condiciones |
 |---|---|---|---|---|---|
-| **Wikimedia Commons** | Imágenes, GIF, video (WebM/OGV + derivados WebM), audio | No | Sin cupo fijo; exige User-Agent identificable | Original + derivados WebM | Licencias libres por archivo (CC/PD). Se guarda autor y licencia. |
+| **Wikimedia Commons** | Imágenes, GIF, video (WebM/OGV + derivados WebM), audio | No | Sin cupo fijo; exige User-Agent identificable | Original + derivados WebM | Licencias libres por archivo (CC/PD). Se guarda autor y licencia. Desde 2026 Wikimedia responde 429 a miniaturas de tamaños no estándar: Bouteca usa 330 px (grilla) y 960 px (visor). |
 | **Openverse** | Imágenes y audio con licencia abierta (Flickr, Wikimedia, museos, Jamendo…) | No (token opcional) | Anónimo: 20/min, 200/día, máx. 20 por página y 240 por búsqueda | Original | CC / dominio público. Atribución. |
 | **Internet Archive** | Video, audio, imágenes | No | Sin cupo fijo; uso razonable | Archivos del elemento (MP4/H.264, MP3, FLAC…) resueltos bajo demanda | Derechos por elemento. **Por defecto solo elementos con `licenseurl`** (ajustable). |
 | **Imgflip** | ~100 plantillas de memes populares | No | Una llamada por sesión (cacheada 24 h en memoria) | Plantilla original | Plantillas subidas por usuarios de Imgflip. La búsqueda en su base completa es de pago (no integrada). |
@@ -23,14 +23,14 @@ integran APIs oficiales; no hay scraping ni resultados simulados. Cada proveedor
 | **The Met** | Obras de arte | No | 80/s | Imagen original | Open Access: solo `isPublicDomain` con imagen (CC0). Usa `/v1.1/search` (la `/v1/search` se retiró el 01/10/2026; detectado por la prueba real). Cada página consulta el detalle de ≤12 obras (6 en paralelo): se envía solo la consulta principal. |
 | **Cleveland Museum of Art** | Obras de arte | No | Uso razonable | Completa (TIFF/JPEG), impresión y web, con dimensiones | Solo `cc0=1` y con imagen. |
 | **iNaturalist** | Fotos de naturaleza y animales | No | ≤1 solicitud/s recomendada (se envía una sola consulta) | Original y 1024 px | Solo fotos CC0, CC BY y CC BY-SA (se descartan NC/ND y reservadas). Atribución al autor. |
-| **ccMixter** | Música Creative Commons | No | Uso razonable | **No**: solo enlace | Sus archivos tienen protección anti-hotlink (403 sin su sitio como origen). Bouteca no falsifica el origen: se escucha y descarga en ccMixter. |
+| **BetterTTV (emotes)** | Emotes de streaming (Pepe/Peepo, Sadge, KEKW…), animados | No | Sin cupo publicado | **No** (sin licencia declarada) | API REST pública de su biblioteca compartida. Cada emote lo sube un usuario: se ve y se abre en BetterTTV. Sección Memes. |
 | **PeerTube (SepiaSearch)** | Videos federados | No | Uso razonable (índice comunitario de Framasoft) | MP4 por resolución desde la instancia de origen, **solo si** la instancia tiene `downloadEnabled` y la licencia es libre y conocida | Licencias estándar de PeerTube (ids 1–8). Se descartan directos, NSFW con búsqueda segura, URLs no HTTPS, puertos e IP literales. |
 | **Dailymotion** | Videos | No (datos públicos) | Uso razonable | **No** | Videos de sus autores: solo reproductor oficial incrustado (`geo.dailymotion.com`, permitido en la CSP) y enlace. |
 
 ### Clasificación por necesidad de clave
 
 - **Sin clave (12):** Wikimedia, Openverse, Internet Archive, Imgflip, NASA, Art Institute of
-  Chicago, The Met, Cleveland, iNaturalist, ccMixter, PeerTube, Dailymotion.
+  Chicago, The Met, Cleveland, iNaturalist, PeerTube, Dailymotion, BetterTTV.
 - **Con clave (6):** GIPHY, KLIPY, YouTube, Freesound, Pixabay, Pexels. Funcionan de dos maneras:
   1. **Servicio central de Bouteca** (`relay/`, Cloudflare Worker gratuito): la clave del
      proyecto vive solo en el servidor; la app nunca la recibe. Se activa sin que el usuario haga
@@ -109,7 +109,9 @@ botón de descarga no aparece en resultados de YouTube.
 | **Imgflip `search_memes`** | Función paga (API Premium). |
 | **Library of Congress** | Integrada y retirada tras la prueba real en Windows: su API JSON superó los 12 s de espera y no declara derechos de forma estructurada (no se podría descargar nada). |
 | **Pixabay Music** | La API pública de Pixabay solo expone imágenes y videos; no hay endpoint de música. |
-| **Descarga desde ccMixter** | Protección anti-hotlink; evitarla exigiría falsificar cabeceras. Se integra como enlace. |
+| **ccMixter** (retirado en 1.2.0) | La auditoría real mostró 16 de 16 resultados sin audio reproducible (sus archivos bloquean la reproducción fuera de su sitio; evitarlo exigiría falsificar cabeceras). Se presentaban como música utilizable sin serlo. Parte de su catálogo CC llega por Openverse con audio reproducible. |
+| **Twitch (clips)** | Investigado el 21/11/2026. La API oficial (Helix "Get Clips") no busca por texto: solo devuelve clips de un canal (`broadcaster_id`) o de un juego (`game_id`), ordenados por vistas, y exige un token de aplicación (Client ID + secreto de una app gratuita de Twitch, que tendría que vivir en el servicio central). Reproducción solo con el reproductor oficial (`clips.twitch.tv/embed`, que exige declarar el dominio que lo incrusta); no hay descarga oficial. **No integrado todavía**: requiere que el propietario cree la app de Twitch (gratis) y no se puede probar sin esas credenciales. Plan: buscar canales (`/helix/search/channels`) y mostrar sus clips más vistos y recientes. |
+| **Kick (clips)** | Investigado el 21/11/2026. La API pública oficial (`api.kick.com/public/v1`) requiere OAuth y no ofrece búsqueda ni listado de clips. Los servicios que listan clips de Kick usan sus endpoints internos (no oficiales) o scraping. **No integrado**: no hay mecanismo autorizado. |
 | **Descarga desde Dailymotion** | Sus condiciones no la permiten. Solo reproductor oficial. |
 | **Europeana** | Requiere clave (gratuita) y su cobertura de imágenes abiertas se solapa con Openverse/Wikimedia. Candidato futuro opcional. |
 | **Smithsonian Open Access** | Requiere clave de api.data.gov. Candidato futuro opcional (con clave del usuario). |

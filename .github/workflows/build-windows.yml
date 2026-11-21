@@ -98,6 +98,9 @@ jobs:
           $k = 'HKCU:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments'
           New-Item -Path $k -Force | Out-Null
           New-ItemProperty -Path $k -Name 'bouteca.exe' -Value '--remote-debugging-port=9223 --autoplay-policy=no-user-gesture-required' -PropertyType String -Force | Out-Null
+          # Procesos de WebView2 de una ejecución anterior harían ignorar los argumentos nuevos.
+          Get-Process bouteca, msedgewebview2 -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          Start-Sleep 4
           New-Item -ItemType Directory -Force -Path $env:RUNNER_TEMP\uie2e | Out-Null
           Copy-Item scripts/ui-e2e.mjs $env:RUNNER_TEMP\uie2e\
           Push-Location $env:RUNNER_TEMP\uie2e

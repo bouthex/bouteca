@@ -35,6 +35,11 @@ async function connect() {
       await sleep(1000);
     }
   }
+  // Diagnóstico: argumentos con los que arrancó WebView2.
+  try {
+    const cl = execSync(`powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name='msedgewebview2.exe'\\" | Select-Object -First 1 -ExpandProperty CommandLine"`).toString();
+    console.log(`UI DIAG WebView2: ${cl.slice(0, 600)}`);
+  } catch { /* sin datos */ }
   throw new Error("no se pudo conectar con WebView2 (¿se ignoró --remote-debugging-port?)");
 }
 
