@@ -270,6 +270,45 @@ pub fn resolve(plan: &QueryPlan, original: &str, filter: KindFilter, requested: 
     Resolved { scope, forced: requested != Scope::Auto, memes_score: memes, archive_score: archive, person_like }
 }
 
+/// Palabras que, en el TÍTULO o las etiquetas de un resultado, indican humor. Más estricta que
+/// la lista de la consulta: "reaction", "clip" o "gif" en un título no son humor (la prueba real
+/// trajo "reacciones químicas" y videos cualquiera por eso).
+const ITEM_HUMOR_TERMS: &[&str] = &[
+    "meme",
+    "memes",
+    "momo",
+    "cursed",
+    "maldito",
+    "shitpost",
+    "goofy",
+    "bruh",
+    "lol",
+    "lmao",
+    "jaja",
+    "jajaja",
+    "kek",
+    "kekw",
+    "pog",
+    "sadge",
+    "cringe",
+    "gracioso",
+    "chistoso",
+    "funny",
+    "humor",
+    "troll",
+    "trolling",
+    "earrape",
+    "brainrot",
+    "prank",
+    "broma",
+    "fail",
+    "parodia",
+    "parody",
+    "reaction meme",
+    "meme template",
+    "plantilla meme",
+];
+
 /// ¿El resultado tiene señales de humor/cultura de internet en su título o etiquetas?
 pub fn humor_signal(item: &MediaItem, plan: &QueryPlan) -> bool {
     if domain_of(&item.provider) == Domain::Memes {
@@ -277,7 +316,7 @@ pub fn humor_signal(item: &MediaItem, plan: &QueryPlan) -> bool {
     }
     let hay = normalize(&format!("{} {}", item.title, item.tags.join(" ")));
     let words: Vec<&str> = hay.split_whitespace().collect();
-    MEME_TERMS.iter().any(|t| has_term(&hay, &words, t))
+    ITEM_HUMOR_TERMS.iter().any(|t| has_term(&hay, &words, t))
         || plan.entities.iter().any(|e| {
             let e = normalize(e);
             !e.is_empty() && hay.contains(&e)
@@ -435,5 +474,46 @@ mod tests {
         assert!(!provider_allowed("giphy", &arch, KindFilter::All));
         assert!(provider_allowed("met", &arch, KindFilter::All));
         assert!(provider_allowed("met", &memes, KindFilter::Music));
+    }
+}
+
+#[cfg(test)]
+mod persona_tests {
+    use super::*;
+    use crate::model::{MediaItem, MediaKind};
+    use crate::query::{plan, LangCode};
+
+    #[test]
+    fn nombre_propio_completo_entra() {
+        let q = "Martin Cirio";
+        let p = plan(q, LangCode::Es, &[]);
+        let r = resolve(&p, q, KindFilter::All, Scope::Auto);
+        let mut it = MediaItem::new("archive", "x", MediaKind::Video, "Mi diario íntimo: gorda soñadora - Martín cirio");
+        it.preview = Some("https://archive.org/x.mp4".into());
+        let rel = crate::rank::relevance(&it, &p);
+        let adj = adjust(&it, &p, &r, rel, KindFilter::All);
+        assert!(adj.is_some(), "rel={rel} plan={:?} groups={:?}", p.normalized, p.groups);
+    }
+}
+
+#[cfg(test)]
+mod humor_tests {
+    use super::*;
+    use crate::model::{MediaItem, MediaKind};
+    use crate::query::{plan, LangCode};
+
+    #[test]
+    fn titulos_cualquiera_no_son_humor() {
+        let p = plan("reaction gif", LangCode::Es, &[]);
+        let r = resolve(&p, "reaction gif", KindFilter::Gif, Scope::Auto);
+        let mut quim = MediaItem::new("wikimedia", "q", MediaKind::Gif, "Phenolphthalein reaction");
+        quim.thumbnail = Some("https://x/y.gif".into());
+        assert!(adjust(&quim, &p, &r, 1.0, KindFilter::Gif).is_none());
+        let p = plan("peppo", LangCode::Es, &[]);
+        let r = resolve(&p, "peppo", KindFilter::Video, Scope::Auto);
+        let mut v = MediaItem::new("peertube", "w", MediaKind::Video, "Washboard Hank at the Moonshine Festival");
+        v.tags = vec!["clip".into(), "random".into(), "viral".into()];
+        v.preview = Some("https://x/y.mp4".into());
+        assert!(adjust(&v, &p, &r, 0.0, KindFilter::Video).is_none());
     }
 }

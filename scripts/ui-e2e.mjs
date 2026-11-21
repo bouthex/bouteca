@@ -144,6 +144,15 @@ async function main() {
       const section = await page.evaluate(() => document.querySelector('.scope-switch [aria-checked="true"]')?.textContent?.trim() ?? null);
       const cards = await page.locator(".card").count();
       const entry = { q, filter: f ?? "Todo", section, first_result_ms: first, total_ms, cards, previews: [] };
+      if (cards === 0) {
+        entry.empty = await page.evaluate(() => ({
+          input: document.querySelector("input:not([type=file])")?.value,
+          tab: document.querySelector('.filters [aria-pressed="true"]')?.textContent?.trim(),
+          sources: [...document.querySelectorAll(".sources .src")].map((e) => `${e.textContent?.trim()}:${e.getAttribute("data-s")}`).join(","),
+          text: (document.querySelector(".results, main")?.textContent ?? "").replace(/\s+/g, " ").slice(0, 300),
+        }));
+        console.log(`UI VACIO ${q}: ${JSON.stringify(entry.empty)}`);
+      }
       for (let i = 0; i < Math.min(PER_QUERY, cards); i++) {
         const card = page.locator(".card").nth(i);
         const title = (await card.locator(".title").textContent().catch(() => ""))?.trim().slice(0, 70);
