@@ -3767,7 +3767,19 @@
     "rana triste",
     "sad frog",
     "sapo pepe",
-    "sapo triste"
+    "sapo triste",
+    "sadge",
+    "pepehands",
+    "apu",
+    "apu apustaja",
+    "feels good man",
+    "feelsgoodman",
+    "peepo happy",
+    "pepe laugh",
+    "pepelaugh",
+    "monkaw",
+    "pepe emote",
+    "peepo emote"
    ],
    "fuzzy": true
   },
@@ -4344,6 +4356,210 @@
     "lobotomy",
     "lobotomia"
    ]
+  },
+  {
+   "id": "kekw",
+   "search": "kekw",
+   "aliases": [
+    "kekw",
+    "kek w",
+    "risa kekw"
+   ],
+   "fuzzy": false
+  },
+  {
+   "id": "goofy_ahh",
+   "search": "goofy ahh",
+   "aliases": [
+    "goofy ahh",
+    "goofy ah",
+    "goofy sound",
+    "sonido goofy"
+   ],
+   "fuzzy": true
+  },
+  {
+   "id": "earrape",
+   "search": "earrape",
+   "aliases": [
+    "earrape",
+    "ear rape",
+    "sonido saturado",
+    "audio saturado",
+    "bass boosted"
+   ],
+   "fuzzy": true
+  },
+  {
+   "id": "my_honest_reaction",
+   "search": "my honest reaction",
+   "aliases": [
+    "my honest reaction",
+    "mi reaccion honesta",
+    "honest reaction"
+   ],
+   "fuzzy": false
+  },
+  {
+   "id": "huh_cat",
+   "search": "huh cat",
+   "aliases": [
+    "huh cat",
+    "gato huh",
+    "huh gato"
+   ],
+   "fuzzy": false
+  },
+  {
+   "id": "flashbang",
+   "search": "flashbang",
+   "aliases": [
+    "flashbang",
+    "flash bang",
+    "granada cegadora"
+   ],
+   "fuzzy": true
+  },
+  {
+   "id": "peter_griffin",
+   "search": "peter griffin",
+   "aliases": [
+    "peter griffin",
+    "family guy",
+    "padre de familia",
+    "peter griffin meme"
+   ],
+   "fuzzy": true
+  },
+  {
+   "id": "stop_talking",
+   "search": "stop talking meme",
+   "aliases": [
+    "stop talking",
+    "be quiet for several days",
+    "cat stop talking"
+   ],
+   "fuzzy": false
+  },
+  {
+   "id": "bet365",
+   "search": "bet365 goal sound",
+   "aliases": [
+    "bet365",
+    "bet 365 gol",
+    "gol bet365"
+   ],
+   "fuzzy": false
+  },
+  {
+   "id": "nickelodeon_laugh",
+   "search": "nickelodeon kids laugh",
+   "aliases": [
+    "risas nickelodeon",
+    "nickelodeon laugh",
+    "kids laughing sound"
+   ],
+   "fuzzy": false
+  },
+  {
+   "id": "minecraft_sounds",
+   "search": "minecraft sound effect",
+   "aliases": [
+    "sonido minecraft",
+    "minecraft sound",
+    "minecraft door",
+    "puerta minecraft"
+   ],
+   "fuzzy": false
+  },
+  {
+   "id": "roblox_oof",
+   "search": "roblox oof",
+   "aliases": [
+    "roblox oof",
+    "oof roblox",
+    "sonido roblox",
+    "roblox death sound"
+   ],
+   "fuzzy": false
+  },
+  {
+   "id": "loquendo",
+   "search": "loquendo",
+   "aliases": [
+    "loquendo",
+    "voz loquendo",
+    "loquendo voice"
+   ],
+   "fuzzy": true
+  },
+  {
+   "id": "dross",
+   "search": "dross rotzank",
+   "aliases": [
+    "dross",
+    "dross rotzank",
+    "sonido dross",
+    "dross miedo"
+   ],
+   "fuzzy": false
+  },
+  {
+   "id": "viggle",
+   "search": "viggle ai dance",
+   "aliases": [
+    "viggle",
+    "viggle ai",
+    "viggle dance",
+    "baile viggle"
+   ],
+   "fuzzy": true
+  },
+  {
+   "id": "green_screen_fx",
+   "search": "green screen effect",
+   "aliases": [
+    "green screen",
+    "pantalla verde",
+    "chroma",
+    "croma"
+   ],
+   "fuzzy": false
+  },
+  {
+   "id": "brainrot",
+   "search": "brainrot",
+   "aliases": [
+    "brainrot",
+    "brain rot",
+    "italian brainrot",
+    "tralalero tralala",
+    "tung tung sahur"
+   ],
+   "fuzzy": true
+  },
+  {
+   "id": "emoji_3d",
+   "search": "3d emoji meme",
+   "aliases": [
+    "emoji 3d",
+    "3d emoji",
+    "emoji meme",
+    "smiley 3d"
+   ],
+   "fuzzy": false
+  },
+  {
+   "id": "low_quality",
+   "search": "low quality meme",
+   "aliases": [
+    "low quality",
+    "baja calidad",
+    "deep fried",
+    "deepfried",
+    "meme frito"
+   ],
+   "fuzzy": false
   }
  ],
  "stopwords": [

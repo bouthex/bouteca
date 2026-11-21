@@ -212,3 +212,9 @@ async fn live_musica_abierta() {
     check("openverse", "piano", KindFilter::Music).await;
     check("wikimedia", "symphony", KindFilter::Music).await;
 }
+
+#[tokio::test]
+#[ignore]
+async fn live_bttv() {
+    check("bttv", "pepe", KindFilter::Gif).await;
+}

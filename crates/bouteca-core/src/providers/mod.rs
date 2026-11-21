@@ -5,6 +5,7 @@
 //! [`registry`] y documentarlo en `PROVIDERS.md`.
 
 pub mod archive;
+pub mod bttv;
 pub mod freesound;
 pub mod giphy;
 pub mod imgflip;
@@ -118,6 +119,7 @@ pub fn registry() -> Vec<DynProvider> {
         Arc::new(openverse::Openverse::new()),
         Arc::new(archive::InternetArchive::new()),
         Arc::new(imgflip::Imgflip::new()),
+        Arc::new(bttv::BetterTtv::new()),
         Arc::new(freesound::Freesound::new()),
         Arc::new(pixabay::Pixabay::new()),
         Arc::new(pexels::Pexels::new()),
