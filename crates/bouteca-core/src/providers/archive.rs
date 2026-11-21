@@ -212,11 +212,19 @@ pub(crate) fn apply_metadata(mut item: MediaItem, body: &[u8]) -> Result<MediaIt
             original: f.source.as_deref() == Some("original"),
         })
         .collect();
-    // Vista previa: la variante reproducible más liviana.
+    // Vista previa: la variante reproducible más liviana DEL MISMO TIPO (la auditoría real mostró
+    // videos cuya vista previa era un GIF animado, que el reproductor de video no puede abrir).
+    let kind = item.kind;
     item.preview = item
         .renditions
         .iter()
-        .filter(|r| r.mime.as_deref().map(|m| m == "video/mp4" || m == "audio/mpeg" || m.starts_with("image/")).unwrap_or(false))
+        .filter(|r| {
+            r.mime.as_deref().is_some_and(|m| match kind {
+                MediaKind::Video => m == "video/mp4" || m == "video/webm",
+                MediaKind::Audio | MediaKind::Music => m == "audio/mpeg" || m == "audio/ogg" || m == "audio/flac" || m == "audio/wav",
+                MediaKind::Image | MediaKind::Gif => m.starts_with("image/"),
+            })
+        })
         .min_by_key(|r| r.size_bytes.unwrap_or(u64::MAX))
         .map(|r| r.url.clone());
     if let Some((_, f)) = files.first() {

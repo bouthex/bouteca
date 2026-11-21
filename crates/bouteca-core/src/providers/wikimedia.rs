@@ -144,7 +144,7 @@ fn map_page(p: Page) -> Option<MediaItem> {
             .map(|t| {
                 vec![Rendition {
                     label: "PNG 1280 px (renderizado del SVG)".into(),
-                    url: t.replace("/360px-", "/1280px-"),
+                    url: t.replace("/330px-", "/1280px-"),
                     mime: Some("image/png".into()),
                     width: Some(1280),
                     height: None,
@@ -186,7 +186,13 @@ fn map_page(p: Page) -> Option<MediaItem> {
             .map(|d| d.src.clone())
             .or_else(|| Some(url.clone())),
         MediaKind::Audio | MediaKind::Music | MediaKind::Gif => Some(url.clone()),
-        MediaKind::Image => info.thumburl.clone(),
+        // Imagen grande para el visor: tamaño estándar de 960 px (Wikimedia limita con 429 los
+        // tamaños no estándar desde 2026); si el original es más chico, el original.
+        MediaKind::Image => match (info.thumburl.as_deref(), info.width) {
+            (Some(t), Some(w)) if w > 960 && t.contains("/330px-") => Some(t.replace("/330px-", "/960px-")),
+            (_, Some(w)) if w <= 960 && mime != "image/svg+xml" => Some(url.clone()),
+            (t, _) => t.map(str::to_string),
+        },
     };
     let id = p.pageid.map(|i| i.to_string()).unwrap_or_else(|| p.title.clone());
     Some(MediaItem {
@@ -242,7 +248,7 @@ impl Provider for Wikimedia {
             ("gsroffset", &offset.to_string()),
             ("prop", "videoinfo"),
             ("viprop", "url|size|mime|mediatype|extmetadata|derivatives"),
-            ("viurlwidth", "360"),
+            ("viurlwidth", "330"),
             ("viextmetadatafilter", "LicenseShortName|LicenseUrl|Artist|ImageDescription|ObjectName"),
             ("viextmetadatalanguage", q.lang.code()),
         ]);

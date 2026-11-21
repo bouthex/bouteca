@@ -129,6 +129,8 @@ async fn probe_once(client: &reqwest::Client, url: &str, referer: bool) -> Probe
 
 /// Prueba con el Referer de la app; si falla, repite sin Referer para detectar hotlink.
 async fn probe(client: &reqwest::Client, url: &str) -> Probe {
+    // Ritmo humano: sin ráfagas que provoquen límites (429) que un usuario no vería.
+    tokio::time::sleep(Duration::from_millis(250)).await;
     let mut p = probe_once(client, url, true).await;
     if !ok_any(&p.outcome) {
         let q = probe_once(client, url, false).await;

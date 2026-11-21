@@ -85,7 +85,7 @@ jobs:
         shell: bash
         run: |
           cargo test -p bouteca-core --test preview_audit -- --ignored --nocapture > audit.log 2>&1 || { tail -30 audit.log; exit 1; }
-          grep '^AUDIT|' audit.log | while IFS='|' read -r _ prov rest; do echo "::notice title=Previsualización — ${prov}::${rest//|/: }"; done
+          grep '^AUDIT|' audit.log | sed 's/^AUDIT|/AUDITORIA /' 
           { echo "## Auditoría de previsualizaciones"; echo; grep '^AUDIT|' audit.log | sed 's/^AUDIT|/- /; s/|/: /g'; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
