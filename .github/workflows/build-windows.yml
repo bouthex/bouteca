@@ -93,12 +93,12 @@ jobs:
         continue-on-error: true
         shell: pwsh
         run: |
-          # Depuración de WebView2 solo en este runner efímero: la sobrescritura por registro de
-          # WebView2 (la variable de entorno se ignora cuando la app pasa sus propios argumentos).
-          $k = 'HKCU:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments'
-          New-Item -Path $k -Force | Out-Null
-          New-ItemProperty -Path $k -Name 'bouteca.exe' -Value '--remote-debugging-port=9223 --autoplay-policy=no-user-gesture-required' -PropertyType String -Force | Out-Null
-          # Procesos de WebView2 de una ejecución anterior harían ignorar los argumentos nuevos.
+          # Mismo código compilado aparte con la depuración de WebView2 habilitada en un puerto
+          # local (WebView2 ignora variables de entorno y registro cuando la app fija sus
+          # argumentos). Este binario no se publica: el instalador subido es el de arriba.
+          node scripts/e2e-config.mjs 9223 | Out-File -Encoding ascii "$env:RUNNER_TEMP\e2e.json"
+          node ui/node_modules/@tauri-apps/cli/tauri.js build --no-bundle --config "$env:RUNNER_TEMP\e2e.json" | Out-Null
+          $exe = (Resolve-Path target/release/bouteca.exe).Path
           Get-Process bouteca, msedgewebview2 -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
           Start-Sleep 4
           New-Item -ItemType Directory -Force -Path $env:RUNNER_TEMP\uie2e | Out-Null
@@ -106,7 +106,7 @@ jobs:
           Push-Location $env:RUNNER_TEMP\uie2e
           npm init -y | Out-Null
           npm install --no-audit --no-fund playwright-core@1 | Out-Null
-          node ui-e2e.mjs $env:BOUTECA_EXE ui-e2e.json
+          node ui-e2e.mjs $exe ui-e2e.json
           Copy-Item ui-e2e.json $env:GITHUB_WORKSPACE\ui-e2e.json -ErrorAction SilentlyContinue
           Pop-Location
       - name: Desinstalar en silencio y verificar

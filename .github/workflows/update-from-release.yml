@@ -22,7 +22,7 @@ permissions:
 
 concurrency:
   group: update-from-release
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   update:
@@ -65,14 +65,16 @@ jobs:
         shell: bash
         run: |
           (cd ui && npm ci)
-          node -e "process.stdout.write(JSON.stringify({version:process.env.CAND,bundle:{createUpdaterArtifacts:true},plugins:{updater:{pubkey:process.env.PUBKEY}}}))" > "$RUNNER_TEMP/cand.json"
+          # Candidata de prueba: mismo código, la versión de prueba y la depuración de WebView2
+          # habilitada (para verificar los datos después de actualizar). Firma permanente real.
+          node scripts/e2e-config.mjs 9224 "$CAND" "$PUBKEY" > "$RUNNER_TEMP/cand.json"
           node ui/node_modules/@tauri-apps/cli/tauri.js build --config "$RUNNER_TEMP/cand.json"
           exe=$(ls target/release/bundle/nsis/*_${CAND}_x64-setup.exe | head -1)
           node scripts/verify-sig.mjs "$exe" "$exe.sig" "$PUBKEY"
           mkdir -p "$RUNNER_TEMP/srv"
           cp "$exe" "$RUNNER_TEMP/srv/setup.exe"
           node scripts/make-manifest.mjs "$CAND" "$exe.sig" "https://bouteca-update.test/setup.exe" "Prueba de actualización" "$RUNNER_TEMP/srv/latest.json"
-      - name: Instalar la versión publicada
+      - name: Instalar la versión publicada y cargar datos de usuario
         if: env.SKIP != '1'
         shell: pwsh
         run: |
@@ -82,13 +84,40 @@ jobs:
           $exe = Join-Path $env:LOCALAPPDATA 'Bouteca\bouteca.exe'
           if (-not (Test-Path $exe)) { Write-Output "::error::no se instaló $env:BASE"; exit 1 }
           "BOUTECA_EXE=$exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
-          Write-Output "::notice title=Instalada::$($setup.Name)"
+          # Primer arranque: crea la base de datos y los ajustes; luego se cierra.
+          $p = Start-Process $exe -PassThru; Start-Sleep 15
+          Get-Process bouteca, msedgewebview2 -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 3
+          $data = Join-Path $env:APPDATA 'com.bouteca.app'
+          $seed = @'
+          import json, sqlite3, sys, time, os
+          d = sys.argv[1]; now = int(time.time())
+          item = {"uid": "e2e:favorito", "provider": "wikimedia", "provider_id": "e2e", "kind": "image", "title": "Favorito de prueba e2e",
+                  "tags": ["e2e"], "thumbnail": None, "preview": None, "page_url": None, "author": None, "license": None, "license_url": None,
+                  "width": None, "height": None, "duration_secs": None, "popularity": None, "renditions": [], "needs_resolve": False, "download_policy": "free"}
+          db = sqlite3.connect(os.path.join(d, "bouteca.db"))
+          db.execute("INSERT OR REPLACE INTO favorites(uid, item_json, added_at, available) VALUES (?, ?, ?, 1)", (item["uid"], json.dumps(item), now))
+          cur = db.execute("INSERT INTO collections(name, created_at) VALUES ('Coleccion e2e', ?)", (now,))
+          db.execute("INSERT INTO collection_items(collection_id, uid, item_json, added_at, available) VALUES (?, ?, ?, ?, 1)", (cur.lastrowid, item["uid"], json.dumps(item), now))
+          db.execute("INSERT INTO studio_projects(name, description, created_at, updated_at) VALUES ('Terror', 'video de terror e2e', ?, ?)", (now, now))
+          db.execute("INSERT INTO search_history(query, filter, at) VALUES ('prueba e2e actualizacion', 'all', ?)", (now,))
+          db.commit(); db.close()
+          sp = os.path.join(d, "settings.json")
+          s = json.load(open(sp, encoding="utf-8")) if os.path.exists(sp) else {}
+          s["theme"] = "light"
+          json.dump(s, open(sp, "w", encoding="utf-8"))
+          print("datos sembrados en", d)
+          '@
+          $seed | python - "$data"
+          if ($LASTEXITCODE -ne 0) { Write-Output "::error::no se pudieron sembrar los datos"; exit 1 }
+          # Clave de API en el Administrador de credenciales, como la guarda la app (keyring).
+          cmdkey /generic:pexels.Bouteca /user:pexels /pass:clave-de-prueba-e2e | Out-Null
+          Write-Output "::notice title=Instalada y con datos::$($setup.Name)"
       - name: Proxy de prueba (sirve el manifiesto y el instalador candidatos)
         if: env.SKIP != '1'
         shell: pwsh
         run: |
           python -m pip install --quiet mitmproxy
-          # Genera la autoridad de prueba del proxy y la confía solo en este runner efímero.
+          # Autoridad de prueba del proxy, confiada solo en este runner efímero.
           $p = Start-Process mitmdump -ArgumentList '-p','8899','-q' -PassThru; Start-Sleep 6; Stop-Process $p -Force
           certutil -addstore -f Root "$env:USERPROFILE\.mitmproxy\mitmproxy-ca-cert.cer" | Out-Null
           $srv = "$env:RUNNER_TEMP\srv".Replace('\','/')
@@ -104,30 +133,45 @@ jobs:
           "@ | Out-File -Encoding utf8 "$env:RUNNER_TEMP\addon.py"
           Start-Process mitmdump -ArgumentList '-p','8899','-q','-s',"$env:RUNNER_TEMP\addon.py" -WindowStyle Hidden
           Start-Sleep 4
-          "HTTPS_PROXY=http://127.0.0.1:8899" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
-      - name: Actualizar con el actualizador de la app y verificar datos
+      - name: La versión publicada se actualiza sola (clic real en "Reiniciar y actualizar")
         if: env.SKIP != '1'
         shell: pwsh
         run: |
-          $k = 'HKCU:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments'
-          New-Item -Path $k -Force | Out-Null
-          New-ItemProperty -Path $k -Name 'bouteca.exe' -Value '--remote-debugging-port=9224' -PropertyType String -Force | Out-Null
-          # Procesos de WebView2 de una ejecución anterior harían ignorar los argumentos nuevos.
-          Get-Process bouteca, msedgewebview2 -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-          Start-Sleep 4
+          $env:HTTPS_PROXY = "http://127.0.0.1:8899"
+          $t0 = Get-Date
+          $p = Start-Process $env:BOUTECA_EXE -PassThru
+          Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+          $A = [System.Windows.Automation.AutomationElement]
+          $name = New-Object System.Windows.Automation.PropertyCondition($A::NameProperty, 'Reiniciar y actualizar')
+          $btn = $null
+          for ($i = 0; $i -lt 300 -and -not $btn; $i++) {
+            Start-Sleep 1
+            $win = $A::RootElement.FindFirst([System.Windows.Automation.TreeScope]::Children, (New-Object System.Windows.Automation.PropertyCondition($A::ProcessIdProperty, $p.Id)))
+            if ($win) { $btn = $win.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $name) }
+          }
+          if (-not $btn) { Write-Output "::error title=Actualización::la versión publicada no ofreció la actualización en 5 minutos"; exit 1 }
+          $secs = [math]::Round(((Get-Date) - $t0).TotalSeconds)
+          Write-Output "::notice title=Detectada, descargada y verificada::la app ofreció instalar en $secs s desde que se abrió"
+          $btn.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+          "T_INSTALL=$((Get-Date).ToString('o'))" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+      - name: Verificar versión nueva, datos y claves
+        if: env.SKIP != '1'
+        shell: pwsh
+        run: |
           New-Item -ItemType Directory -Force -Path $env:RUNNER_TEMP\upd | Out-Null
           Copy-Item scripts/update-from-release.mjs $env:RUNNER_TEMP\upd\
           Push-Location $env:RUNNER_TEMP\upd
           npm init -y | Out-Null
-          $env:HTTPS_PROXY = ""; npm install --no-audit --no-fund playwright-core@1 | Out-Null; $env:HTTPS_PROXY = "http://127.0.0.1:8899"
-          node update-from-release.mjs $env:BOUTECA_EXE $env:CAND update-report.json
+          npm install --no-audit --no-fund playwright-core@1 | Out-Null
+          node update-from-release.mjs $env:CAND update-report.json
           $code = $LASTEXITCODE
           Copy-Item update-report.json $env:GITHUB_WORKSPACE\ -ErrorAction SilentlyContinue
           Pop-Location
           $r = Get-Content $env:GITHUB_WORKSPACE\update-report.json -Raw | ConvertFrom-Json
           foreach ($s in $r.steps) { Write-Output "::notice title=$(if ($s.ok) {'OK'} else {'FALLA'}) — $($s.name)::$($s.detail)" }
+          $secs = [math]::Round(((Get-Date) - [datetime]$env:T_INSTALL).TotalSeconds)
           if ($code -ne 0) { Write-Output "::error title=Actualización desde $env:BASE::$($r.error)"; exit 1 }
-          Write-Output "::notice title=Actualización real::$($r.from) → $($r.to) con datos y claves conservados"
+          Write-Output "::notice title=Actualización real::$env:BASE → $($r.to) con datos y claves conservados"
       - uses: actions/upload-artifact@v4
         if: always() && env.SKIP != '1'
         with:
