@@ -31,11 +31,15 @@ integran APIs oficiales; no hay scraping ni resultados simulados. Cada proveedor
 
 - **Sin clave (12):** Wikimedia, Openverse, Internet Archive, Imgflip, NASA, Art Institute of
   Chicago, The Met, Cleveland, iNaturalist, ccMixter, PeerTube, Dailymotion.
-- **Con clave gratuita del usuario (6):** GIPHY, KLIPY, YouTube, Freesound, Pixabay, Pexels. Las
-  claves son personales: se cargan en la app instalada y se guardan en el Administrador de
-  credenciales de Windows. Bouteca **no distribuye claves compartidas** en el instalador (cualquiera
-  podría extraerlas y agotarían el cupo de todos). Los secretos `BOUTECA_KEY_*` de GitHub
-  Actions sirven solo para las pruebas de CI y nunca llegan al instalador.
+- **Con clave (6):** GIPHY, KLIPY, YouTube, Freesound, Pixabay, Pexels. Funcionan de dos maneras:
+  1. **Servicio central de Bouteca** (`relay/`, Cloudflare Worker gratuito): la clave del
+     proyecto vive solo en el servidor; la app nunca la recibe. Se activa sin que el usuario haga
+     nada. Ver [relay/README.md](relay/README.md) (despliegue, protecciones, cupos y costos).
+  2. **Clave propia** (Ajustes → Fuentes), guardada en el Administrador de credenciales de
+     Windows. Si existe, **siempre tiene prioridad** y va directo al proveedor.
+  Bouteca **nunca incluye claves en el instalador** (cualquiera podría extraerlas). Los secretos
+  `BOUTECA_KEY_*` de GitHub Actions se usan para las pruebas de CI y, al desplegar, se cargan como
+  secretos del Worker; nunca llegan al instalador ni a los registros.
 - Solo vale la pena pedir clave para GIPHY/KLIPY (GIFs de reacción), YouTube (video popular) y
   Freesound/Pixabay/Pexels (más efectos y stock): no hay alternativas sin clave de ese contenido.
 
@@ -49,8 +53,11 @@ enlace a la fuente pero no se descargan. El gestor de descargas recalcula el per
 
 ### Costos
 
-Ninguno. Todas las integraciones son gratuitas. Las que piden clave requieren crear una cuenta
-gratuita en el sitio del proveedor; Bouteca funciona sin ellas con las fuentes sin clave.
+Ninguno. Todas las integraciones son gratuitas y el servicio central usa el plan Free de
+Cloudflare, que no factura excedentes (al superar el cupo, responde error). Límite real a tener en
+cuenta con muchos usuarios: YouTube permite ~99 búsquedas/día por proyecto; ampliar requiere
+pedir más cupo a Google (gratis, con revisión). GIPHY en producción requiere pedir la clave de
+producción. Detalle en [relay/README.md](relay/README.md).
 
 ### Dónde se guardan las claves
 
@@ -94,7 +101,7 @@ botón de descarga no aparece en resultados de YouTube.
 
 | Proveedor | Motivo |
 |---|---|
-| **Tenor** | Google cerró la API el **30/06/2026** (dejó de emitir claves el 13/01/2026). KLIPY es el reemplazo integrado. |
+| **Tenor** | Verificado de nuevo el 20/11/2026: Google cerró la API para terceros el **30/06/2026** (no emite claves desde el 13/01/2026; toda solicitud devuelve error). Tenor sigue existiendo solo dentro de productos de Google (Gboard, Messages, tenor.com). No hay forma permitida de integrarlo: hacerlo exigiría scraping. GIPHY y KLIPY son los reemplazos integrados (WhatsApp migró a GIPHY). Fuentes: support.google.com/tenor/answer/10455265, Ars Technica y 9to5Google (30/06/2026). |
 | **Descarga desde YouTube** | Sus condiciones la prohíben fuera de sus mecanismos oficiales. YouTube sí está integrado para buscar y reproducir. |
 | **TikTok / Instagram** | Sin API pública de búsqueda de contenido para apps de terceros; sus términos prohíben descargar. |
 | **Reddit** | La API requiere OAuth y sus términos restringen el uso de contenido de terceros. |

@@ -16,6 +16,26 @@ const OFFICIAL_EMBEDS: { prefix: string; name: string; params: string }[] = [
   { prefix: "https://geo.dailymotion.com/player.html?video=", name: "Dailymotion", params: "" },
 ];
 
+/** Mejor archivo de imagen para copiar: el más grande que no supere 4096 px (si no, la miniatura). */
+export function copyableImage(item: MediaItem): string | null {
+  if (item.kind !== "image" && item.kind !== "gif") return null;
+  const imgs = item.renditions.filter((r) => r.mime?.startsWith("image/") && r.url.startsWith("https://")).sort((a, b) => (b.width ?? 0) - (a.width ?? 0));
+  const fit = imgs.find((r) => (r.width ?? 0) <= 4096 && (r.size_bytes ?? 0) <= 30_000_000);
+  return fit?.url ?? (item.thumbnail?.startsWith("https://") ? item.thumbnail : null);
+}
+
+export async function copyImage(item: MediaItem) {
+  const url = copyableImage(item);
+  if (!url) return;
+  try {
+    const buf = await api.clipboardImage(url);
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": new Blob([buf], { type: "image/png" }) })]);
+    toast(item.kind === "gif" ? "Imagen copiada (primer cuadro: el portapapeles no guarda animaciones)" : "Imagen copiada", "ok");
+  } catch (e) {
+    toast(`No se pudo copiar la imagen: ${errText(e)}`, "error");
+  }
+}
+
 export function officialEmbed(url: string | null | undefined) {
   if (!url) return null;
   const e = OFFICIAL_EMBEDS.find((x) => url.startsWith(x.prefix) && /^[A-Za-z0-9_-]+$/.test(url.slice(x.prefix.length)));
@@ -311,6 +331,7 @@ export function PreviewDrawer({ item: initial }: { item: MediaItem }) {
             <button class="btn ghost sm" onClick={() => api.openExternal(item.page_url!).catch((e) => toast(errText(e), "error"))}><Icon.External size={14} /> Ver en la fuente</button>
           )}
           {item.page_url?.startsWith("https://") && <button class="btn ghost sm" onClick={() => copyText(item.page_url!, "Enlace copiado")}><Icon.Copy size={14} /> Copiar enlace</button>}
+          {copyableImage(item) && <button class="btn ghost sm" onClick={() => copyImage(item)} title="Copiar al portapapeles para pegar en Discord, OBS, Photoshop…"><Icon.Copy size={14} /> Copiar imagen</button>}
         </div>
       </div>
     </aside>

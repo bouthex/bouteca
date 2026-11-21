@@ -14,6 +14,7 @@
 //! | `maintenance` | Autolimpieza y auditoría de almacenamiento                   |
 //! | `settings`    | Configuración persistente                                    |
 
+pub mod clipboard;
 pub mod db;
 pub mod dedup;
 pub mod downloads;

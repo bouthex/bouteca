@@ -705,3 +705,13 @@ pub fn studio_credits(state: S, id: i64) -> R<String> {
 pub async fn relay_refresh(state: S<'_>) -> R<Vec<String>> {
     crate::relay::refresh(&state).await
 }
+
+/// Imagen como PNG para el portapapeles (bytes crudos, sin pasar por JSON).
+#[tauri::command]
+pub async fn clipboard_image(state: S<'_>, url: String) -> R<tauri::ipc::Response> {
+    if url.len() > 4096 {
+        return Err("URL demasiado larga".into());
+    }
+    let png = bouteca_core::clipboard::fetch_png(&state.http, &url).await.map_err(|e| e.to_string())?;
+    Ok(tauri::ipc::Response::new(png))
+}

@@ -10,6 +10,7 @@ export const api = {
   appInfo: () => call<T.AppInfo>("app_info"),
   providers: () => call<T.ProviderView[]>("providers_list"),
   relayRefresh: () => call<string[]>("relay_refresh"),
+  clipboardImage: (url: string) => call<ArrayBuffer>("clipboard_image", { url }),
   setProviderKey: (provider: string, key: string | null) => call<void>("set_provider_key", { provider, key }),
   setProviderEnabled: (provider: string, enabled: boolean) => call<void>("set_provider_enabled", { provider, enabled }),
 

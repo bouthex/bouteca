@@ -134,6 +134,7 @@ pub fn run() {
             commands::studio_remove,
             commands::studio_credits,
             commands::relay_refresh,
+            commands::clipboard_image,
             commands::update_check,
             commands::update_install,
             commands::update_history,
