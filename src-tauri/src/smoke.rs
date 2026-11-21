@@ -176,7 +176,15 @@ pub fn run(app: AppHandle, out: PathBuf) {
         state
             .engine
             .search(
-                SearchRequest { search_id: 424242, query: "gato bailando".into(), filter: KindFilter::All, page: 1, rights: None, usage: None },
+                SearchRequest {
+                    search_id: 424242,
+                    query: "gato bailando".into(),
+                    filter: KindFilter::All,
+                    page: 1,
+                    rights: None,
+                    usage: None,
+                    max_duration: None,
+                },
                 Arc::new(move |e| ev2.lock().push(e)),
             )
             .await;

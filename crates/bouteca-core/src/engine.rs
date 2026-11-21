@@ -84,6 +84,10 @@ pub struct SearchRequest {
     /// Uso previsto elegido en la interfaz: solo se muestran resultados compatibles verificados.
     #[serde(default)]
     pub usage: Option<crate::rights::Usage>,
+    /// Duración máxima preferida en segundos (`None` = cualquier duración). No excluye: los
+    /// clips cortos suben y lo más largo baja.
+    #[serde(default)]
+    pub max_duration: Option<u32>,
 }
 
 fn one() -> u32 {
@@ -153,6 +157,7 @@ struct Session {
     rights: Option<crate::rights::RightsFilter>,
     usage: Option<crate::rights::Usage>,
     duration: Option<u32>,
+    max_duration: Option<u32>,
     /// Miembros comparables (niveles 1–3 de la deduplicación) y calidad de la principal de cada grupo.
     members: Vec<crate::dedup::Member>,
     primary_quality: HashMap<String, f32>,
@@ -171,6 +176,37 @@ const VISUAL_BUDGET: usize = 60;
 const MAX_MEMBERS: usize = 600;
 /// Una tarjeta nueva desplaza a la principal solo si es claramente mejor.
 const PROMOTE_MARGIN: f32 = 4.0;
+/// Ajuste por duración (los clips cortos suben cuando se buscan clips) y por frescura.
+/// No excluye nada: lo largo o viejo solo baja en el orden.
+pub fn clip_and_freshness(item: &MediaItem, max_duration: Option<u32>, explicit_duration: bool) -> f32 {
+    let mut s = 0.0;
+    if let (Some(max), Some(d), false) = (max_duration, item.duration_secs, explicit_duration) {
+        let max = max as f64;
+        if d <= max {
+            // Dentro del rango: cuanto más corto, mejor (hasta +8 para ≤ 5 s).
+            s += if d <= 5.0 {
+                8.0
+            } else if d <= 15.0 {
+                6.0
+            } else if d <= 60.0 {
+                4.0
+            } else {
+                2.0
+            };
+        } else {
+            // Fuera del rango: baja más cuanto más se pasa (hasta −25).
+            s -= (6.0 + 6.0 * (d / max).log2()).clamp(6.0, 25.0) as f32 as f64;
+        }
+    }
+    if let Some(t) = item.published_at {
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+        let days = ((now - t).max(0) / 86_400) as f64;
+        // Hasta +6 para lo publicado en las últimas semanas, ~+2 al año, casi 0 a los 4 años.
+        s += 6.0 * (-days / 365.0).exp();
+    }
+    s as f32
+}
+
 /// Puntos extra para resultados de fuentes favoritas.
 const FAVORITE_BOOST: f32 = 6.0;
 const PROVIDER_TIMEOUT: Duration = Duration::from_secs(12);
@@ -339,7 +375,7 @@ impl SearchEngine {
 
         // Plan: nuevo o recuperado de la sesión (paginación).
         let mut intent = crate::intent::Intent::default();
-        let (plan, filter, rights, usage, duration) = if req.page <= 1 {
+        let (plan, filter, rights, usage, duration, max_duration) = if req.page <= 1 {
             intent = crate::intent::parse_for(&req.query, req.filter);
             let filter = if req.filter == KindFilter::All { intent.kind.unwrap_or(KindFilter::All) } else { req.filter };
             let rights = req.rights.or(intent.rights);
@@ -359,6 +395,7 @@ impl SearchEngine {
                     rights,
                     usage,
                     duration: intent.duration_secs,
+                    max_duration: req.max_duration,
                     members: Vec::new(),
                     primary_quality: HashMap::new(),
                     visual_budget: VISUAL_BUDGET,
@@ -367,10 +404,10 @@ impl SearchEngine {
                     created: Instant::now(),
                 },
             );
-            (plan, filter, rights, usage, intent.duration_secs)
+            (plan, filter, rights, usage, intent.duration_secs, req.max_duration)
         } else {
             match self.sessions.lock().get(&req.search_id) {
-                Some(s) => (s.plan.clone(), s.filter, s.rights, s.usage, s.duration),
+                Some(s) => (s.plan.clone(), s.filter, s.rights, s.usage, s.duration, s.max_duration),
                 None => {
                     sink(SearchEvent::Done { search_id: req.search_id, has_more: false, total_items: 0, elapsed_ms: 0 });
                     self.finish(req.search_id);
@@ -407,20 +444,22 @@ impl SearchEngine {
         let mut jobs: Vec<(DynProvider, query::QueryVariant, bool)> = Vec::new();
         for p in &candidates {
             let info = p.info();
-            let main = if info.prefers_english && plan.primary != LangCode::En {
+            // Si se reconoció un meme o personaje conocido, su forma con contexto es la consulta
+            // principal en todas las fuentes ("pepe llorando" → "pepe the frog crying"); el
+            // texto original se envía igual como variante secundaria.
+            let entity = plan.variants.iter().find(|v| v.reason == "entidad").cloned();
+            let literal = if info.prefers_english && plan.primary != LangCode::En {
                 plan.variant_for(LangCode::En).cloned().unwrap_or_else(|| plan.variants[0].clone())
             } else {
                 plan.variants[0].clone()
             };
+            let main = entity.clone().unwrap_or_else(|| literal.clone());
             jobs.push((p.clone(), main.clone(), true));
             if req.page > 1 || info.single_query {
                 continue;
             }
-            // Variante de entidad (personaje/meme conocido), si la hay.
-            if let Some(e) = plan.variants.iter().find(|v| v.reason == "entidad") {
-                if e.text != main.text {
-                    jobs.push((p.clone(), e.clone(), false));
-                }
+            if literal.text != main.text {
+                jobs.push((p.clone(), literal.clone(), false));
             }
             // Inglés para proveedores multilingües (gran parte del contenido está etiquetado en inglés).
             if !info.prefers_english {
@@ -472,6 +511,7 @@ impl SearchEngine {
                     per_page,
                     safe: engine.settings.read().safe_search,
                     rights,
+                    max_duration,
                 };
                 let result = tokio::select! {
                     r = engine.fetch(&provider, &q) => r,
@@ -496,6 +536,7 @@ impl SearchEngine {
                                 continue;
                             }
                             item.score = rank::score(&item, &plan, variant.weight, pos);
+                            item.score += clip_and_freshness(&item, max_duration, duration.is_some());
                             if engine.settings.read().favorite_providers.contains(&item.provider) {
                                 item.score += FAVORITE_BOOST;
                             }

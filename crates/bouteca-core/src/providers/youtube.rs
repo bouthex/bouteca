@@ -88,6 +88,8 @@ struct Snippet {
     thumbnails: std::collections::HashMap<String, Thumb>,
     #[serde(rename = "liveBroadcastContent")]
     live: Option<String>,
+    #[serde(rename = "publishedAt")]
+    published_at: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -229,6 +231,7 @@ pub(crate) fn map_search(body: &[u8]) -> Result<(Vec<MediaItem>, Option<String>,
                 rights: Default::default(),
                 variants: vec![],
                 notices: vec![],
+                published_at: sn.published_at.as_deref().and_then(crate::model::parse_date),
                 score: 0.0,
                 dedupe_key: String::new(),
             })
@@ -298,7 +301,7 @@ impl Provider for YouTube {
     async fn search(&self, ctx: &ProviderCtx, q: &ProviderQuery) -> Result<ProviderPage> {
         let key = ctx.api_key.as_deref().ok_or_else(|| crate::CoreError::MissingKey("YouTube".into()))?;
         let base = ctx.base("https://www.googleapis.com");
-        let token_key = |page: u32| format!("{}|{:?}|{}", q.text.to_lowercase(), q.filter, page);
+        let token_key = |page: u32| format!("{}|{:?}|{:?}|{}", q.text.to_lowercase(), q.filter, q.max_duration, page);
         let page_token = if q.page > 1 {
             match self.tokens.lock().get(&token_key(q.page)).cloned() {
                 Some(t) => Some(t),
@@ -320,6 +323,10 @@ impl Provider for YouTube {
         ];
         if let Some(t) = page_token {
             params.push(("pageToken", t));
+        }
+        // Buscando clips: YouTube filtra en origen los videos de menos de 4 minutos.
+        if q.max_duration.is_some_and(|m| m <= 240) {
+            params.push(("videoDuration", "short".into()));
         }
         let resp = http::send("youtube", ctx.client.get(format!("{base}/youtube/v3/search")).query(&params)).await?;
         let (mut items, next, total) = map_search(&http::body(resp).await?)?;

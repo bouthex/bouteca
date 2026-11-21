@@ -17,7 +17,7 @@ fn ctx(server: &MockServer, key: Option<&str>) -> ProviderCtx {
 }
 
 fn q(text: &str, filter: KindFilter) -> ProviderQuery {
-    ProviderQuery { text: text.into(), lang: LangCode::Es, filter, page: 1, per_page: 24, safe: true, rights: None }
+    ProviderQuery { text: text.into(), lang: LangCode::Es, filter, page: 1, per_page: 24, safe: true, rights: None, max_duration: None }
 }
 
 async fn json(server: &MockServer, p: &str, body: String) {

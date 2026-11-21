@@ -20,7 +20,7 @@ fn ctx(key: Option<String>) -> ProviderCtx {
 }
 
 fn q(text: &str, filter: KindFilter) -> ProviderQuery {
-    ProviderQuery { text: text.into(), lang: LangCode::En, filter, page: 1, per_page: 12, safe: true, rights: None }
+    ProviderQuery { text: text.into(), lang: LangCode::En, filter, page: 1, per_page: 12, safe: true, rights: None, max_duration: None }
 }
 
 async fn check(id: &str, text: &str, filter: KindFilter) -> usize {

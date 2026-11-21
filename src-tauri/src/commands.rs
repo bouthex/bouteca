@@ -489,7 +489,8 @@ pub async fn downloadable_alternatives(state: S<'_>, item: MediaItem) -> R<Vec<M
     }
     let query: String = bouteca_core::query::normalize(&item.title).split_whitespace().take(8).collect::<Vec<_>>().join(" ");
     let search_id = STUDIO_SEARCH_ID.fetch_add(1, Ordering::SeqCst);
-    let req = SearchRequest { search_id, query, filter: bouteca_core::model::KindFilter::Video, page: 1, rights: None, usage: None };
+    let req =
+        SearchRequest { search_id, query, filter: bouteca_core::model::KindFilter::Video, page: 1, rights: None, usage: None, max_duration: None };
     let found = state.engine.search_collect(req, 40).await;
     Ok(found
         .into_iter()
@@ -639,7 +640,8 @@ pub async fn studio_suggest(state: S<'_>, id: i64, category: String) -> R<Vec<Me
     let mut out = Vec::new();
     for q in cat.queries.iter().take(4) {
         let search_id = STUDIO_SEARCH_ID.fetch_add(1, Ordering::SeqCst);
-        let req = SearchRequest { search_id, query: q.clone(), filter: cat.filter, page: 1, rights: plan.rights, usage: plan.usage };
+        let req =
+            SearchRequest { search_id, query: q.clone(), filter: cat.filter, page: 1, rights: plan.rights, usage: plan.usage, max_duration: None };
         for it in state.engine.search_collect(req, 6).await {
             if seen.insert(it.dedupe_key.clone()) {
                 out.push(it);

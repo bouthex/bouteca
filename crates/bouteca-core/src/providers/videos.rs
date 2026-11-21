@@ -60,6 +60,7 @@ pub(crate) fn parse_dailymotion(v: &Value) -> ProviderPage {
             m.author = s(d, "owner.screenname");
             m.page_url = Some(format!("https://www.dailymotion.com/video/{id}"));
             m.popularity = d.get("views_total").and_then(Value::as_u64);
+            m.published_at = d.get("created_time").and_then(Value::as_i64);
             m.license = Some("Dailymotion: derechos del autor".into());
             m.license_url = Some("https://legal.dailymotion.com/en/terms-of-use/".into());
             m.download_policy = DownloadPolicy::PreviewOnly;
@@ -84,12 +85,17 @@ impl Provider for Dailymotion {
         let url = format!("{}/videos", ctx.base("https://api.dailymotion.com"));
         let req = ctx.client.get(url).query(&[
             ("search", q.text.as_str()),
-            ("fields", "id,title,thumbnail_360_url,duration,owner.screenname,views_total,allow_embed"),
+            ("fields", "id,title,thumbnail_360_url,duration,owner.screenname,views_total,allow_embed,created_time"),
             ("limit", &q.per_page.min(30).to_string()),
             ("page", &q.page.to_string()),
             ("sort", "relevance"),
             ("family_filter", if q.safe { "true" } else { "false" }),
         ]);
+        // Buscando clips: Dailymotion filtra por duración máxima en minutos.
+        let req = match q.max_duration {
+            Some(m) if m <= 600 => req.query(&[("shorter_than", (m / 60).max(1).to_string())]),
+            _ => req,
+        };
         let v: Value = http::get_json("dailymotion", req).await?;
         Ok(parse_dailymotion(&v))
     }
@@ -176,6 +182,7 @@ pub(crate) fn parse_sepia(v: &Value) -> ProviderPage {
             m.thumbnail = s(d, "thumbnailUrl").filter(|u| u.starts_with("https://"));
             m.duration_secs = d.get("duration").and_then(Value::as_f64);
             m.popularity = d.get("views").and_then(Value::as_u64);
+            m.published_at = s(d, "publishedAt").as_deref().and_then(crate::model::parse_date);
             m.author = d.get("channel").and_then(|c| s(c, "displayName")).or_else(|| d.get("account").and_then(|a| s(a, "displayName")));
             m.tags =
                 d.get("tags").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).map(str::to_lowercase).take(10).collect();

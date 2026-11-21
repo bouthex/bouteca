@@ -61,6 +61,9 @@ struct Gif {
     username: Option<String>,
     #[serde(default)]
     images: HashMap<String, Img>,
+    import_datetime: Option<String>,
+    /// "g", "pg", "pg-13", "r".
+    rating: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -145,7 +148,8 @@ fn map_gif(g: Gif) -> MediaItem {
         embed_url: None,
         rights: Default::default(),
         variants: vec![],
-        notices: vec![],
+        notices: if matches!(g.rating.as_deref(), Some("r")) { vec!["Clasificación R (contenido sensible)".into()] } else { vec![] },
+        published_at: g.import_datetime.as_deref().and_then(crate::model::parse_date),
         score: 0.0,
         dedupe_key: String::new(),
     }

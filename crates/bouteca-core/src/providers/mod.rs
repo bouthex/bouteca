@@ -63,6 +63,8 @@ pub struct ProviderQuery {
     /// Filtro de derechos activo: las fuentes que lo soportan lo aplican en origen (más
     /// resultados útiles por consulta); el motor igual vuelve a verificar cada resultado.
     pub rights: Option<crate::rights::RightsFilter>,
+    /// Duración máxima preferida (segundos). Las fuentes que lo admiten piden clips cortos.
+    pub max_duration: Option<u32>,
 }
 
 /// Contexto compartido (cliente HTTP, clave, opciones, base URL para pruebas).

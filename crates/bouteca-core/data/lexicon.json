@@ -3677,7 +3677,8 @@
     "sunger bob",
     "スポンジボブ",
     "губка боб"
-   ]
+   ],
+   "fuzzy": true
   },
   {
    "id": "patrick",
@@ -3714,7 +3715,8 @@
     "los simpson",
     "simpsons",
     "the simpsons"
-   ]
+   ],
+   "fuzzy": true
   },
   {
    "id": "minions",
@@ -3724,7 +3726,8 @@
     "minions",
     "minios",
     "minions amarillos"
-   ]
+   ],
+   "fuzzy": true
   },
   {
    "id": "pikachu",
@@ -3735,7 +3738,8 @@
     "raton amarillo",
     "ピカチュウ",
     "пикачу"
-   ]
+   ],
+   "fuzzy": true
   },
   {
    "id": "shrek",
@@ -3743,18 +3747,29 @@
    "aliases": [
     "shrek",
     "ogro verde"
-   ]
+   ],
+   "fuzzy": true
   },
   {
    "id": "pepe",
    "search": "pepe the frog",
    "aliases": [
+    "feels bad man",
+    "feelsbadman",
+    "monkas",
+    "peepo",
     "pepe",
+    "pepe rana",
+    "pepe sad",
     "pepe the frog",
+    "pepega",
     "rana pepe",
+    "rana triste",
+    "sad frog",
     "sapo pepe",
-    "feels bad man"
-   ]
+    "sapo triste"
+   ],
+   "fuzzy": true
   },
   {
    "id": "doge",
@@ -3765,7 +3780,8 @@
     "shiba",
     "cheems",
     "perro shiba"
-   ]
+   ],
+   "fuzzy": true
   },
   {
    "id": "nyan_cat",
@@ -3784,7 +3800,8 @@
     "rick roll",
     "rick astley",
     "never gonna give you up"
-   ]
+   ],
+   "fuzzy": true
   },
   {
    "id": "trollface",
@@ -3794,7 +3811,8 @@
     "troll face",
     "cara de troll",
     "problem"
-   ]
+   ],
+   "fuzzy": true
   },
   {
    "id": "wojak",
@@ -3804,7 +3822,8 @@
     "feels guy",
     "doomer",
     "boomer meme"
-   ]
+   ],
+   "fuzzy": true
   },
   {
    "id": "chad",
@@ -3945,6 +3964,385 @@
     "carita amarilla",
     "smiley amarillo",
     "pelota amarilla sonriente"
+   ]
+  },
+  {
+   "id": "gigachad",
+   "search": "gigachad",
+   "aliases": [
+    "gigachad",
+    "giga chad"
+   ],
+   "fuzzy": true
+  },
+  {
+   "id": "npc",
+   "search": "npc meme",
+   "aliases": [
+    "npc",
+    "npc meme",
+    "wojak npc"
+   ]
+  },
+  {
+   "id": "stonks",
+   "search": "stonks meme",
+   "aliases": [
+    "stonks",
+    "stonk",
+    "meme stonks"
+   ],
+   "fuzzy": true
+  },
+  {
+   "id": "surprised_pikachu",
+   "search": "surprised pikachu",
+   "aliases": [
+    "surprised pikachu",
+    "pikachu sorprendido",
+    "pikachu sorprendida"
+   ]
+  },
+  {
+   "id": "drake",
+   "search": "drake meme",
+   "aliases": [
+    "drake meme",
+    "drake hotline bling",
+    "drake aprobando"
+   ]
+  },
+  {
+   "id": "woman_cat",
+   "search": "woman yelling at cat",
+   "aliases": [
+    "woman yelling at cat",
+    "mujer gritando al gato",
+    "gato en la mesa"
+   ]
+  },
+  {
+   "id": "success_kid",
+   "search": "success kid",
+   "aliases": [
+    "success kid",
+    "nino exitoso"
+   ]
+  },
+  {
+   "id": "hide_pain",
+   "search": "hide the pain harold",
+   "aliases": [
+    "hide the pain harold",
+    "harold",
+    "abuelo dolor"
+   ]
+  },
+  {
+   "id": "disaster_girl",
+   "search": "disaster girl",
+   "aliases": [
+    "disaster girl",
+    "nina del incendio"
+   ]
+  },
+  {
+   "id": "roll_safe",
+   "search": "roll safe",
+   "aliases": [
+    "roll safe",
+    "think about it meme"
+   ]
+  },
+  {
+   "id": "change_my_mind",
+   "search": "change my mind",
+   "aliases": [
+    "change my mind",
+    "cambia mi opinion"
+   ]
+  },
+  {
+   "id": "two_buttons",
+   "search": "two buttons meme",
+   "aliases": [
+    "two buttons",
+    "dos botones"
+   ]
+  },
+  {
+   "id": "expanding_brain",
+   "search": "expanding brain",
+   "aliases": [
+    "expanding brain",
+    "cerebro expandido",
+    "galaxy brain"
+   ]
+  },
+  {
+   "id": "big_chungus",
+   "search": "big chungus",
+   "aliases": [
+    "big chungus",
+    "chungus"
+   ],
+   "fuzzy": true
+  },
+  {
+   "id": "ugandan_knuckles",
+   "search": "ugandan knuckles",
+   "aliases": [
+    "ugandan knuckles",
+    "do you know da wae"
+   ]
+  },
+  {
+   "id": "dancing_baby",
+   "search": "dancing baby",
+   "aliases": [
+    "dancing baby",
+    "bebe bailando 3d"
+   ]
+  },
+  {
+   "id": "keyboard_cat",
+   "search": "keyboard cat",
+   "aliases": [
+    "keyboard cat",
+    "gato teclado"
+   ]
+  },
+  {
+   "id": "dramatic_chipmunk",
+   "search": "dramatic chipmunk",
+   "aliases": [
+    "dramatic chipmunk",
+    "ardilla dramatica",
+    "marmota dramatica"
+   ]
+  },
+  {
+   "id": "chuck_norris",
+   "search": "chuck norris",
+   "aliases": [
+    "chuck norris"
+   ]
+  },
+  {
+   "id": "dog_cheems",
+   "search": "cheems",
+   "aliases": [
+    "cheems",
+    "perro cheems",
+    "cheemsburger"
+   ],
+   "fuzzy": true
+  },
+  {
+   "id": "walter",
+   "search": "walter white",
+   "aliases": [
+    "walter white",
+    "heisenberg",
+    "breaking bad"
+   ]
+  },
+  {
+   "id": "gus",
+   "search": "gus fring",
+   "aliases": [
+    "gus fring"
+   ]
+  },
+  {
+   "id": "skull_emoji",
+   "search": "skull emoji meme",
+   "aliases": [
+    "skull emoji",
+    "calavera emoji",
+    "💀"
+   ]
+  },
+  {
+   "id": "sigma",
+   "search": "sigma male",
+   "aliases": [
+    "sigma",
+    "sigma male",
+    "sigma face"
+   ]
+  },
+  {
+   "id": "rizz",
+   "search": "rizz meme",
+   "aliases": [
+    "rizz",
+    "w rizz"
+   ]
+  },
+  {
+   "id": "skibidi",
+   "search": "skibidi toilet",
+   "aliases": [
+    "skibidi",
+    "skibidi toilet"
+   ],
+   "fuzzy": true
+  },
+  {
+   "id": "john_cena",
+   "search": "john cena",
+   "aliases": [
+    "john cena",
+    "are you sure about that"
+   ]
+  },
+  {
+   "id": "the_rock",
+   "search": "the rock eyebrow",
+   "aliases": [
+    "the rock",
+    "la roca",
+    "rock eyebrow",
+    "dwayne johnson"
+   ]
+  },
+  {
+   "id": "ricardo",
+   "search": "ricardo milos",
+   "aliases": [
+    "ricardo milos",
+    "ricardo"
+   ],
+   "fuzzy": true
+  },
+  {
+   "id": "nope",
+   "search": "nope meme",
+   "aliases": [
+    "nope",
+    "nope nope nope"
+   ]
+  },
+  {
+   "id": "oh_no",
+   "search": "oh no no no",
+   "aliases": [
+    "oh no no no",
+    "oh no",
+    "oh no meme"
+   ]
+  },
+  {
+   "id": "bonk",
+   "search": "bonk meme",
+   "aliases": [
+    "bonk",
+    "go to horny jail"
+   ]
+  },
+  {
+   "id": "monke",
+   "search": "monke",
+   "aliases": [
+    "monke",
+    "return to monke",
+    "mono pensando",
+    "monkey puppet"
+   ],
+   "fuzzy": true
+  },
+  {
+   "id": "suspicious",
+   "search": "sus meme",
+   "aliases": [
+    "sus",
+    "amogus",
+    "sussy baka"
+   ]
+  },
+  {
+   "id": "fbi",
+   "search": "fbi open up",
+   "aliases": [
+    "fbi open up",
+    "fbi meme"
+   ]
+  },
+  {
+   "id": "mission_failed",
+   "search": "mission failed",
+   "aliases": [
+    "mission failed we'll get em next time",
+    "mission failed"
+   ]
+  },
+  {
+   "id": "emotional_damage",
+   "search": "emotional damage",
+   "aliases": [
+    "emotional damage",
+    "dano emocional"
+   ]
+  },
+  {
+   "id": "bad_to_the_bone",
+   "search": "bad to the bone",
+   "aliases": [
+    "bad to the bone"
+   ]
+  },
+  {
+   "id": "wow_owen",
+   "search": "owen wilson wow",
+   "aliases": [
+    "owen wilson wow",
+    "wow owen"
+   ]
+  },
+  {
+   "id": "taco_bell",
+   "search": "taco bell bong",
+   "aliases": [
+    "taco bell sound",
+    "taco bell bong"
+   ]
+  },
+  {
+   "id": "metal_pipe",
+   "search": "metal pipe falling",
+   "aliases": [
+    "metal pipe",
+    "tubo metalico",
+    "metal pipe falling"
+   ]
+  },
+  {
+   "id": "fart",
+   "search": "fart sound",
+   "aliases": [
+    "pedo",
+    "fart",
+    "sonido de pedo"
+   ]
+  },
+  {
+   "id": "cursed",
+   "search": "cursed image",
+   "aliases": [
+    "cursed",
+    "cursed image",
+    "imagen maldita",
+    "imagenes malditas",
+    "cursed images"
+   ]
+  },
+  {
+   "id": "lobotomy",
+   "search": "lobotomy meme",
+   "aliases": [
+    "lobotomy",
+    "lobotomia"
    ]
   }
  ],

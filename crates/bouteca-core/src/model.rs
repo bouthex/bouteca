@@ -151,6 +151,9 @@ pub struct MediaItem {
     /// Avisos de disponibilidad informados por la fuente (restricción de edad, países…).
     #[serde(default)]
     pub notices: Vec<String>,
+    /// Fecha de publicación (segundos Unix) si la fuente la informa: se usa para la frescura.
+    #[serde(default)]
+    pub published_at: Option<i64>,
     /// Puntuación de relevancia calculada por el motor (0–100 aprox.).
     #[serde(default)]
     pub score: f32,
@@ -204,6 +207,7 @@ impl MediaItem {
             rights: Default::default(),
             variants: vec![],
             notices: vec![],
+            published_at: None,
             score: 0.0,
             dedupe_key: String::new(),
         }
@@ -250,4 +254,35 @@ pub enum ProviderStatus {
     Disabled,
     RateLimited(String),
     Error(String),
+}
+
+/// Fecha ISO 8601 ("2024-05-01T12:30:00Z", "2024-05-01 12:30:00" o "2024-05-01") → segundos Unix.
+pub fn parse_date(s: &str) -> Option<i64> {
+    let s = s.trim();
+    let num = |a: usize, b: usize| s.get(a..b)?.parse::<i64>().ok();
+    let (y, m, d) = (num(0, 4)?, num(5, 7)?, num(8, 10)?);
+    if !(1970..=2200).contains(&y) || !(1..=12).contains(&m) || !(1..=31).contains(&d) {
+        return None;
+    }
+    let (hh, mm, ss) = if s.len() >= 19 { (num(11, 13).unwrap_or(0), num(14, 16).unwrap_or(0), num(17, 19).unwrap_or(0)) } else { (0, 0, 0) };
+    // Días desde 1970-01-01 (algoritmo de Howard Hinnant).
+    let y2 = if m <= 2 { y - 1 } else { y };
+    let era = y2.div_euclid(400);
+    let yoe = y2 - era * 400;
+    let mp = (m + 9) % 12;
+    let doy = (153 * mp + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146_097 + doe - 719_468;
+    Some(days * 86_400 + hh * 3600 + mm * 60 + ss)
+}
+
+#[cfg(test)]
+mod date_tests {
+    #[test]
+    fn fechas() {
+        assert_eq!(super::parse_date("1970-01-01T00:00:00Z"), Some(0));
+        assert_eq!(super::parse_date("2024-03-01T12:00:00Z"), Some(1_709_294_400));
+        assert_eq!(super::parse_date("2024-03-01"), Some(1_709_251_200));
+        assert_eq!(super::parse_date("nope"), None);
+    }
 }

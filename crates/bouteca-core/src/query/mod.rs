@@ -63,6 +63,9 @@ struct Entity {
     id: String,
     search: String,
     aliases: Vec<String>,
+    /// Admite coincidencia aproximada (nombres distintivos de memes, no palabras comunes).
+    #[serde(default)]
+    fuzzy: bool,
 }
 
 struct Lexicon {
@@ -192,6 +195,38 @@ pub fn plan(query: &str, primary: LangCode, extra_langs: &[LangCode]) -> QueryPl
             }
         }
     }
+    // Errores de tipeo en nombres de memes ("peppo" → "pepe"): solo contra alias de una
+    // palabra, con la misma inicial de dos letras y distancia de edición acotada.
+    let mut fuzzy_tokens: Vec<String> = Vec::new();
+    if entities.is_empty() {
+        for t in &tokens {
+            if t.chars().count() < 4 || lex.stop.contains(*t) || lex.phrase_index.contains_key(*t) {
+                continue;
+            }
+            let best = lex
+                .entity_index
+                .iter()
+                .filter(|(a, ei)| lex.entities[**ei].fuzzy && !a.contains(' ') && a.chars().count() >= 4 && a.chars().take(2).eq(t.chars().take(2)))
+                .map(|(a, &ei)| (levenshtein(a, t), ei))
+                // Distancia 1, o 2 si además comparten las tres primeras letras ("peppo"/"pepe").
+                .filter(|(d, _)| *d <= 1)
+                .chain(
+                    lex.entity_index
+                        .iter()
+                        .filter(|(a, ei)| lex.entities[**ei].fuzzy && !a.contains(' ') && a.chars().count() >= 4 && t.chars().count() >= 5)
+                        .filter(|(a, _)| a.chars().take(3).eq(t.chars().take(3)))
+                        .map(|(a, &ei)| (levenshtein(a, t), ei))
+                        .filter(|(d, _)| *d == 2),
+                )
+                .min_by_key(|(d, _)| *d);
+            if let Some((_, ei)) = best {
+                if !entities.contains(&ei) {
+                    entities.push(ei);
+                    fuzzy_tokens.push(t.to_string());
+                }
+            }
+        }
+    }
     // Japonés/chino: no hay espacios, buscamos alias como subcadena.
     if entities.is_empty() && !normalized.is_ascii() {
         for (alias, &ei) in &lex.entity_index {
@@ -271,10 +306,21 @@ pub fn plan(query: &str, primary: LangCode, extra_langs: &[LangCode]) -> QueryPl
             variants.push(QueryVariant { text, lang, weight: if lang == LangCode::En { 0.9 } else { 0.8 }, reason: "traducción" });
         }
     }
+    // Entidad + contexto: "pepe llorando" → "pepe the frog crying" (el meme, no el futbolista).
+    let en_context = render(LangCode::En);
     for ei in &entities {
         let e = &lex.entities[*ei];
-        if !variants.iter().any(|v| normalize(&v.text) == normalize(&e.search)) {
-            variants.push(QueryVariant { text: e.search.clone(), lang: LangCode::En, weight: 0.85, reason: "entidad" });
+        let covered: std::collections::HashSet<String> = e
+            .aliases
+            .iter()
+            .flat_map(|a| normalize(a).split_whitespace().map(str::to_string).collect::<Vec<_>>())
+            .chain(normalize(&e.search).split_whitespace().map(str::to_string))
+            .chain(fuzzy_tokens.iter().cloned())
+            .collect();
+        let rest: Vec<&str> = en_context.split_whitespace().filter(|w| !covered.contains(&normalize(w))).collect();
+        let text = if rest.is_empty() { e.search.clone() } else { format!("{} {}", e.search, rest.join(" ")) };
+        if !variants.iter().any(|v| normalize(&v.text) == normalize(&text)) {
+            variants.push(QueryVariant { text, lang: LangCode::En, weight: 1.0, reason: "entidad" });
         }
     }
 
@@ -356,6 +402,20 @@ pub fn suggest(prefix: &str, limit: usize) -> Vec<String> {
     out
 }
 
+/// Distancia de edición (Levenshtein) entre dos palabras cortas.
+pub fn levenshtein(a: &str, b: &str) -> usize {
+    let b: Vec<char> = b.chars().collect();
+    let mut prev: Vec<usize> = (0..=b.len()).collect();
+    for (i, ca) in a.chars().enumerate() {
+        let mut cur = vec![i + 1; b.len() + 1];
+        for (j, cb) in b.iter().enumerate() {
+            cur[j + 1] = (prev[j] + usize::from(ca != *cb)).min(prev[j + 1] + 1).min(cur[j] + 1);
+        }
+        prev = cur;
+    }
+    prev[b.len()]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -414,7 +474,20 @@ mod tests {
     fn entidad_por_alias() {
         let p = plan("bob esponja riendo", LangCode::Es, &[]);
         assert!(p.entities.contains(&"spongebob".to_string()));
-        assert!(p.variants.iter().any(|v| v.text == "spongebob"));
+        assert!(p.variants.iter().any(|v| v.text == "spongebob laugh"), "{:?}", p.variants);
+    }
+
+    #[test]
+    fn memes_con_contexto_y_errores_de_tipeo() {
+        for q in ["pepe llorando", "peppo cry", "pepe cry", "Pepe the Frog crying"] {
+            let p = plan(q, LangCode::Es, &[]);
+            let e = p.variants.iter().find(|v| v.reason == "entidad").unwrap_or_else(|| panic!("{q}: {:?}", p.variants));
+            assert!(e.text.starts_with("pepe the frog") && e.text.contains("cry"), "{q} → {}", e.text);
+        }
+        // Una palabra cualquiera no se convierte en meme por parecido.
+        let p = plan("pedro gato", LangCode::Es, &[]);
+        assert!(!p.variants.iter().any(|v| v.reason == "entidad"), "{:?}", p.variants);
+        assert_eq!(levenshtein("peppo", "pepe"), 2);
     }
 
     #[test]

@@ -55,7 +55,18 @@ async fn busqueda_federada_con_proveedor_caido_y_duplicados() {
     );
     let (sink, events) = collect();
     engine
-        .search(SearchRequest { search_id: 1, query: "gato bailando".into(), filter: KindFilter::All, page: 1, rights: None, usage: None }, sink)
+        .search(
+            SearchRequest {
+                search_id: 1,
+                query: "gato bailando".into(),
+                filter: KindFilter::All,
+                page: 1,
+                rights: None,
+                usage: None,
+                max_duration: None,
+            },
+            sink,
+        )
         .await;
 
     let ev = events.lock();
@@ -94,7 +105,11 @@ async fn cancelar_detiene_eventos() {
     let (sink, events) = collect();
     let e2 = engine.clone();
     let h = tokio::spawn(async move {
-        e2.search(SearchRequest { search_id: 7, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None }, sink).await
+        e2.search(
+            SearchRequest { search_id: 7, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None, max_duration: None },
+            sink,
+        )
+        .await
     });
     tokio::time::sleep(Duration::from_millis(100)).await;
     engine.cancel(7);
@@ -122,11 +137,19 @@ async fn limite_429_pausa_al_proveedor_y_cachea_respuestas() {
     let (sink, _) = collect();
     // "xqz" no tiene traducciones: una sola variante por proveedor.
     engine
-        .search(SearchRequest { search_id: 1, query: "xqz".into(), filter: KindFilter::Image, page: 1, rights: None, usage: None }, sink.clone())
+        .search(
+            SearchRequest { search_id: 1, query: "xqz".into(), filter: KindFilter::Image, page: 1, rights: None, usage: None, max_duration: None },
+            sink.clone(),
+        )
         .await;
     assert!(matches!(engine.status_of("openverse"), bouteca_core::model::ProviderStatus::RateLimited(_)));
     let (sink2, ev2) = collect();
-    engine.search(SearchRequest { search_id: 2, query: "xqz".into(), filter: KindFilter::Image, page: 1, rights: None, usage: None }, sink2).await;
+    engine
+        .search(
+            SearchRequest { search_id: 2, query: "xqz".into(), filter: KindFilter::Image, page: 1, rights: None, usage: None, max_duration: None },
+            sink2,
+        )
+        .await;
     let ev2 = ev2.lock();
     let SearchEvent::Plan { providers, .. } = &ev2[0] else { panic!() };
     assert!(!providers.contains(&"openverse".to_string()), "pausado tras 429");
@@ -153,10 +176,20 @@ async fn paginacion_solo_consulta_proveedores_con_mas() {
             .with_base_override("archive", "http://127.0.0.1:9"),
     );
     let (sink, _) = collect();
-    engine.search(SearchRequest { search_id: 3, query: "xqz".into(), filter: KindFilter::Image, page: 1, rights: None, usage: None }, sink).await;
+    engine
+        .search(
+            SearchRequest { search_id: 3, query: "xqz".into(), filter: KindFilter::Image, page: 1, rights: None, usage: None, max_duration: None },
+            sink,
+        )
+        .await;
     let before = s.received_requests().await.unwrap().iter().filter(|r| r.url.path() == "/v1/images/").count();
     let (sink2, _) = collect();
-    engine.search(SearchRequest { search_id: 3, query: "xqz".into(), filter: KindFilter::Image, page: 2, rights: None, usage: None }, sink2).await;
+    engine
+        .search(
+            SearchRequest { search_id: 3, query: "xqz".into(), filter: KindFilter::Image, page: 2, rights: None, usage: None, max_duration: None },
+            sink2,
+        )
+        .await;
     let after = s.received_requests().await.unwrap().iter().filter(|r| r.url.path() == "/v1/images/").count();
     assert_eq!(before, after, "openverse dijo que no hay más páginas: no se vuelve a consultar");
 }
@@ -192,6 +225,7 @@ async fn musica_por_contexto_con_filtro_de_derechos_verificado() {
         page: 1,
         rights: None,
         usage: None,
+        max_duration: None,
     };
     engine.search(req, sink).await;
     let ev = events.lock();
@@ -228,6 +262,7 @@ async fn uso_monetizado_excluye_nc_y_desconocidas() {
         page: 1,
         rights: None,
         usage: Some(bouteca_core::rights::Usage::YouTubeMonetized),
+        max_duration: None,
     };
     engine.search(req, sink).await;
     let ev = events.lock();
@@ -366,7 +401,12 @@ async fn duplicados_exactos_por_metadatos_y_visuales_con_variantes_legitimas() {
         .with_loopback_thumbnails(),
     );
     let (sink, events) = collect();
-    engine.search(SearchRequest { search_id: 21, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None }, sink).await;
+    engine
+        .search(
+            SearchRequest { search_id: 21, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None, max_duration: None },
+            sink,
+        )
+        .await;
     // El nivel visual corre en segundo plano después de cada lote.
     tokio::time::sleep(Duration::from_millis(800)).await;
     let ev = events.lock();
@@ -399,7 +439,12 @@ async fn agrupar_se_puede_desactivar() {
     let engine =
         Arc::new(SearchEngine::new(vec![fake("uno", 0, vec![a]), fake("dos", 50, vec![b])], build_test_client(), settings, Arc::new(NoKeys)));
     let (sink, events) = collect();
-    engine.search(SearchRequest { search_id: 22, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None }, sink).await;
+    engine
+        .search(
+            SearchRequest { search_id: 22, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None, max_duration: None },
+            sink,
+        )
+        .await;
     let ev = events.lock();
     assert!(grouped_events(&ev).is_empty());
     let shown: usize = ev.iter().map(|e| if let SearchEvent::Batch { items, .. } = e { items.len() } else { 0 }).sum();
@@ -437,12 +482,20 @@ async fn la_clave_guardada_llega_al_componente_que_consulta() {
     // Sin clave: el proveedor no participa (no se inventan resultados).
     let e = Arc::new(SearchEngine::new(vec![p.clone()], build_test_client(), EngineSettings::default(), Arc::new(NoKeys)));
     let (sink, events) = collect();
-    e.search(SearchRequest { search_id: 30, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None }, sink).await;
+    e.search(
+        SearchRequest { search_id: 30, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None, max_duration: None },
+        sink,
+    )
+    .await;
     assert!(!events.lock().iter().any(|x| matches!(x, SearchEvent::Batch { .. })));
     // Con clave: llega intacta al proveedor.
     let e = Arc::new(SearchEngine::new(vec![p], build_test_client(), EngineSettings::default(), Arc::new(OneKey)));
     let (sink, events) = collect();
-    e.search(SearchRequest { search_id: 31, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None }, sink).await;
+    e.search(
+        SearchRequest { search_id: 31, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None, max_duration: None },
+        sink,
+    )
+    .await;
     let titles: Vec<String> =
         events.lock().iter().filter_map(|x| if let SearchEvent::Batch { items, .. } = x { Some(items[0].title.clone()) } else { None }).collect();
     assert_eq!(titles, vec!["clave:k-123"]);
