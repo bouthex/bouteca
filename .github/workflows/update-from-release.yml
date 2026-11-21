@@ -132,7 +132,7 @@ jobs:
               elif h == "bouteca-update.test":
                   flow.response = http.Response.make(200, open(SRV + "/setup.exe", "rb").read(), {"Content-Type": "application/octet-stream"})
           "@ | Out-File -Encoding utf8 "$env:RUNNER_TEMP\addon.py"
-          Start-Process mitmdump -ArgumentList '-p','8899','-s',"$env:RUNNER_TEMP\addon.py",'--set','flow_detail=0' -WindowStyle Hidden -RedirectStandardOutput "$env:RUNNER_TEMP\mitm.log" -RedirectStandardError "$env:RUNNER_TEMP\mitm.err"
+          Start-Process mitmdump -ArgumentList '-p','8899','-s',"$env:RUNNER_TEMP\addon.py",'--set','flow_detail=0','--set','upstream_cert=false' -WindowStyle Hidden -RedirectStandardOutput "$env:RUNNER_TEMP\mitm.log" -RedirectStandardError "$env:RUNNER_TEMP\mitm.err"
           Start-Sleep 4
           $env:HTTPS_PROXY = "http://127.0.0.1:8899"
           $t0 = Get-Date
