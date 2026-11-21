@@ -147,9 +147,19 @@ export function goForward() {
   restore(next);
 }
 
-export function runSearch(q = query.value, f = filter.value) {
+/** El tipo activo lo puso el texto de la búsqueda ("reaction gif" → GIFs), no el usuario. */
+let filterFromText = false;
+
+export function runSearch(q = query.value, f = filter.value, userPickedFilter = false) {
   const text = q.trim();
   if (!text) return;
+  if (userPickedFilter) filterFromText = false;
+  // Búsqueda nueva con un tipo que había deducido la búsqueda anterior: vuelve a "Todo"
+  // (la prueba real mostró que, después de "reaction gif", todo seguía buscándose solo en GIFs).
+  else if (filterFromText && text !== lastSearched.value) {
+    f = "all";
+    filterFromText = false;
+  }
   // Misma búsqueda con los mismos filtros y ya cargada: no se repite la consulta.
   if (text === lastSearched.value && f === filter.value && results.value.length > 0 && !searching.value && view.value === "search" && q === query.value && !forceNext) {
     return;
@@ -208,7 +218,10 @@ function handleSearchEvent(e: T.SearchEvent) {
       understood.value = { intent: e.intent, rights: e.rights, usage: e.usage };
       resolvedScope.value = e.scope ?? null;
       // Si el texto pedía un tipo ("música de…"), la pestaña refleja el filtro efectivo.
-      if (e.filter !== filter.value) filter.value = e.filter;
+      if (e.filter !== filter.value) {
+        filter.value = e.filter;
+        filterFromText = true;
+      }
       const st: Record<string, "pending"> = {};
       e.providers.forEach((p) => (st[p] = "pending"));
       providerState.value = st;

@@ -310,7 +310,7 @@ export function SearchView() {
         </div>
         <div class="filters" role="toolbar" aria-label="Tipo de contenido">
           {FILTERS.map((f) => (
-            <button class="chip" key={f.id} aria-pressed={filter.value === f.id} onClick={() => runSearch(lastSearched.value, f.id)}>
+            <button class="chip" key={f.id} aria-pressed={filter.value === f.id} onClick={() => runSearch(lastSearched.value, f.id, true)}>
               {f.color && <span class="dot" style={`background:${f.color}`} />}
               {f.label}
             </button>
