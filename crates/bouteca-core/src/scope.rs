@@ -101,6 +101,11 @@ const MEME_CONCEPTS: &[&str] = &[
     "wait",
 ];
 
+/// Acciones y emociones que, animadas, ya son material de meme ("gato bailando", "perro riendo").
+/// "reaction" no está: es ambigua (reacciones químicas).
+const ACTION_CONCEPTS: &[&str] =
+    &["dance", "laugh", "cry", "celebrate", "applause", "facepalm", "scared", "surprised", "confused", "angry", "fail", "eat", "sleep", "run"];
+
 /// Formas (normalizadas, es/en/pt) de intención documental. Se comparan por palabra o prefijo.
 const ARCHIVE_TERMS: &[(&str, f32)] = &[
     ("arte", 2.0),
@@ -296,17 +301,35 @@ pub fn provider_allowed(provider: &str, resolved: &Resolved, filter: KindFilter)
 /// (preferimos menos resultados relevantes que muchos irrelevantes).
 pub fn adjust(item: &MediaItem, plan: &QueryPlan, resolved: &Resolved, relevance: f32, filter: KindFilter) -> Option<f32> {
     if matches!(filter, KindFilter::Music | KindFilter::Audio) {
-        return Some(0.0);
+        // Música y sonidos: el título o las etiquetas tienen que tener algo de lo pedido
+        // (o sus sinónimos: terror ↔ horror, scary, creepy…). Nada al azar.
+        return (relevance > 0.0).then_some(0.0);
     }
     let dom = domain_of(&item.provider);
     let humor = humor_signal(item, plan);
     let strict = plan.groups.len() <= 3;
-    match resolved.scope {
+    // Nombre propio ("Martin Cirio"): sube lo que lo nombra completo y en orden; baja lo que solo
+    // comparte una palabra (otra persona con el mismo apellido).
+    let person = if resolved.person_like {
+        let hay = normalize(&format!("{} {}", item.title, item.tags.join(" ")));
+        if hay.contains(&normalize(&plan.normalized)) {
+            10.0
+        } else {
+            -8.0
+        }
+    } else {
+        0.0
+    };
+    let section = match resolved.scope {
         Scope::Memes => match dom {
             Domain::Memes => Some(6.0),
-            // De un archivo, solo si coincide del todo con la búsqueda (y baja en el orden salvo
-            // que tenga señales de humor).
-            Domain::Archivo => (relevance >= 0.99).then_some(if humor { 0.0 } else { -4.0 }),
+            // De un archivo, solo si coincide del todo con la búsqueda y tiene señales de humor o
+            // es lo que se nombró ("reaction gif" no debe traer reacciones químicas).
+            Domain::Archivo => {
+                let animated_action = matches!(item.kind, crate::model::MediaKind::Gif | crate::model::MediaKind::Video)
+                    && plan.concepts.iter().any(|c| ACTION_CONCEPTS.contains(&c.as_str()));
+                (relevance >= 0.99 && (humor || person > 0.0 || animated_action)).then_some(if humor { 0.0 } else { -4.0 })
+            }
             Domain::Mixto => {
                 if relevance <= 0.0 && !humor {
                     None
@@ -318,7 +341,9 @@ pub fn adjust(item: &MediaItem, plan: &QueryPlan, resolved: &Resolved, relevance
         Scope::Archivo => match dom {
             Domain::Memes => None,
             _ if humor => Some(-8.0),
-            Domain::Archivo => Some(if relevance >= 0.5 { 4.0 } else { 0.0 }),
+            // Museos y catálogos curados primero; los archivos generales, después.
+            Domain::Archivo if is_niche_catalog(&item.provider) => Some(if relevance >= 0.5 { 8.0 } else { 2.0 }),
+            Domain::Archivo => (relevance >= 0.5).then_some(3.0),
             Domain::Mixto => (relevance > 0.0).then_some(0.0),
         },
         Scope::Auto => match dom {
@@ -326,12 +351,18 @@ pub fn adjust(item: &MediaItem, plan: &QueryPlan, resolved: &Resolved, relevance
             Domain::Archivo if relevance < 0.5 => None,
             _ => Some(0.0),
         },
-    }
+    };
+    section.map(|s| s + person)
 }
 
 /// Bonificación por popularidad/actualidad según el orden elegido (con datos reales; si la
 /// fuente no informa vistas o fecha, no suma ni resta).
 pub fn popularity_boost(item: &MediaItem, sort: SortMode, now_secs: i64) -> f32 {
+    // Descargas de un archivo histórico no son viralidad: solo cuentan vistas/usos de
+    // plataformas de video y de GIFs.
+    if matches!(item.provider.as_str(), "archive" | "openverse" | "wikimedia") {
+        return 0.0;
+    }
     let views = item.popularity.map(|v| v as f64);
     let days = item.published_at.map(|t| ((now_secs - t).max(0) as f64 / 86_400.0).max(1.0));
     match sort {

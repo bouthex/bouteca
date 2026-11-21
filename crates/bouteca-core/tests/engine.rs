@@ -64,7 +64,9 @@ async fn busqueda_federada_con_proveedor_caido_y_duplicados() {
                 rights: None,
                 usage: None,
                 max_duration: None,
-                scope: Default::default(),
+                // Sección Archivo: esta prueba verifica la federación y los duplicados entre
+                // archivos (en Memes, una foto que coincide a medias no entraría).
+                scope: bouteca_core::scope::Scope::Archivo,
                 sort: Default::default(),
             },
             sink,

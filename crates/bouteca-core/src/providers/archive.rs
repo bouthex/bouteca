@@ -246,8 +246,12 @@ impl Provider for InternetArchive {
     async fn search(&self, ctx: &ProviderCtx, q: &ProviderQuery) -> Result<ProviderPage> {
         let media = match q.filter {
             KindFilter::Video => "movies",
-            KindFilter::Audio => "audio",
-            KindFilter::Music => "audio AND (subject:music OR collection:(netlabels OR opensource_audio OR audio_music))",
+            // Sin audiolibros, podcasts ni radio: la prueba real mostró capítulos de audiolibros y
+            // charlas como primeros resultados de "terror" en Música.
+            KindFilter::Audio => "audio AND -collection:(librivoxaudio OR podcasts OR radioprograms OR oldtimeradio OR audio_bookspoetry)",
+            KindFilter::Music => {
+                "audio AND (subject:music OR collection:(netlabels OR opensource_audio OR audio_music)) AND -collection:(librivoxaudio OR podcasts OR radioprograms OR oldtimeradio OR audio_bookspoetry)"
+            }
             KindFilter::Image | KindFilter::Meme | KindFilter::Gif => "image",
             KindFilter::All => "(movies OR audio)",
         };

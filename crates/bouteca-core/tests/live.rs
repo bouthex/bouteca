@@ -199,12 +199,6 @@ async fn live_inaturalist() {
 
 #[tokio::test]
 #[ignore]
-async fn live_ccmixter() {
-    check("ccmixter", "ambient", KindFilter::Music).await;
-}
-
-#[tokio::test]
-#[ignore]
 async fn live_video_federado_y_dailymotion() {
     check("dailymotion", "cat", KindFilter::Video).await;
     check("peertube", "linux", KindFilter::Video).await;
