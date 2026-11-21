@@ -112,10 +112,11 @@ jobs:
           # Clave de API en el Administrador de credenciales, como la guarda la app (keyring).
           cmdkey /generic:pexels.Bouteca /user:pexels /pass:clave-de-prueba-e2e | Out-Null
           Write-Output "::notice title=Instalada y con datos::$($setup.Name)"
-      - name: Proxy de prueba (sirve el manifiesto y el instalador candidatos)
+      - name: La versión publicada se actualiza sola (clic real en "Reiniciar y actualizar")
         if: env.SKIP != '1'
         shell: pwsh
         run: |
+          # Proxy de prueba en el mismo paso (los procesos de un paso no sobreviven al siguiente).
           python -m pip install --quiet mitmproxy
           # Autoridad de prueba del proxy, confiada solo en este runner efímero.
           $p = Start-Process mitmdump -ArgumentList '-p','8899','-q' -PassThru; Start-Sleep 6; Stop-Process $p -Force
@@ -131,12 +132,8 @@ jobs:
               elif h == "bouteca-update.test":
                   flow.response = http.Response.make(200, open(SRV + "/setup.exe", "rb").read(), {"Content-Type": "application/octet-stream"})
           "@ | Out-File -Encoding utf8 "$env:RUNNER_TEMP\addon.py"
-          Start-Process mitmdump -ArgumentList '-p','8899','-s',"$env:RUNNER_TEMP\addon.py",'--set','flow_detail=0' -WindowStyle Hidden -RedirectStandardOutput "$env:RUNNER_TEMP\mitm.log"
+          Start-Process mitmdump -ArgumentList '-p','8899','-s',"$env:RUNNER_TEMP\addon.py",'--set','flow_detail=0' -WindowStyle Hidden -RedirectStandardOutput "$env:RUNNER_TEMP\mitm.log" -RedirectStandardError "$env:RUNNER_TEMP\mitm.err"
           Start-Sleep 4
-      - name: La versión publicada se actualiza sola (clic real en "Reiniciar y actualizar")
-        if: env.SKIP != '1'
-        shell: pwsh
-        run: |
           $env:HTTPS_PROXY = "http://127.0.0.1:8899"
           $t0 = Get-Date
           $p = Start-Process $env:BOUTECA_EXE -PassThru
@@ -151,7 +148,7 @@ jobs:
           }
           if (-not $btn) {
             Write-Output "::error title=Actualización::la versión publicada no ofreció la actualización en 5 minutos"
-            Write-Output "--- solicitudes vistas por el proxy ---"; Get-Content "$env:RUNNER_TEMP\mitm.log" -Tail 40 -ErrorAction SilentlyContinue
+            Write-Output "--- solicitudes vistas por el proxy ---"; Get-Content "$env:RUNNER_TEMP\mitm.log", "$env:RUNNER_TEMP\mitm.err" -Tail 40 -ErrorAction SilentlyContinue; Get-Process mitmdump -ErrorAction SilentlyContinue | Format-Table Id, ProcessName
             Write-Output "--- registro de la app ---"; Get-ChildItem "$env:LOCALAPPDATA\com.bouteca.app\logs" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1 | Get-Content -Tail 40
             Write-Output "--- botones visibles (UI Automation) ---"
             $win = $A::RootElement.FindFirst([System.Windows.Automation.TreeScope]::Children, (New-Object System.Windows.Automation.PropertyCondition($A::ProcessIdProperty, $p.Id)))

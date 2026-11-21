@@ -31,7 +31,15 @@ async fn check(id: &str, text: &str, filter: KindFilter) -> usize {
         return usize::MAX;
     }
     let t = Instant::now();
-    let page = p.search(&ctx(key), &q(text, filter)).await.unwrap_or_else(|e| panic!("LIVE {id}: {e}"));
+    let page = match p.search(&ctx(key), &q(text, filter)).await {
+        Ok(pg) => pg,
+        // Cupo diario agotado (p. ej. YouTube): es un límite externo, no un error de Bouteca.
+        Err(bouteca_core::CoreError::RateLimited { .. }) => {
+            println!("LIVE|{id}|SKIP|cupo del proveedor agotado por hoy");
+            return usize::MAX;
+        }
+        Err(e) => panic!("LIVE {id}: {e}"),
+    };
     let ms = t.elapsed().as_millis();
     assert!(!page.items.is_empty(), "LIVE {id}: sin resultados para '{text}'");
     for it in &page.items {
