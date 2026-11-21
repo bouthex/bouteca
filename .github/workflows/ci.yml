@@ -73,3 +73,23 @@ jobs:
           summary=$(grep '^LIVE|' live.log | cut -d'|' -f2- | sed 's/|/: /' | paste -sd ';' - || true)
           echo "::notice title=APIs reales (Linux) — código ${code}::${summary}"
           exit $code
+      - name: Auditoría real de previsualizaciones (por proveedor)
+        if: always()
+        env:
+          BOUTECA_KEY_GIPHY: ${{ secrets.BOUTECA_KEY_GIPHY }}
+          BOUTECA_KEY_KLIPY: ${{ secrets.BOUTECA_KEY_KLIPY }}
+          BOUTECA_KEY_YOUTUBE: ${{ secrets.BOUTECA_KEY_YOUTUBE }}
+          BOUTECA_KEY_FREESOUND: ${{ secrets.BOUTECA_KEY_FREESOUND }}
+          BOUTECA_KEY_PIXABAY: ${{ secrets.BOUTECA_KEY_PIXABAY }}
+          BOUTECA_KEY_PEXELS: ${{ secrets.BOUTECA_KEY_PEXELS }}
+        shell: bash
+        run: |
+          cargo test -p bouteca-core --test preview_audit -- --ignored --nocapture > audit.log 2>&1 || { tail -30 audit.log; exit 1; }
+          grep '^AUDIT|' audit.log | while IFS='|' read -r _ prov rest; do echo "::notice title=Previsualización — ${prov}::${rest//|/: }"; done
+          { echo "## Auditoría de previsualizaciones"; echo; grep '^AUDIT|' audit.log | sed 's/^AUDIT|/- /; s/|/: /g'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: preview-audit
+          path: crates/bouteca-core/preview-audit.json
+          if-no-files-found: ignore
