@@ -51,7 +51,7 @@ pub enum Domain {
 
 pub fn domain_of(provider: &str) -> Domain {
     match provider {
-        "giphy" | "klipy" | "imgflip" | "bttv" => Domain::Memes,
+        "giphy" | "klipy" | "imgflip" => Domain::Memes,
         "wikimedia" | "archive" | "openverse" | "nasa" | "artic" | "met" | "cleveland" | "inaturalist" => Domain::Archivo,
         _ => Domain::Mixto,
     }

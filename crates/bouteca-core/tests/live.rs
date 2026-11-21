@@ -212,24 +212,3 @@ async fn live_musica_abierta() {
     check("openverse", "piano", KindFilter::Music).await;
     check("wikimedia", "symphony", KindFilter::Music).await;
 }
-
-#[tokio::test]
-#[ignore]
-async fn live_bttv() {
-    // Diagnóstico: ¿la API rechaza a la nube de GitHub o al agente de usuario?
-    for ua in [
-        bouteca_core::http::USER_AGENT,
-        "curl/8.5.0",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36",
-    ] {
-        let c = reqwest::Client::builder().user_agent(ua).build().unwrap();
-        let st = c
-            .get("https://api.betterttv.net/3/emotes/shared/search?query=pepe&offset=0&limit=5")
-            .send()
-            .await
-            .map(|r| r.status().as_u16())
-            .unwrap_or(0);
-        println!("LIVE|bttv-diag|{st}|{}", ua.chars().take(24).collect::<String>());
-    }
-    check("bttv", "pepe", KindFilter::Gif).await;
-}
