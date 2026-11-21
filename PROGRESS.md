@@ -1,8 +1,12 @@
 # Progreso real
 
-## Estado actual (2026-11-21) — 1.1.0 en preparación (1.0.0 publicada y estable)
+## Estado actual (2026-11-21) — 1.1.0 publicada y estable
 
-**1.0.0** está publicada y firmada (https://github.com/bouthex/bouteca/releases/tag/v1.0.0).
+**1.1.0** publicada y firmada con la misma clave que 1.0.0
+(https://github.com/bouthex/bouteca/releases/tag/v1.1.0). El canal estable (`latest.json`)
+ya la ofrece: las instalaciones de 1.0.0 la reciben con el actualizador. Antes de publicar
+pasaron CI, la prueba real en Windows y la actualización de punta a punta en el mismo commit
+(`434cb24`).
 
 **Etapa 1.1.0 — hecho y verificado** (CI ✅, Windows ✅, actualización de punta a punta ✅ en
 cada commit; números de la prueba real en Windows del commit `cd64d15`):
