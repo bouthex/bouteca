@@ -131,7 +131,7 @@ jobs:
               elif h == "bouteca-update.test":
                   flow.response = http.Response.make(200, open(SRV + "/setup.exe", "rb").read(), {"Content-Type": "application/octet-stream"})
           "@ | Out-File -Encoding utf8 "$env:RUNNER_TEMP\addon.py"
-          Start-Process mitmdump -ArgumentList '-p','8899','-q','-s',"$env:RUNNER_TEMP\addon.py" -WindowStyle Hidden
+          Start-Process mitmdump -ArgumentList '-p','8899','-s',"$env:RUNNER_TEMP\addon.py",'--set','flow_detail=0' -WindowStyle Hidden -RedirectStandardOutput "$env:RUNNER_TEMP\mitm.log"
           Start-Sleep 4
       - name: La versión publicada se actualiza sola (clic real en "Reiniciar y actualizar")
         if: env.SKIP != '1'
@@ -149,7 +149,15 @@ jobs:
             $win = $A::RootElement.FindFirst([System.Windows.Automation.TreeScope]::Children, (New-Object System.Windows.Automation.PropertyCondition($A::ProcessIdProperty, $p.Id)))
             if ($win) { $btn = $win.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $name) }
           }
-          if (-not $btn) { Write-Output "::error title=Actualización::la versión publicada no ofreció la actualización en 5 minutos"; exit 1 }
+          if (-not $btn) {
+            Write-Output "::error title=Actualización::la versión publicada no ofreció la actualización en 5 minutos"
+            Write-Output "--- solicitudes vistas por el proxy ---"; Get-Content "$env:RUNNER_TEMP\mitm.log" -Tail 40 -ErrorAction SilentlyContinue
+            Write-Output "--- registro de la app ---"; Get-ChildItem "$env:LOCALAPPDATA\com.bouteca.app\logs" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1 | Get-Content -Tail 40
+            Write-Output "--- botones visibles (UI Automation) ---"
+            $win = $A::RootElement.FindFirst([System.Windows.Automation.TreeScope]::Children, (New-Object System.Windows.Automation.PropertyCondition($A::ProcessIdProperty, $p.Id)))
+            if ($win) { $win.FindAll([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition($A::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button))) | Select-Object -First 40 | ForEach-Object { $_.Current.Name } } else { Write-Output "(sin ventana)" }
+            exit 1
+          }
           $secs = [math]::Round(((Get-Date) - $t0).TotalSeconds)
           Write-Output "::notice title=Detectada, descargada y verificada::la app ofreció instalar en $secs s desde que se abrió"
           $btn.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()

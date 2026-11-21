@@ -302,7 +302,7 @@ export function SearchView() {
 
   return (
     <>
-      <div class="topbar">
+      <div class="topbar" data-searching={String(searching.value)}>
         <div class="nav-row">
           <button class="icon-btn" title="Atrás (Alt+←)" aria-label="Volver a la búsqueda anterior" disabled={navState.value.back === 0} onClick={goBack}><Icon.ArrowLeft size={17} /></button>
           <button class="icon-btn" title="Adelante (Alt+→)" aria-label="Avanzar" disabled={navState.value.fwd === 0} onClick={goForward}><Icon.ArrowRight size={17} /></button>

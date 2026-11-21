@@ -131,16 +131,19 @@ async function main() {
       await box.fill(q);
       const t0 = Date.now();
       await box.press("Enter");
-      await sleep(80);
+      // La búsqueda nueva vacía la grilla al empezar: recién ahí se mide el primer resultado.
+      await page.waitForFunction(() => document.querySelector(".topbar")?.dataset.searching === "true" || document.querySelectorAll(".card").length === 0, null, { timeout: 5000 }).catch(() => {});
       let first = null;
       try {
         await page.waitForFunction(() => document.querySelectorAll(".card").length > 0, null, { timeout: 20000 });
         first = Date.now() - t0;
       } catch { /* sin resultados */ }
-      await sleep(2500); // que lleguen las demás fuentes
+      // Hasta que terminen todas las fuentes (máx. 25 s).
+      await page.waitForFunction(() => document.querySelector(".topbar")?.dataset.searching === "false", null, { timeout: 25000 }).catch(() => {});
+      const total_ms = Date.now() - t0;
       const section = await page.evaluate(() => document.querySelector('.scope-switch [aria-checked="true"]')?.textContent?.trim() ?? null);
       const cards = await page.locator(".card").count();
-      const entry = { q, filter: f ?? "Todo", section, first_result_ms: first, cards, previews: [] };
+      const entry = { q, filter: f ?? "Todo", section, first_result_ms: first, total_ms, cards, previews: [] };
       for (let i = 0; i < Math.min(PER_QUERY, cards); i++) {
         const card = page.locator(".card").nth(i);
         const title = (await card.locator(".title").textContent().catch(() => ""))?.trim().slice(0, 70);
@@ -157,7 +160,7 @@ async function main() {
         await sleep(300);
       }
       report.queries.push(entry);
-      console.log(`UI ${q} [${entry.filter}] → sección ${section}; ${cards} tarjetas; primer resultado ${first ?? "—"} ms; ` +
+      console.log(`UI ${q} [${entry.filter}] → sección ${section}; ${cards} tarjetas; primer resultado ${first ?? "—"} ms, todas las fuentes ${total_ms} ms; ` +
         entry.previews.map((p) => `${p.provider}/${p.kind}:${p.ok ? `OK ${p.ms}ms` : `FALLA(${p.reason ?? p.text ?? (p.timeout ? "tiempo agotado" : p.kind)})`}`).join(" · "));
     }
     report.memory.after = memoryMb();

@@ -132,7 +132,8 @@ pub fn registry() -> Vec<DynProvider> {
         // nada reproducible (sus archivos bloquean la reproducción fuera de su sitio). Su catálogo
         // CC llega en parte por Openverse, con audio reproducible.
         Arc::new(videos::PeerTube::new()),
-        Arc::new(videos::Dailymotion::new()),
+        // Dailymotion retirado de la búsqueda (1.2.0): en la prueba real de la app en Windows su
+        // reproductor oficial no llegó a reproducir en 13 de 13 intentos, y no permite descarga.
     ]
 }
 

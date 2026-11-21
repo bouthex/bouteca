@@ -199,8 +199,7 @@ async fn live_inaturalist() {
 
 #[tokio::test]
 #[ignore]
-async fn live_video_federado_y_dailymotion() {
-    check("dailymotion", "cat", KindFilter::Video).await;
+async fn live_video_federado() {
     check("peertube", "linux", KindFilter::Video).await;
     check_resolve("peertube", "blender", KindFilter::Video).await;
 }

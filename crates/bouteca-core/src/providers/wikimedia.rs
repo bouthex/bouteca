@@ -185,7 +185,17 @@ fn map_page(p: Page) -> Option<MediaItem> {
             .min_by_key(|d| d.height.unwrap_or(u32::MAX))
             .map(|d| d.src.clone())
             .or_else(|| Some(url.clone())),
-        MediaKind::Audio | MediaKind::Music | MediaKind::Gif => Some(url.clone()),
+        // Audio: la versión MP3/Ogg que Wikimedia transcodifica (los originales pueden ser WAV o
+        // FLAC enormes, o formatos que el reproductor no abre: en la prueba real de la app
+        // varios quedaron cargando sin empezar).
+        MediaKind::Audio | MediaKind::Music => info
+            .derivatives
+            .iter()
+            .filter(|d| d.mime.as_deref().is_some_and(|m| m.starts_with("audio/mpeg") || m.starts_with("audio/ogg")))
+            .min_by_key(|d| if d.mime.as_deref().is_some_and(|m| m.starts_with("audio/mpeg")) { 0 } else { 1 })
+            .map(|d| d.src.clone())
+            .or_else(|| Some(url.clone())),
+        MediaKind::Gif => Some(url.clone()),
         // Imagen grande para el visor: tamaño estándar de 960 px (Wikimedia limita con 429 los
         // tamaños no estándar desde 2026); si el original es más chico, el original.
         MediaKind::Image => match (info.thumburl.as_deref(), info.width) {
