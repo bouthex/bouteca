@@ -39,7 +39,7 @@ pub fn app_ready(app: AppHandle) {
 
 #[derive(Serialize)]
 pub struct AppInfo {
-    version: &'static str,
+    version: String,
     data_dir: String,
     downloads_dir: String,
     platform: &'static str,
@@ -47,9 +47,10 @@ pub struct AppInfo {
 }
 
 #[tauri::command]
-pub fn app_info(state: S) -> AppInfo {
+pub fn app_info(app: AppHandle, state: S) -> AppInfo {
     AppInfo {
-        version: env!("CARGO_PKG_VERSION"),
+        // La versión de la app empaquetada (la misma que compara el actualizador).
+        version: app.package_info().version.to_string(),
         data_dir: state.paths.data_dir.to_string_lossy().into(),
         downloads_dir: state.downloads.options().root.to_string_lossy().into(),
         platform: std::env::consts::OS,
