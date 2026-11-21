@@ -247,20 +247,22 @@ pub fn run(app: AppHandle, out: PathBuf) {
                 )
                 .await;
             let mut probe = MemeProbe { first_ms: *fst.lock(), total_ms: t.elapsed().as_millis(), ..Default::default() };
+            // Orden final como en la interfaz: por puntaje.
+            let mut all: Vec<(f32, String, String)> = Vec::new();
             for e in evs.lock().iter() {
                 match e {
-                    SearchEvent::Plan { variants, .. } => probe.main_variant = variants.first().map(|v| v.text.clone()),
-                    SearchEvent::Batch { items, .. } => {
+                    SearchEvent::Plan { variants, .. } => {
+                        probe.main_variant = variants.iter().find(|v| v.reason == "entidad").or(variants.first()).map(|v| v.text.clone())
+                    }
+                    SearchEvent::Batch { items, provider, .. } => {
                         probe.results += items.len();
-                        for it in items.iter().take(3) {
-                            if probe.top_titles.len() < 8 {
-                                probe.top_titles.push(it.title.chars().take(80).collect());
-                            }
-                        }
+                        all.extend(items.iter().map(|it| (it.score, it.title.chars().take(70).collect(), provider.clone())));
                     }
                     _ => {}
                 }
             }
+            all.sort_by(|a, b| b.0.total_cmp(&a.0));
+            probe.top_titles = all.into_iter().take(6).map(|(_, t, p)| format!("{t} [{p}]")).collect();
             rep.meme_queries.insert((*q).into(), probe);
         }
         tokio::time::sleep(Duration::from_secs(3)).await;

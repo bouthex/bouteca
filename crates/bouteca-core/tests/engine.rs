@@ -530,3 +530,16 @@ fn servicio_central_y_prioridad_de_la_clave_propia() {
     engine.set_relay(None).unwrap();
     assert_eq!(engine.ctx_for("youtube").api_key, None);
 }
+
+#[test]
+fn memes_no_consultan_catalogos_de_arte() {
+    use bouteca_core::query::{plan, LangCode};
+    let p = |q: &str| plan(q, LangCode::Es, &[]);
+    assert!(is_pop_culture(&p("pepe llorando")));
+    assert!(is_pop_culture(&p("cursed memes")));
+    assert!(is_pop_culture(&p("reaction gif")));
+    assert!(is_pop_culture(&p("gato riendo meme")));
+    assert!(!is_pop_culture(&p("gato")));
+    assert!(!is_pop_culture(&p("pintura de van gogh")));
+    assert!(!is_pop_culture(&p("nebulosa")));
+}

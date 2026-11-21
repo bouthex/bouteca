@@ -130,6 +130,8 @@ fn table() -> Vec<(&'static str, Effect)> {
         ("efeito sonoro", Kind(KindFilter::Audio)),
         ("efeitos sonoros", Kind(KindFilter::Audio)),
         ("sfx", Kind(KindFilter::Audio)),
+        ("gifs", Kind(KindFilter::Gif)),
+        ("gif", Kind(KindFilter::Gif)),
         ("musica", Kind(KindFilter::Music)),
         ("musicas", Kind(KindFilter::Music)),
         ("music", Kind(KindFilter::Music)),
@@ -291,9 +293,13 @@ mod tests {
 
     #[test]
     fn respeta_el_filtro_elegido() {
+        let r = parse("reaction gif");
+        assert_eq!(r.kind, Some(KindFilter::Gif));
+        assert_eq!(r.cleaned, "reaction");
+        // En GIFs, "música" no cambia el tipo: sigue siendo parte de lo que se busca.
         let i = parse_for("gif de música", KindFilter::Gif);
-        assert_eq!(i.kind, None);
-        assert_eq!(i.cleaned, "gif de música");
+        assert_eq!(i.kind, Some(KindFilter::Gif));
+        assert!(i.cleaned.contains("musica"), "{}", i.cleaned);
         let i = parse_for("música triste", KindFilter::Music);
         assert_eq!(i.cleaned, "triste");
     }

@@ -209,6 +209,49 @@ pub fn clip_and_freshness(item: &MediaItem, max_duration: Option<u32>, explicit_
 
 /// Marcador que reemplaza la clave cuando la consulta va por el servicio central (el servidor
 /// lo sustituye por la clave real; nunca viaja una clave verdadera desde la app).
+/// Catálogos temáticos (arte, naturaleza, espacio) que no participan en búsquedas de memes.
+pub const NICHE_CATALOGS: &[&str] = &["artic", "met", "cleveland", "inaturalist", "nasa"];
+
+/// Conceptos que indican una búsqueda de memes, reacciones o cultura de internet.
+const POP_CONCEPTS: &[&str] = &[
+    "meme",
+    "reaction",
+    "funny",
+    "laugh",
+    "cry",
+    "facepalm",
+    "cringe",
+    "fail",
+    "win",
+    "viral",
+    "epic",
+    "classic",
+    "crazy",
+    "stupid",
+    "weird",
+    "sus",
+    "shrug",
+    "thumbs_up",
+    "jumpscare",
+    "fart",
+    "airhorn",
+    "green_screen",
+    "transition",
+    "stream",
+    "anime",
+    "game",
+    "movie",
+    "series",
+];
+
+/// ¿Es una búsqueda de memes o cultura de internet? (meme o personaje conocido, o conceptos típicos).
+pub fn is_pop_culture(plan: &QueryPlan) -> bool {
+    !plan.entities.is_empty() || plan.concepts.iter().any(|c| POP_CONCEPTS.contains(&c.as_str())) || {
+        let n = &plan.normalized;
+        ["cursed", "maldit", "gif", "shitpost", "momo", "streamer", "tiktok", "clip"].iter().any(|w| n.contains(w))
+    }
+}
+
 pub const RELAY_KEY: &str = "bouteca-relay";
 
 /// Puntos extra para resultados de fuentes favoritas.
@@ -462,11 +505,15 @@ impl SearchEngine {
             }
         };
 
-        // Proveedores participantes.
+        // Proveedores participantes. En búsquedas de memes y cultura de internet se omiten los
+        // catálogos de arte, naturaleza y espacio: nunca tienen ese contenido y sus resultados
+        // (pinturas, ranas de museo) tapaban a los relevantes.
+        let pop = is_pop_culture(&plan);
         let candidates: Vec<DynProvider> = self
             .providers
             .iter()
             .filter(|p| p.supports(filter))
+            .filter(|p| !(pop && NICHE_CATALOGS.contains(&p.info().id)))
             .filter(|p| matches!(self.status_of(p.info().id), ProviderStatus::Ready | ProviderStatus::Error(_)))
             .filter(|p| req.page <= 1 || self.sessions.lock().get(&req.search_id).and_then(|s| s.more.get(p.info().id).copied()).unwrap_or(false))
             .cloned()
