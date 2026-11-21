@@ -73,7 +73,7 @@ jobs:
           node scripts/verify-sig.mjs "$exe" "$exe.sig" "$PUBKEY"
           mkdir -p "$RUNNER_TEMP/srv"
           cp "$exe" "$RUNNER_TEMP/srv/setup.exe"
-          node scripts/make-manifest.mjs "$CAND" "$exe.sig" "https://bouteca-update.test/setup.exe" "Prueba de actualización" "$RUNNER_TEMP/srv/latest.json"
+          node scripts/make-manifest.mjs "$CAND" "$exe.sig" "https://github.com/bouthex/bouteca/releases/download/e2e-update-test/setup.exe" "Prueba de actualización" "$RUNNER_TEMP/srv/latest.json"
       - name: Instalar la versión publicada y cargar datos de usuario
         if: env.SKIP != '1'
         shell: pwsh
@@ -129,10 +129,10 @@ jobs:
               h, path = flow.request.pretty_host, flow.request.path
               if h == "github.com" and path.endswith("/releases/latest/download/latest.json"):
                   flow.response = http.Response.make(200, open(SRV + "/latest.json", "rb").read(), {"Content-Type": "application/json"})
-              elif h == "bouteca-update.test":
+              elif h == "github.com" and path.startswith("/bouthex/bouteca/releases/download/e2e-update-test/"):
                   flow.response = http.Response.make(200, open(SRV + "/setup.exe", "rb").read(), {"Content-Type": "application/octet-stream"})
           "@ | Out-File -Encoding utf8 "$env:RUNNER_TEMP\addon.py"
-          Start-Process mitmdump -ArgumentList '-p','8899','-s',"$env:RUNNER_TEMP\addon.py",'--set','flow_detail=0','--set','upstream_cert=false' -WindowStyle Hidden -RedirectStandardOutput "$env:RUNNER_TEMP\mitm.log" -RedirectStandardError "$env:RUNNER_TEMP\mitm.err"
+          Start-Process mitmdump -ArgumentList '-p','8899','-s',"$env:RUNNER_TEMP\addon.py",'--set','flow_detail=1' -WindowStyle Hidden -RedirectStandardOutput "$env:RUNNER_TEMP\mitm.log" -RedirectStandardError "$env:RUNNER_TEMP\mitm.err"
           Start-Sleep 4
           $env:HTTPS_PROXY = "http://127.0.0.1:8899"
           $t0 = Get-Date
