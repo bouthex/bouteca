@@ -138,6 +138,7 @@ pub(crate) fn parse(body: &[u8]) -> Result<ProviderPage> {
                 variants: vec![],
                 notices: vec![],
                 published_at: None,
+                sensitive: false,
                 score: 0.0,
                 dedupe_key: String::new(),
             })

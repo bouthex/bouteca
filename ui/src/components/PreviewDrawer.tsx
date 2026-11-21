@@ -4,7 +4,7 @@ import { api, errText } from "../lib/api";
 import { bytes, duration, isVideoUrl, kindLabel, providerName, resolution } from "../lib/format";
 import * as Icon from "../lib/icons";
 import { allRenditions } from "../lib/results";
-import { alternates, copyText, favoriteUids, groups, openPreview, playerMounted, playerUnmounted, selected, startDownload, toast, toggleFavorite } from "../lib/store";
+import { reveal, revealed, alternates, copyText, favoriteUids, groups, openPreview, playerMounted, playerUnmounted, selected, startDownload, toast, toggleFavorite } from "../lib/store";
 import type { ItemDetails, MediaItem } from "../lib/types";
 import { CollectionPicker } from "./CollectionPicker";
 import { Player } from "./Player";
@@ -162,6 +162,7 @@ export function PreviewDrawer({ item: initial }: { item: MediaItem }) {
 
   const [details, setDetails] = useState<ItemDetails | null>(null);
   const [showFiles, setShowFiles] = useState(false);
+  const [qualityOpen, setQualityOpen] = useState(false);
   useEffect(() => {
     let alive = true;
     api.itemDetails(item).then((d) => alive && setDetails(d)).catch(() => {});
@@ -198,14 +199,39 @@ export function PreviewDrawer({ item: initial }: { item: MediaItem }) {
         <button class="btn ghost sm" onClick={close} aria-label="Cerrar vista previa (Esc)"><Icon.Close size={16} /></button>
       </div>
       <div class="drawer-body">
-        {stage}
+        {item.sensitive && !revealed.value.has(item.uid) ? (
+          <div class="stage sensitive-gate">
+            <Icon.Alert size={22} />
+            <p>La fuente marca este resultado como contenido sensible o para adultos.</p>
+            <button class="btn sm" onClick={() => reveal(item.uid)}>Mostrar</button>
+          </div>
+        ) : stage}
         {resolveError && <div class="notice"><Icon.Alert size={16} /> <span>No se pudieron obtener los archivos: {resolveError}</span></div>}
 
         <div class="drawer-actions" style="position:relative">
-          {item.download_policy !== "preview_only" ? (
-            <button class="btn primary" disabled={resolving || !!resolveError} onClick={() => startDownload(item)}>
-              <Icon.Download size={16} /> Descargar
-            </button>
+          {canDownload ? (
+            <>
+              <button class="btn primary" disabled={resolving || !!resolveError} onClick={() => startDownload(item)} title="Descarga en la calidad preferida (Ajustes)">
+                <Icon.Download size={16} /> Descargar
+              </button>
+              <span style="position:relative">
+                <button class="btn" disabled={resolving || tiers.length < 2} aria-expanded={qualityOpen} onClick={() => setQualityOpen(!qualityOpen)}
+                  title={tiers.length < 2 ? "Esta fuente publica una sola calidad para este recurso" : "Elegir calidad y formato"}>
+                  Calidad <Icon.ChevronDown size={13} />
+                </button>
+                {qualityOpen && tiers.length > 1 && (
+                  <div class="dd-menu quality-menu" role="menu">
+                    {tiers.map((t) => (
+                      <button class="dd-item" role="menuitem" key={t.url} onClick={() => { setQualityOpen(false); startDownload(item, t.url); }}>
+                        <b>{item.kind === "video" && t.height ? `${t.height}p` : t.tier}</b>{item.kind === "video" && t.height ? <span class="muted"> · {t.tier}</span> : null}
+                        <span class="muted"> {[t.width && t.height ? `${t.width}×${t.height}` : "", bytes(t.size_bytes), t.mime?.split("/")[1]?.toUpperCase()].filter(Boolean).join(" · ")}</span>
+                      </button>
+                    ))}
+                    <p class="small muted" style="margin:4px 10px">Archivos que publica la fuente; Bouteca no recomprime.</p>
+                  </div>
+                )}
+              </span>
+            </>
           ) : item.page_url?.startsWith("https://") ? (
             <button class="btn primary" onClick={() => api.openExternal(item.page_url!).catch((e) => toast(errText(e), "error"))}>
               <Icon.External size={16} /> Abrir en {providerName(item.provider)}
@@ -227,21 +253,6 @@ export function PreviewDrawer({ item: initial }: { item: MediaItem }) {
         )}
         {item.download_policy === "personal" && (
           <div class="notice"><Icon.Alert size={16} /><span>Los derechos pertenecen a sus autores. Descarga para uso personal según los términos de {providerName(item.provider)}.</span></div>
-        )}
-
-        {canDownload && tiers.length > 1 && (
-          <div>
-            <p class="section-title">Calidad</p>
-            <div class="tiers" role="group" aria-label="Elegí la calidad a descargar">
-              {tiers.map((t) => (
-                <button class="tier" key={t.url} onClick={() => startDownload(item, t.url)} title={`Descargar ${t.label}`}>
-                  <b>{t.tier}</b>
-                  <span>{[t.width && t.height ? `${t.width}×${t.height}` : t.height ? `${t.height}p` : "", bytes(t.size_bytes), t.mime?.split("/")[1]?.toUpperCase()].filter(Boolean).join(" · ") || t.label}</span>
-                </button>
-              ))}
-            </div>
-            <p class="small muted" style="margin-top:4px">Archivos publicados por la fuente; Bouteca no recomprime.</p>
-          </div>
         )}
 
         {group && group.variants.length > 0 && (

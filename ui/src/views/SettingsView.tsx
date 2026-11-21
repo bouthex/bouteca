@@ -232,8 +232,8 @@ export function SettingsView() {
             <Setting title="Comparar miniaturas" desc="Detecta el mismo contenido con distinto nombre comparando miniaturas en tu equipo (hasta 60 por búsqueda).">
               <Switch on={s.engine.visual_dedup} label="Comparar miniaturas" onChange={(v) => setEngine({ visual_dedup: v })} />
             </Setting>
-            <Setting title="Búsqueda segura" desc="Filtra contenido para adultos en las fuentes que lo permiten.">
-              <Switch on={s.engine.safe_search} label="Búsqueda segura" onChange={(v) => setEngine({ safe_search: v })} />
+            <Setting title="Mostrar contenido sensible y NSFW" desc="Desactivado: las fuentes filtran el contenido para adultos y se ocultan los resultados marcados como sensibles. Activado: se incluye contenido adulto legal, que aparece desenfocado hasta que lo abrís. Los memes raros o de humor negro no se filtran en ningún caso.">
+              <Switch on={!s.engine.safe_search} label="Mostrar contenido sensible y NSFW" onChange={(v) => setEngine({ safe_search: !v })} />
             </Setting>
             <Setting title="Apariencia">
               <select class="field" value={s.theme} onChange={(e) => set({ theme: (e.target as HTMLSelectElement).value as "dark" | "light" })}>

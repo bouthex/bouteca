@@ -12,8 +12,8 @@ export const api = {
   setProviderKey: (provider: string, key: string | null) => call<void>("set_provider_key", { provider, key }),
   setProviderEnabled: (provider: string, enabled: boolean) => call<void>("set_provider_enabled", { provider, enabled }),
 
-  search: (search_id: number, query: string, filter: T.KindFilter, page = 1, rights: T.RightsFilter | null = null, usage: T.Usage | null = null) =>
-    call<void>("search", { req: { search_id, query, filter, page, rights, usage } }),
+  search: (search_id: number, query: string, filter: T.KindFilter, page = 1, rights: T.RightsFilter | null = null, usage: T.Usage | null = null, max_duration: number | null = null) =>
+    call<void>("search", { req: { search_id, query, filter, page, rights, usage, max_duration } }),
   studioList: () => call<T.StudioProject[]>("studio_list"),
   studioCreate: (description: string) => call<number>("studio_create", { description }),
   studioDelete: (id: number) => call<void>("studio_delete", { id }),

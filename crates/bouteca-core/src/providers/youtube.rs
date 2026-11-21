@@ -232,6 +232,7 @@ pub(crate) fn map_search(body: &[u8]) -> Result<(Vec<MediaItem>, Option<String>,
                 variants: vec![],
                 notices: vec![],
                 published_at: sn.published_at.as_deref().and_then(crate::model::parse_date),
+                sensitive: false,
                 score: 0.0,
                 dedupe_key: String::new(),
             })
@@ -261,6 +262,7 @@ pub(crate) fn apply_details(items: &mut [MediaItem], body: &[u8]) -> Result<Vec<
             if let Some(c) = &d.content {
                 if c.rating.as_ref().and_then(|r| r.yt_rating.as_deref()) == Some("ytAgeRestricted") {
                     it.notices.push("Con restricción de edad: puede requerir abrirlo en YouTube con tu cuenta.".into());
+                    it.sensitive = true;
                 }
                 if let Some(rr) = &c.region {
                     if let Some(a) = rr.allowed.as_ref().filter(|a| !a.is_empty()) {

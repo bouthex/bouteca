@@ -11,6 +11,7 @@ import { INDICATOR_LABEL } from "./ResultCard";
  */
 export function RightsPanel({ item, detail }: { item: MediaItem; detail: ItemDetails | null }) {
   const [open, setOpen] = useState(false);
+  const [details, setDetails] = useState(false);
 
   const r = detail?.rights ?? item.rights;
   if (!r) return null;
@@ -27,7 +28,8 @@ export function RightsPanel({ item, detail }: { item: MediaItem; detail: ItemDet
         <b>{r.label}</b>
         <span class="lic" data-i={r.indicator}>{INDICATOR_LABEL[r.indicator]}</span>
       </div>
-      <p>{r.summary}</p>
+      <p>{r.summary} <button class="link-btn" aria-expanded={details} onClick={() => setDetails(!details)}>{details ? "Ocultar detalles" : "Detalles"}</button></p>
+      {details && <>
       <div class="perm-grid">
         {perms.map((p) => (
           <span class="perm" key={p.label} data-ok={String(p.ok)}><i aria-hidden="true" />{p.label}</span>
@@ -57,7 +59,8 @@ export function RightsPanel({ item, detail }: { item: MediaItem; detail: ItemDet
         </div>
       )}
 
-      {r.attribution && (
+      </>}
+      {r.attribution && (r.attribution_required || details) && (
         <div>
           <div class="attr-box" data-selectable>{r.attribution}</div>
           <div class="drawer-actions" style="margin-top:6px">

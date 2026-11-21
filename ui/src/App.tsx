@@ -1,3 +1,4 @@
+import { goBack, goForward } from "./lib/store";
 import { useEffect } from "preact/hooks";
 import { Rail } from "./components/Rail";
 import { Toasts } from "./components/Toasts";
@@ -28,12 +29,25 @@ export function App() {
         requestAnimationFrame(() => document.getElementById("q")?.focus());
       } else if (e.key === "Escape" && selected.value && !typing) {
         selected.value = null;
+      } else if (e.altKey && e.key === "ArrowLeft") {
+        e.preventDefault();
+        goBack();
+      } else if (e.altKey && e.key === "ArrowRight") {
+        e.preventDefault();
+        goForward();
       }
     };
+    // Botones laterales del mouse (atrás/adelante), como en un navegador.
+    const onMouse = (e: MouseEvent) => {
+      if (e.button === 3) { e.preventDefault(); goBack(); }
+      else if (e.button === 4) { e.preventDefault(); goForward(); }
+    };
     window.addEventListener("keydown", onKey);
+    window.addEventListener("mouseup", onMouse);
     return () => {
       un.then((f) => f());
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("mouseup", onMouse);
     };
   }, []);
 

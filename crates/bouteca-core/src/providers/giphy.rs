@@ -150,6 +150,7 @@ fn map_gif(g: Gif) -> MediaItem {
         variants: vec![],
         notices: if matches!(g.rating.as_deref(), Some("r")) { vec!["Clasificación R (contenido sensible)".into()] } else { vec![] },
         published_at: g.import_datetime.as_deref().and_then(crate::model::parse_date),
+        sensitive: matches!(g.rating.as_deref(), Some("r")),
         score: 0.0,
         dedupe_key: String::new(),
     }

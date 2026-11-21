@@ -39,6 +39,8 @@ export interface MediaItem {
   rights: Rights;
   variants: Variant[];
   notices?: string[];
+  sensitive?: boolean;
+  published_at?: number | null;
   score: number;
   dedupe_key: string;
 }

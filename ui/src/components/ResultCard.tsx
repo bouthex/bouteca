@@ -3,7 +3,8 @@ import { memo } from "preact/compat";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { duration, isVideoUrl, kindLabel, providerName, resolution } from "../lib/format";
 import * as Icon from "../lib/icons";
-import { favoriteUids, groups, openPreview, selected, settings, startDownload, toggleFavorite, visual } from "../lib/store";
+import { favoriteUids, groups, hoverSound, revealed, openPreview, selected, settings, startDownload, toggleFavorite, visual, writeLocal } from "../lib/store";
+import { officialEmbed } from "./PreviewDrawer";
 import type { Indicator, MediaItem } from "../lib/types";
 
 const SHORT_LABEL: Record<Indicator, string> = {
@@ -13,6 +14,38 @@ const SHORT_LABEL: Record<Indicator, string> = {
   uso_restringido: "Restringido",
   desconocida: "Lic. desconocida",
 };
+
+/** Vista previa de video al pasar el cursor: con sonido si el usuario lo eligió; una sola suena. */
+function HoverVideo({ src, poster }: { src: string; poster: string | null }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    v.muted = !hoverSound.value;
+    if (!v.muted) pauseOthers(v);
+    v.play().catch(() => { v.muted = true; v.play().catch(() => {}); });
+    return () => { v.pause(); v.removeAttribute("src"); v.load(); };
+  }, []);
+  useEffect(() => { if (ref.current) { ref.current.muted = !hoverSound.value; if (!ref.current.muted) pauseOthers(ref.current); } }, [hoverSound.value]);
+  return <video ref={ref} src={src} loop playsInline poster={poster ?? undefined} preload="metadata" />;
+}
+
+function HoverAudio({ src }: { src: string }) {
+  useEffect(() => {
+    const a = new Audio(src);
+    a.volume = 0.8;
+    a.muted = !hoverSound.value;
+    pauseOthers(a);
+    a.play().catch(() => {});
+    const unsub = hoverSound.subscribe((on) => { a.muted = !on; });
+    return () => { unsub(); a.pause(); a.src = ""; };
+  }, [src]);
+  return null;
+}
+
+function pauseOthers(me: HTMLMediaElement) {
+  document.querySelectorAll<HTMLMediaElement>("audio, video").forEach((m) => { if (m !== me && !m.paused && !m.muted) m.pause(); });
+}
 
 export const INDICATOR_LABEL: Record<Indicator, string> = {
   sin_atribucion: "Sin atribución",
@@ -30,8 +63,12 @@ export const ResultCard = memo(function ResultCard({ item, style }: { item: Medi
   const fav = favoriteUids.value.has(item.uid);
   const s = settings.value;
   const animatedAlways = s?.autoplay_gifs && item.kind === "gif";
-  const wantPreview = (hover && s?.hover_previews !== false) || animatedAlways;
+  const hidden = !!item.sensitive && !revealed.value.has(item.uid);
+  const wantPreview = !hidden && ((hover && s?.hover_previews !== false) || animatedAlways);
   const previewUrl = item.kind === "image" || isAudioKind(item.kind) ? null : item.preview;
+  // Videos que solo se ven con el reproductor oficial (YouTube): vista previa al pasar el cursor.
+  const official = hover && !hidden && s?.hover_previews !== false && !previewUrl ? officialEmbed(item.embed_url) : null;
+  const embedSrc = official ? `${official.src}&autoplay=1&controls=0&mute=${hoverSound.value ? 0 : 1}&start=0` : null;
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -51,12 +88,13 @@ export const ResultCard = memo(function ResultCard({ item, style }: { item: Medi
       onMouseEnter={() => { timer.current = window.setTimeout(() => setHover(true), 220); }}
       onMouseLeave={() => { clearTimeout(timer.current); setHover(false); }}
     >
-      <div class={`thumb ${isAudioKind(item.kind) ? "audio" : ""}`} data-k={item.kind}>
+      <div class={`thumb ${isAudioKind(item.kind) ? "audio" : ""} ${hidden ? "sensitive" : ""}`} data-k={item.kind}>
+        {hidden && <span class="sensitive-tag">Sensible</span>}
         {isAudioKind(item.kind) ? (
           item.thumbnail && !broken ? <img src={item.thumbnail} loading="lazy" decoding="async" alt="" onError={() => setBroken(true)} /> : <Icon.Music size={34} class="wave" />
         ) : wantPreview && previewUrl ? (
           isVideoUrl(previewUrl) ? (
-            <video src={previewUrl} muted autoplay loop playsInline poster={item.thumbnail ?? undefined} preload="none" />
+            <HoverVideo src={previewUrl} poster={item.thumbnail} />
           ) : (
             <img src={previewUrl} alt="" decoding="async" />
           )
@@ -65,7 +103,15 @@ export const ResultCard = memo(function ResultCard({ item, style }: { item: Medi
         ) : (
           <div class="fallback"><Icon.Image size={28} /></div>
         )}
-        {item.kind === "video" && !wantPreview && <span class="play-badge" aria-hidden="true"><Icon.Play size={16} /></span>}
+        {hover && embedSrc && <iframe class="hover-embed" src={embedSrc} title="" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation" />}
+        {hover && !hidden && isAudioKind(item.kind) && item.preview && <HoverAudio src={item.preview} />}
+        {(item.kind === "video" || isAudioKind(item.kind)) && !hover && (item.preview || item.embed_url) && <span class="play-badge" aria-hidden="true"><Icon.Play size={16} /></span>}
+        {hover && (embedSrc || (previewUrl && isVideoUrl(previewUrl)) || (isAudioKind(item.kind) && item.preview)) && (
+          <button class="sound-toggle" title={hoverSound.value ? "Silenciar vistas previas" : "Activar sonido en vistas previas"} aria-pressed={hoverSound.value}
+            onClick={(e) => { e.stopPropagation(); hoverSound.value = !hoverSound.value; writeLocal("bouteca.hoverSound", hoverSound.value); }}>
+            {hoverSound.value ? <Icon.Volume size={14} /> : <Icon.Mute size={14} />}
+          </button>
+        )}
         <span class="kind" data-k={item.kind} data-src={item.provider}>{item.provider === "youtube" ? "YouTube" : kindLabel[item.kind]}</span>
         {visual.value?.scores.has(item.uid) && <span class="sim" title="Parecido con tu imagen">{Math.round((visual.value.scores.get(item.uid) ?? 0) * 100)}%</span>}
         {(item.download_policy === "preview_only" || item.rights?.download === false) && !item.duration_secs && <span class="stream-only">Solo ver</span>}

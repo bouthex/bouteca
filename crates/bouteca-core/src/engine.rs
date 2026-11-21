@@ -531,6 +531,11 @@ impl SearchEngine {
                                 continue;
                             }
                             item.rights = crate::rights::derive(&item);
+                            // Con la búsqueda segura activa (contenido sensible oculto), lo marcado
+                            // como sensible por la fuente no se muestra.
+                            if item.sensitive && engine.settings.read().safe_search {
+                                continue;
+                            }
                             // Filtros de derechos y de uso: solo lo verificado (lo dudoso se excluye).
                             if rights.is_some_and(|r| !r.matches(&item.rights)) || usage.is_some_and(|u| item.rights.allows(u) != Some(true)) {
                                 continue;

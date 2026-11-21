@@ -4,9 +4,10 @@ import { duration, providerName } from "../lib/format";
 import * as Icon from "../lib/icons";
 import {
   elapsedMs, filter, hasMore, lastSearched, loadMore, loadingMore, plan, providerErrors, providerState,
+  clipDuration, goBack, goForward, navState, rerunSearch, writeLocal,
   results, resultFilters, rightsFilter, runSearch, saveSettings, searching, settings, understood, usageFilter, userScrolled, view, visibleResults, visual, clearVisual,
 } from "../lib/store";
-import { availableFormats, DURATION_LABEL, isActive, NO_FILTERS, type DurationBucket, type MinRes } from "../lib/filters";
+import { availableFormats, isActive, NO_FILTERS, type MinRes } from "../lib/filters";
 import type { KindFilter, RightsFilter, SearchEntry, Usage } from "../lib/types";
 import { ResultGrid } from "../components/ResultGrid";
 import { SearchBar } from "../components/SearchBar";
@@ -68,20 +69,11 @@ function FiltersPopover({ onClose }: { onClose: () => void }) {
   };
   return (
     <div class="popover filters-pop" ref={ref} role="dialog" aria-label="Filtros de resultados">
-      <div class="fp-row">
-        <span class="fp-l">Duración</span>
-        <select class="field sm" value={f.duration} onChange={(e) => set({ duration: (e.target as HTMLSelectElement).value as DurationBucket })}>
-          {(Object.keys(DURATION_LABEL) as DurationBucket[]).map((k) => <option key={k} value={k}>{DURATION_LABEL[k]}</option>)}
-        </select>
-      </div>
-      <div class="fp-row">
+      <div>
         <span class="fp-l">Resolución mínima</span>
-        <select class="field sm" value={String(f.minRes)} onChange={(e) => set({ minRes: Number((e.target as HTMLSelectElement).value) as MinRes })}>
-          <option value="0">Cualquiera</option>
-          <option value="720">HD (720p)</option>
-          <option value="1080">Full HD (1080p)</option>
-          <option value="2160">4K</option>
-        </select>
+        <div class="fp-chips">
+          {([[0, "Cualquiera"], [720, "HD"], [1080, "Full HD"], [2160, "4K"]] as [MinRes, string][]).map(([v, l]) => <button class="chip sm" key={v} aria-pressed={f.minRes === v} onClick={() => set({ minRes: v })}>{l}</button>)}
+        </div>
       </div>
       <label class="fp-row check">
         <input type="checkbox" checked={f.downloadableOnly} onChange={(e) => set({ downloadableOnly: (e.target as HTMLInputElement).checked })} />
@@ -99,6 +91,25 @@ function FiltersPopover({ onClose }: { onClose: () => void }) {
           <div class="fp-chips">{sources.map((x) => <button class="chip sm" key={x} aria-pressed={f.sources.includes(x)} onClick={() => set({ sources: toggle(f.sources, x) })}>{providerName(x)}</button>)}</div>
         </div>
       )}
+      <div>
+        <span class="fp-l">Derechos de uso</span>
+        <div class="fp-chips">
+          <button class="chip sm" aria-pressed={!rightsFilter.value} onClick={() => { rightsFilter.value = null; rerunSearch(); }}>Todos</button>
+          {RIGHTS_OPTIONS.map((o) => (
+            <button class="chip sm" key={o.id} title={o.hint} aria-pressed={rightsFilter.value === o.id} onClick={() => { rightsFilter.value = rightsFilter.value === o.id ? null : o.id; rerunSearch(); }}>{o.label}</button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <span class="fp-l">Para usar en</span>
+        <div class="fp-chips">
+          <button class="chip sm" aria-pressed={!usageFilter.value} onClick={() => { usageFilter.value = null; rerunSearch(); }}>Cualquier uso</button>
+          {USAGE_OPTIONS.map((o) => (
+            <button class="chip sm" key={o.id} aria-pressed={usageFilter.value === o.id} onClick={() => { usageFilter.value = usageFilter.value === o.id ? null : o.id; rerunSearch(); }}>{o.label}</button>
+          ))}
+        </div>
+        {(rightsFilter.value || usageFilter.value) && <p class="small muted" style="margin:6px 0 0">Solo se muestra lo verificable: una licencia desconocida no es un permiso.</p>}
+      </div>
       <div class="fp-foot">
         <button class="btn ghost sm" onClick={() => (resultFilters.value = NO_FILTERS)} disabled={!isActive(f)}>Limpiar</button>
         <form class="fp-save" onSubmit={(e) => { e.preventDefault(); save(); }}>
@@ -112,7 +123,7 @@ function FiltersPopover({ onClose }: { onClose: () => void }) {
           <div class="fp-chips">
             {s.saved_filters.map((p) => (
               <span class="chip sm saved" key={p.name}>
-                <button class="link" onClick={() => { rightsFilter.value = p.data.rights ?? null; usageFilter.value = p.data.usage ?? null; resultFilters.value = p.data.filters ?? NO_FILTERS; runSearch(lastSearched.value, filter.value); onClose(); }}>{p.name}</button>
+                <button class="link" onClick={() => { rightsFilter.value = p.data.rights ?? null; usageFilter.value = p.data.usage ?? null; resultFilters.value = p.data.filters ?? NO_FILTERS; rerunSearch(); onClose(); }}>{p.name}</button>
                 <button class="x" aria-label={`Borrar ${p.name}`} onClick={() => saveSettings({ ...s, saved_filters: s.saved_filters.filter((x) => x.name !== p.name) })}>×</button>
               </span>
             ))}
@@ -123,9 +134,51 @@ function FiltersPopover({ onClose }: { onClose: () => void }) {
   );
 }
 
+export const DURATION_OPTIONS: { v: number | null; label: string }[] = [
+  { v: 10, label: "Muy cortos (≤ 10 s)" },
+  { v: 30, label: "Hasta 30 s" },
+  { v: 60, label: "Hasta 1 min" },
+  { v: 300, label: "Hasta 5 min" },
+  { v: 600, label: "Hasta 10 min" },
+  { v: null, label: "Cualquier duración" },
+];
+
+/** Menú desplegable propio (los nativos de Windows no respetan el tema oscuro). */
+function Dropdown<V extends string | number | null>({ label, value, options, onChange, title }: {
+  label: string; value: V; options: { v: V; label: string }[]; onChange: (v: V) => void; title?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
+  }, [open]);
+  const current = options.find((o) => o.v === value) ?? options[0];
+  return (
+    <span class="dd" ref={ref}>
+      <button class="select-chip as-btn" aria-haspopup="listbox" aria-expanded={open} title={title} onClick={() => setOpen(!open)}>
+        <span class="muted">{label}</span> {current.label} <Icon.ChevronDown size={13} />
+      </button>
+      {open && (
+        <div class="dd-menu" role="listbox">
+          {options.map((o) => (
+            <button key={String(o.v)} role="option" aria-selected={o.v === value} class="dd-item" onClick={() => { setOpen(false); if (o.v !== value) onChange(o.v); }}>
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </span>
+  );
+}
+
 function RightsBar() {
   const [open, setOpen] = useState(false);
-  const active = isActive(resultFilters.value);
+  const active = isActive(resultFilters.value) || !!rightsFilter.value || !!usageFilter.value;
   const u = understood.value;
   const fromText = u ? [
     u.intent.kind && u.intent.kind !== "all" ? FILTERS.find((f) => f.id === u.intent.kind)?.label : null,
@@ -133,36 +186,23 @@ function RightsBar() {
     !usageFilter.value && u.usage ? `para ${DETECTED_LABEL[u.usage]}` : null,
     u.intent.duration_secs ? `≈ ${duration(u.intent.duration_secs)}` : null,
   ].filter(Boolean) : [];
-  const rerun = () => runSearch(lastSearched.value, filter.value);
+  const showDuration = filter.value !== "image";
   return (
     <div class="rights-bar">
-      <label class="select-chip" data-on={String(!!rightsFilter.value)} title="Filtrar por derechos de uso verificados">
-        <span>Derechos</span>
-        <select value={rightsFilter.value ?? ""} onChange={(e) => { rightsFilter.value = ((e.target as HTMLSelectElement).value || null) as RightsFilter | null; rerun(); }}>
-          <option value="">Todos</option>
-          {RIGHTS_OPTIONS.map((o) => <option key={o.id} value={o.id} title={o.hint}>{o.label}</option>)}
-        </select>
-      </label>
-      <label class="select-chip" data-on={String(!!usageFilter.value)} title="Mostrar solo lo compatible con este uso (verificado según la licencia)">
-        <span>Uso</span>
-        <select value={usageFilter.value ?? ""} onChange={(e) => { usageFilter.value = ((e.target as HTMLSelectElement).value || null) as Usage | null; rerun(); }}>
-          <option value="">Cualquiera</option>
-          {USAGE_OPTIONS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-        </select>
-      </label>
+      {showDuration && (
+        <Dropdown label="Duración" value={clipDuration.value} options={DURATION_OPTIONS} title="Los clips más cortos aparecen primero; lo más largo no se oculta, solo baja"
+          onChange={(v) => { clipDuration.value = v; writeLocal("bouteca.clipDuration", v); rerunSearch(); }} />
+      )}
       <span style="position:relative">
         <button class="select-chip as-btn" data-on={String(active)} aria-expanded={open} onClick={() => setOpen(!open)}>
-          <Icon.Sliders size={14} /> Filtros{active ? ` · ${visibleResults.value.length} de ${results.value.length}` : ""}
+          <Icon.Sliders size={14} /> Filtros{isActive(resultFilters.value) ? ` · ${visibleResults.value.length} de ${results.value.length}` : active ? " · activos" : ""}
         </button>
         {open && <FiltersPopover onClose={() => setOpen(false)} />}
       </span>
       {fromText.length > 0 && (
-        <span class="understood" title="Detectado en tu búsqueda. Se aplica como filtro verificado.">
+        <span class="understood" title="Detectado en tu búsqueda. Se aplica como filtro.">
           Entendí: {fromText.join(" · ")}
         </span>
-      )}
-      {(rightsFilter.value || usageFilter.value || u?.rights || u?.usage) && (
-        <span class="small muted">Lo que no se puede verificar queda afuera: una licencia desconocida no es un permiso.</span>
       )}
     </div>
   );
@@ -234,7 +274,11 @@ export function SearchView() {
   return (
     <>
       <div class="topbar">
-        <SearchBar />
+        <div class="nav-row">
+          <button class="icon-btn" title="Atrás (Alt+←)" aria-label="Volver a la búsqueda anterior" disabled={navState.value.back === 0} onClick={goBack}><Icon.ArrowLeft size={17} /></button>
+          <button class="icon-btn" title="Adelante (Alt+→)" aria-label="Avanzar" disabled={navState.value.fwd === 0} onClick={goForward}><Icon.ArrowRight size={17} /></button>
+          <SearchBar />
+        </div>
         <div class="filters" role="toolbar" aria-label="Tipo de contenido">
           {FILTERS.map((f) => (
             <button class="chip" key={f.id} aria-pressed={filter.value === f.id} onClick={() => runSearch(lastSearched.value, f.id)}>
@@ -257,7 +301,9 @@ export function SearchView() {
             <Icon.Globe size={14} />
             También buscando:
             {translations.slice(0, 5).map((t) => (
-              <span key={t.text}><b>{t.text}</b> <span class="lang">{t.reason === "entidad" ? "personaje" : t.lang}</span></span>
+              <button class="alt-q" key={t.text} title="Buscar solo esto" onClick={() => runSearch(t.text, filter.value)}>
+                <b>{t.text}</b> <span class="lang">{t.reason === "entidad" ? "meme" : t.lang}</span>
+              </button>
             ))}
           </div>
         )}

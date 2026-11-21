@@ -36,12 +36,112 @@ export const visibleResults = computed(() => applyFilters(results.value, resultF
 export const understood = signal<{ intent: T.Intent; rights: T.RightsFilter | null; usage: T.Usage | null } | null>(null);
 
 let searchSeq = Date.now() % 1_000_000;
+/** Fuerza a repetir la búsqueda aunque sea igual (cambio de filtros de derechos/duración). */
+let forceNext = false;
+export function rerunSearch() {
+  forceNext = true;
+  runSearch(lastSearched.value, filter.value);
+}
 let currentId = 0;
 let page = 1;
+
+// ---------- duración preferida y navegación atrás/adelante ----------
+
+/** Duración máxima preferida (segundos; null = cualquiera). Favorece clips cortos por defecto. */
+export const clipDuration = signal<number | null>(readLocal("bouteca.clipDuration", 60));
+/** Sonido en las vistas previas al pasar el cursor (recordado en este equipo). */
+/** Resultados sensibles que el usuario decidió ver en esta sesión. */
+export const revealed = signal<Set<string>>(new Set());
+export function reveal(uid: string) {
+  revealed.value = new Set([...revealed.value, uid]);
+}
+export const hoverSound = signal<boolean>(readLocal("bouteca.hoverSound", true));
+
+function readLocal<V>(key: string, fallback: V): V {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw === null ? fallback : (JSON.parse(raw) as V);
+  } catch {
+    return fallback;
+  }
+}
+export function writeLocal(key: string, value: unknown) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* almacenamiento no disponible */ }
+}
+
+interface NavEntry {
+  query: string;
+  filter: T.KindFilter;
+  rights: T.RightsFilter | null;
+  usage: T.Usage | null;
+  duration: number | null;
+  results: T.MediaItem[];
+  alternates: Map<string, Alt[]>;
+  groups: Map<string, Group>;
+  plan: typeof plan.value;
+  understood: typeof understood.value;
+  hasMore: boolean;
+  scroll: number;
+}
+const navBack: NavEntry[] = [];
+const navFwd: NavEntry[] = [];
+export const navState = signal({ back: 0, fwd: 0 });
+/** Posición de desplazamiento de la cuadrícula (la informa ResultGrid). */
+export const gridScroll = { top: 0, restore: null as number | null };
+
+function snapshot(): NavEntry | null {
+  if (!lastSearched.value) return null;
+  return {
+    query: lastSearched.value, filter: filter.value, rights: rightsFilter.value, usage: usageFilter.value, duration: clipDuration.value,
+    results: results.value, alternates: alternates.value, groups: groups.value, plan: plan.value, understood: understood.value,
+    hasMore: hasMore.value, scroll: gridScroll.top,
+  };
+}
+
+function restore(e: NavEntry) {
+  currentId = ++searchSeq; // descarta eventos tardíos de la búsqueda que se deja
+  batch(() => {
+    query.value = e.query; lastSearched.value = e.query; filter.value = e.filter;
+    rightsFilter.value = e.rights; usageFilter.value = e.usage; clipDuration.value = e.duration;
+    results.value = e.results; alternates.value = e.alternates; groups.value = e.groups;
+    plan.value = e.plan; understood.value = e.understood; hasMore.value = false;
+    searching.value = false; loadingMore.value = false; userScrolled.value = true; view.value = "search";
+  });
+  gridScroll.restore = e.scroll;
+  navState.value = { back: navBack.length, fwd: navFwd.length };
+}
+
+export function goBack() {
+  const prev = navBack.pop();
+  if (!prev) return;
+  const cur = snapshot();
+  if (cur) navFwd.push(cur);
+  restore(prev);
+}
+
+export function goForward() {
+  const next = navFwd.pop();
+  if (!next) return;
+  const cur = snapshot();
+  if (cur) navBack.push(cur);
+  restore(next);
+}
 
 export function runSearch(q = query.value, f = filter.value) {
   const text = q.trim();
   if (!text) return;
+  // Misma búsqueda con los mismos filtros y ya cargada: no se repite la consulta.
+  if (text === lastSearched.value && f === filter.value && results.value.length > 0 && !searching.value && view.value === "search" && q === query.value && !forceNext) {
+    return;
+  }
+  forceNext = false;
+  const cur = snapshot();
+  if (cur && cur.results.length > 0) {
+    navBack.push(cur);
+    if (navBack.length > 20) navBack.shift();
+    navFwd.length = 0;
+    navState.value = { back: navBack.length, fwd: 0 };
+  }
   currentId = ++searchSeq;
   page = 1;
   batch(() => {
@@ -61,7 +161,7 @@ export function runSearch(q = query.value, f = filter.value) {
     elapsedMs.value = null;
     view.value = "search";
   });
-  api.search(currentId, text, f, 1, rightsFilter.value, usageFilter.value).catch((e) => {
+  api.search(currentId, text, f, 1, rightsFilter.value, usageFilter.value, clipDuration.value).catch((e) => {
     searching.value = false;
     toast(errText(e), "error");
   });
@@ -71,7 +171,7 @@ export function loadMore() {
   if (!hasMore.value || loadingMore.value || searching.value || !lastSearched.value) return;
   page += 1;
   loadingMore.value = true;
-  api.search(currentId, lastSearched.value, filter.value, page, rightsFilter.value, usageFilter.value).catch((e) => {
+  api.search(currentId, lastSearched.value, filter.value, page, rightsFilter.value, usageFilter.value, clipDuration.value).catch((e) => {
     loadingMore.value = false;
     toast(errText(e), "error");
   });

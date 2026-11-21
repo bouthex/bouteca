@@ -154,6 +154,11 @@ pub struct MediaItem {
     /// Fecha de publicación (segundos Unix) si la fuente la informa: se usa para la frescura.
     #[serde(default)]
     pub published_at: Option<i64>,
+    /// Contenido adulto o sensible según la fuente (GIPHY "R", YouTube con restricción de edad).
+    /// Con "Mostrar contenido sensible" desactivado no se muestra; activado, se ve desenfocado
+    /// hasta que el usuario lo abre.
+    #[serde(default)]
+    pub sensitive: bool,
     /// Puntuación de relevancia calculada por el motor (0–100 aprox.).
     #[serde(default)]
     pub score: f32,
@@ -208,6 +213,7 @@ impl MediaItem {
             variants: vec![],
             notices: vec![],
             published_at: None,
+            sensitive: false,
             score: 0.0,
             dedupe_key: String::new(),
         }

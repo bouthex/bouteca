@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { gridScroll } from "../lib/store";
 import type { MediaItem } from "../lib/types";
 import { ResultCard } from "./ResultCard";
 
@@ -21,6 +22,14 @@ export function ResultGrid({ items, onNearEnd, footer, loadingSkeletons = 0 }: {
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
+  // Al volver atrás/adelante se recupera la posición de desplazamiento.
+  useLayoutEffect(() => {
+    if (gridScroll.restore !== null && ref.current && items.length > 0) {
+      ref.current.scrollTop = gridScroll.restore;
+      setScrollTop(gridScroll.restore);
+      gridScroll.restore = null;
+    }
+  });
 
   useLayoutEffect(() => {
     const el = ref.current!;
@@ -65,7 +74,7 @@ export function ResultGrid({ items, onNearEnd, footer, loadingSkeletons = 0 }: {
   }
 
   return (
-    <div class="scroller" ref={ref} onScroll={(e) => setScrollTop((e.target as HTMLElement).scrollTop)} data-grid-scroller>
+    <div class="scroller" ref={ref} onScroll={(e) => { const t = (e.target as HTMLElement).scrollTop; gridScroll.top = t; setScrollTop(t); }} data-grid-scroller>
       <div class="grid-inner" style={`height:${Math.max(0, rows * (rowH + GAP) - GAP)}px`}>{rowEls}</div>
       {footer}
     </div>

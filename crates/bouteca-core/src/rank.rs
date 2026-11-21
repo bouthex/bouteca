@@ -114,6 +114,7 @@ mod tests {
             variants: vec![],
             notices: vec![],
             published_at: None,
+            sensitive: false,
             score: 0.0,
             dedupe_key: String::new(),
         }

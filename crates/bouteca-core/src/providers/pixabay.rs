@@ -145,6 +145,7 @@ pub(crate) fn parse_images(body: &[u8]) -> Result<ProviderPage> {
                 variants: vec![],
                 notices: vec![],
                 published_at: None,
+                sensitive: false,
                 score: 0.0,
                 dedupe_key: String::new(),
             })
@@ -208,6 +209,7 @@ pub(crate) fn parse_videos(body: &[u8]) -> Result<ProviderPage> {
                 variants: vec![],
                 notices: vec![],
                 published_at: None,
+                sensitive: false,
                 score: 0.0,
                 dedupe_key: String::new(),
             })

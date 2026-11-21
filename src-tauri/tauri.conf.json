@@ -25,7 +25,7 @@
         "visible": false,
         "dragDropEnabled": false,
         "useHttpsScheme": true,
-        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,SpareRendererForSitePerProcess,BackForwardCache --disable-background-networking --disable-component-update --no-pings"
+        "additionalBrowserArgs": "--autoplay-policy=no-user-gesture-required --disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,SpareRendererForSitePerProcess,BackForwardCache --disable-background-networking --disable-component-update --no-pings"
       }
     ],
     "security": {
