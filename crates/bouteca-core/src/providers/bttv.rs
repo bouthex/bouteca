@@ -79,7 +79,7 @@ fn split_camel(code: &str) -> Vec<String> {
     out
 }
 
-pub(crate) fn map(e: Emote) -> Option<MediaItem> {
+fn map(e: Emote) -> Option<MediaItem> {
     if !e.id.chars().all(|c| c.is_ascii_alphanumeric()) || e.id.len() > 40 {
         return None;
     }
