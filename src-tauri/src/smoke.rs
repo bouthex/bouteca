@@ -64,6 +64,8 @@ struct MemeProbe {
     total_ms: u128,
     results: usize,
     main_variant: Option<String>,
+    /// Sección deducida (Memes / Archivo / Auto).
+    section: String,
     top_titles: Vec<String>,
 }
 
@@ -198,6 +200,8 @@ pub fn run(app: AppHandle, out: PathBuf) {
                     rights: None,
                     usage: None,
                     max_duration: None,
+                    scope: Default::default(),
+                    sort: Default::default(),
                 },
                 Arc::new(move |e| {
                     if matches!(e, SearchEvent::Batch { .. }) {
@@ -220,7 +224,27 @@ pub fn run(app: AppHandle, out: PathBuf) {
         }
         rep.total_results = rep.results_by_provider.values().sum();
         // Búsquedas de memes reales (fuentes sin clave + las que tengan clave en este equipo).
-        for (i, q) in ["pepe llorando", "peppo cry", "Pepe the Frog crying", "Martin Cirio", "cursed memes", "reaction gif"].iter().enumerate() {
+        let probes: [(&str, KindFilter); 18] = [
+            ("pepe sad", KindFilter::All),
+            ("pepe llorando", KindFilter::All),
+            ("peppo", KindFilter::Video),
+            ("peppo cry", KindFilter::All),
+            ("Pepe the Frog crying", KindFilter::All),
+            ("cursed memes", KindFilter::All),
+            ("reaction gif", KindFilter::All),
+            ("memes absurdos", KindFilter::All),
+            ("Martin Cirio", KindFilter::All),
+            ("arte", KindFilter::All),
+            ("museos", KindFilter::All),
+            ("naturaleza", KindFilter::All),
+            ("historia", KindFilter::All),
+            ("documentales", KindFilter::All),
+            ("terror", KindFilter::Music),
+            ("horror ambience", KindFilter::Music),
+            ("suspense", KindFilter::Music),
+            ("Classic Horror 3", KindFilter::Music),
+        ];
+        for (i, (q, qf)) in probes.iter().enumerate() {
             let evs: Arc<Mutex<Vec<SearchEvent>>> = Arc::new(Mutex::new(Vec::new()));
             let fst: Arc<Mutex<Option<u128>>> = Arc::new(Mutex::new(None));
             let (e2, f2) = (evs.clone(), fst.clone());
@@ -228,11 +252,13 @@ pub fn run(app: AppHandle, out: PathBuf) {
             let req = SearchRequest {
                 search_id: 500_000 + i as u64,
                 query: (*q).into(),
-                filter: KindFilter::All,
+                filter: *qf,
                 page: 1,
                 rights: None,
                 usage: None,
                 max_duration: Some(60),
+                scope: Default::default(),
+                sort: Default::default(),
             };
             state
                 .engine
@@ -251,7 +277,8 @@ pub fn run(app: AppHandle, out: PathBuf) {
             let mut all: Vec<(f32, String, String)> = Vec::new();
             for e in evs.lock().iter() {
                 match e {
-                    SearchEvent::Plan { variants, .. } => {
+                    SearchEvent::Plan { variants, scope, .. } => {
+                        probe.section = format!("{:?}", scope.scope);
                         probe.main_variant = variants.iter().find(|v| v.reason == "entidad").or(variants.first()).map(|v| v.text.clone())
                     }
                     SearchEvent::Batch { items, provider, .. } => {
@@ -263,7 +290,7 @@ pub fn run(app: AppHandle, out: PathBuf) {
             }
             all.sort_by(|a, b| b.0.total_cmp(&a.0));
             probe.top_titles = all.into_iter().take(6).map(|(_, t, p)| format!("{t} [{p}]")).collect();
-            rep.meme_queries.insert((*q).into(), probe);
+            rep.meme_queries.insert(format!("{q} [{qf:?}]"), probe);
         }
         tokio::time::sleep(Duration::from_secs(3)).await;
         rep.after_search = tokio::task::spawn_blocking(mem).await.unwrap_or_default();

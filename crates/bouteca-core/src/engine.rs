@@ -88,6 +88,12 @@ pub struct SearchRequest {
     /// clips cortos suben y lo más largo baja.
     #[serde(default)]
     pub max_duration: Option<u32>,
+    /// Sección: Memes, Archivo o automática (según la intención).
+    #[serde(default)]
+    pub scope: crate::scope::Scope,
+    /// Orden: inteligente (predeterminado), tendencias, recientes, populares o relevancia.
+    #[serde(default)]
+    pub sort: crate::scope::SortMode,
 }
 
 fn one() -> u32 {
@@ -108,6 +114,9 @@ pub enum SearchEvent {
         filter: KindFilter,
         rights: Option<crate::rights::RightsFilter>,
         usage: Option<crate::rights::Usage>,
+        /// Sección deducida o elegida, con sus puntajes.
+        scope: crate::scope::Resolved,
+        sort: crate::scope::SortMode,
     },
     Batch {
         search_id: u64,
@@ -158,6 +167,8 @@ struct Session {
     usage: Option<crate::rights::Usage>,
     duration: Option<u32>,
     max_duration: Option<u32>,
+    scope: crate::scope::Resolved,
+    sort: crate::scope::SortMode,
     /// Miembros comparables (niveles 1–3 de la deduplicación) y calidad de la principal de cada grupo.
     members: Vec<crate::dedup::Member>,
     primary_quality: HashMap<String, f32>,
@@ -209,49 +220,6 @@ pub fn clip_and_freshness(item: &MediaItem, max_duration: Option<u32>, explicit_
 
 /// Marcador que reemplaza la clave cuando la consulta va por el servicio central (el servidor
 /// lo sustituye por la clave real; nunca viaja una clave verdadera desde la app).
-/// Catálogos temáticos (arte, naturaleza, espacio) que no participan en búsquedas de memes.
-pub const NICHE_CATALOGS: &[&str] = &["artic", "met", "cleveland", "inaturalist", "nasa"];
-
-/// Conceptos que indican una búsqueda de memes, reacciones o cultura de internet.
-const POP_CONCEPTS: &[&str] = &[
-    "meme",
-    "reaction",
-    "funny",
-    "laugh",
-    "cry",
-    "facepalm",
-    "cringe",
-    "fail",
-    "win",
-    "viral",
-    "epic",
-    "classic",
-    "crazy",
-    "stupid",
-    "weird",
-    "sus",
-    "shrug",
-    "thumbs_up",
-    "jumpscare",
-    "fart",
-    "airhorn",
-    "green_screen",
-    "transition",
-    "stream",
-    "anime",
-    "game",
-    "movie",
-    "series",
-];
-
-/// ¿Es una búsqueda de memes o cultura de internet? (meme o personaje conocido, o conceptos típicos).
-pub fn is_pop_culture(plan: &QueryPlan) -> bool {
-    !plan.entities.is_empty() || plan.concepts.iter().any(|c| POP_CONCEPTS.contains(&c.as_str())) || {
-        let n = &plan.normalized;
-        ["cursed", "maldit", "gif", "shitpost", "momo", "streamer", "tiktok", "clip"].iter().any(|w| n.contains(w))
-    }
-}
-
 pub const RELAY_KEY: &str = "bouteca-relay";
 
 /// Puntos extra para resultados de fuentes favoritas.
@@ -464,12 +432,13 @@ impl SearchEngine {
 
         // Plan: nuevo o recuperado de la sesión (paginación).
         let mut intent = crate::intent::Intent::default();
-        let (plan, filter, rights, usage, duration, max_duration) = if req.page <= 1 {
+        let (plan, filter, rights, usage, duration, max_duration, resolved, sort) = if req.page <= 1 {
             intent = crate::intent::parse_for(&req.query, req.filter);
             let filter = if req.filter == KindFilter::All { intent.kind.unwrap_or(KindFilter::All) } else { req.filter };
             let rights = req.rights.or(intent.rights);
             let usage = req.usage.or(intent.usage);
             let plan = query::plan(&intent.cleaned, settings.primary_lang, &settings.extra_langs);
+            let resolved = crate::scope::resolve(&plan, &req.query, filter, req.scope);
             let mut sessions = self.sessions.lock();
             if sessions.len() >= MAX_SESSIONS {
                 if let Some(oldest) = sessions.iter().min_by_key(|(_, s)| s.created).map(|(k, _)| *k) {
@@ -485,6 +454,8 @@ impl SearchEngine {
                     usage,
                     duration: intent.duration_secs,
                     max_duration: req.max_duration,
+                    scope: resolved.clone(),
+                    sort: req.sort,
                     members: Vec::new(),
                     primary_quality: HashMap::new(),
                     visual_budget: VISUAL_BUDGET,
@@ -493,10 +464,10 @@ impl SearchEngine {
                     created: Instant::now(),
                 },
             );
-            (plan, filter, rights, usage, intent.duration_secs, req.max_duration)
+            (plan, filter, rights, usage, intent.duration_secs, req.max_duration, resolved, req.sort)
         } else {
             match self.sessions.lock().get(&req.search_id) {
-                Some(s) => (s.plan.clone(), s.filter, s.rights, s.usage, s.duration, s.max_duration),
+                Some(s) => (s.plan.clone(), s.filter, s.rights, s.usage, s.duration, s.max_duration, s.scope.clone(), s.sort),
                 None => {
                     sink(SearchEvent::Done { search_id: req.search_id, has_more: false, total_items: 0, elapsed_ms: 0 });
                     self.finish(req.search_id);
@@ -505,15 +476,13 @@ impl SearchEngine {
             }
         };
 
-        // Proveedores participantes. En búsquedas de memes y cultura de internet se omiten los
-        // catálogos de arte, naturaleza y espacio: nunca tienen ese contenido y sus resultados
-        // (pinturas, ranas de museo) tapaban a los relevantes.
-        let pop = is_pop_culture(&plan);
+        // Proveedores participantes según la sección (Memes / Archivo / automática): en memes
+        // no participan museos ni catálogos de naturaleza; en Archivo, no las fuentes de GIFs.
         let candidates: Vec<DynProvider> = self
             .providers
             .iter()
             .filter(|p| p.supports(filter))
-            .filter(|p| !(pop && NICHE_CATALOGS.contains(&p.info().id)))
+            .filter(|p| crate::scope::provider_allowed(p.info().id, &resolved, filter))
             .filter(|p| matches!(self.status_of(p.info().id), ProviderStatus::Ready | ProviderStatus::Error(_)))
             .filter(|p| req.page <= 1 || self.sessions.lock().get(&req.search_id).and_then(|s| s.more.get(p.info().id).copied()).unwrap_or(false))
             .cloned()
@@ -530,6 +499,8 @@ impl SearchEngine {
                 filter,
                 rights,
                 usage,
+                scope: resolved.clone(),
+                sort,
             });
         }
 
@@ -583,6 +554,7 @@ impl SearchEngine {
             let sink = sink.clone();
             let token = token.clone();
             let plan = plan.clone();
+            let resolved = resolved.clone();
             let total = total.clone();
             let page = req.page;
             let search_id = req.search_id;
@@ -633,8 +605,32 @@ impl SearchEngine {
                             if rights.is_some_and(|r| !r.matches(&item.rights)) || usage.is_some_and(|u| item.rights.allows(u) != Some(true)) {
                                 continue;
                             }
-                            item.score = rank::score(&item, &plan, variant.weight, pos);
-                            item.score += clip_and_freshness(&item, max_duration, duration.is_some());
+                            // Lo que no se puede ver ni escuchar no se presenta como utilizable.
+                            if !crate::scope::playable(&item) {
+                                continue;
+                            }
+                            item.relevance = rank::relevance(&item, &plan);
+                            let Some(section) = crate::scope::adjust(&item, &plan, &resolved, item.relevance, filter) else {
+                                continue;
+                            };
+                            let base = rank::score(&item, &plan, variant.weight, pos);
+                            let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+                            item.score = match sort {
+                                crate::scope::SortMode::Smart | crate::scope::SortMode::Trending => {
+                                    base + section
+                                        + clip_and_freshness(&item, max_duration, duration.is_some())
+                                        + crate::scope::popularity_boost(&item, sort, now)
+                                }
+                                crate::scope::SortMode::Relevance => base + section,
+                                crate::scope::SortMode::Recent => match item.published_at {
+                                    Some(t) => 100.0 + 100.0 * (-(((now - t).max(0) as f32) / 86_400.0) / 60.0).exp() + item.relevance * 10.0,
+                                    None => base * 0.5,
+                                },
+                                crate::scope::SortMode::Popular => match item.popularity {
+                                    Some(v) => 100.0 + 12.0 * ((v as f32) + 1.0).log10() + item.relevance * 10.0,
+                                    None => base * 0.5,
+                                },
+                            };
                             if engine.settings.read().favorite_providers.contains(&item.provider) {
                                 item.score += FAVORITE_BOOST;
                             }

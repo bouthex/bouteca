@@ -105,6 +105,7 @@ pub(crate) fn map_doc(d: &Value) -> Option<MediaItem> {
         variants: vec![],
         notices: vec![],
         published_at: None,
+        relevance: 0.0,
         sensitive: false,
         score: 0.0,
         dedupe_key: String::new(),

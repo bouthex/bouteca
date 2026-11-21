@@ -64,6 +64,8 @@ async fn busqueda_federada_con_proveedor_caido_y_duplicados() {
                 rights: None,
                 usage: None,
                 max_duration: None,
+                scope: Default::default(),
+                sort: Default::default(),
             },
             sink,
         )
@@ -106,7 +108,17 @@ async fn cancelar_detiene_eventos() {
     let e2 = engine.clone();
     let h = tokio::spawn(async move {
         e2.search(
-            SearchRequest { search_id: 7, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None, max_duration: None },
+            SearchRequest {
+                search_id: 7,
+                query: "gato".into(),
+                filter: KindFilter::All,
+                page: 1,
+                rights: None,
+                usage: None,
+                max_duration: None,
+                scope: Default::default(),
+                sort: Default::default(),
+            },
             sink,
         )
         .await
@@ -138,7 +150,17 @@ async fn limite_429_pausa_al_proveedor_y_cachea_respuestas() {
     // "xqz" no tiene traducciones: una sola variante por proveedor.
     engine
         .search(
-            SearchRequest { search_id: 1, query: "xqz".into(), filter: KindFilter::Image, page: 1, rights: None, usage: None, max_duration: None },
+            SearchRequest {
+                search_id: 1,
+                query: "xqz".into(),
+                filter: KindFilter::Image,
+                page: 1,
+                rights: None,
+                usage: None,
+                max_duration: None,
+                scope: Default::default(),
+                sort: Default::default(),
+            },
             sink.clone(),
         )
         .await;
@@ -146,7 +168,17 @@ async fn limite_429_pausa_al_proveedor_y_cachea_respuestas() {
     let (sink2, ev2) = collect();
     engine
         .search(
-            SearchRequest { search_id: 2, query: "xqz".into(), filter: KindFilter::Image, page: 1, rights: None, usage: None, max_duration: None },
+            SearchRequest {
+                search_id: 2,
+                query: "xqz".into(),
+                filter: KindFilter::Image,
+                page: 1,
+                rights: None,
+                usage: None,
+                max_duration: None,
+                scope: Default::default(),
+                sort: Default::default(),
+            },
             sink2,
         )
         .await;
@@ -178,7 +210,17 @@ async fn paginacion_solo_consulta_proveedores_con_mas() {
     let (sink, _) = collect();
     engine
         .search(
-            SearchRequest { search_id: 3, query: "xqz".into(), filter: KindFilter::Image, page: 1, rights: None, usage: None, max_duration: None },
+            SearchRequest {
+                search_id: 3,
+                query: "xqz".into(),
+                filter: KindFilter::Image,
+                page: 1,
+                rights: None,
+                usage: None,
+                max_duration: None,
+                scope: Default::default(),
+                sort: Default::default(),
+            },
             sink,
         )
         .await;
@@ -186,7 +228,17 @@ async fn paginacion_solo_consulta_proveedores_con_mas() {
     let (sink2, _) = collect();
     engine
         .search(
-            SearchRequest { search_id: 3, query: "xqz".into(), filter: KindFilter::Image, page: 2, rights: None, usage: None, max_duration: None },
+            SearchRequest {
+                search_id: 3,
+                query: "xqz".into(),
+                filter: KindFilter::Image,
+                page: 2,
+                rights: None,
+                usage: None,
+                max_duration: None,
+                scope: Default::default(),
+                sort: Default::default(),
+            },
             sink2,
         )
         .await;
@@ -226,6 +278,8 @@ async fn musica_por_contexto_con_filtro_de_derechos_verificado() {
         rights: None,
         usage: None,
         max_duration: None,
+        scope: Default::default(),
+        sort: Default::default(),
     };
     engine.search(req, sink).await;
     let ev = events.lock();
@@ -263,6 +317,8 @@ async fn uso_monetizado_excluye_nc_y_desconocidas() {
         rights: None,
         usage: Some(bouteca_core::rights::Usage::YouTubeMonetized),
         max_duration: None,
+        scope: Default::default(),
+        sort: Default::default(),
     };
     engine.search(req, sink).await;
     let ev = events.lock();
@@ -403,7 +459,17 @@ async fn duplicados_exactos_por_metadatos_y_visuales_con_variantes_legitimas() {
     let (sink, events) = collect();
     engine
         .search(
-            SearchRequest { search_id: 21, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None, max_duration: None },
+            SearchRequest {
+                search_id: 21,
+                query: "gato".into(),
+                filter: KindFilter::All,
+                page: 1,
+                rights: None,
+                usage: None,
+                max_duration: None,
+                scope: Default::default(),
+                sort: Default::default(),
+            },
             sink,
         )
         .await;
@@ -441,7 +507,17 @@ async fn agrupar_se_puede_desactivar() {
     let (sink, events) = collect();
     engine
         .search(
-            SearchRequest { search_id: 22, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None, max_duration: None },
+            SearchRequest {
+                search_id: 22,
+                query: "gato".into(),
+                filter: KindFilter::All,
+                page: 1,
+                rights: None,
+                usage: None,
+                max_duration: None,
+                scope: Default::default(),
+                sort: Default::default(),
+            },
             sink,
         )
         .await;
@@ -483,7 +559,17 @@ async fn la_clave_guardada_llega_al_componente_que_consulta() {
     let e = Arc::new(SearchEngine::new(vec![p.clone()], build_test_client(), EngineSettings::default(), Arc::new(NoKeys)));
     let (sink, events) = collect();
     e.search(
-        SearchRequest { search_id: 30, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None, max_duration: None },
+        SearchRequest {
+            search_id: 30,
+            query: "gato".into(),
+            filter: KindFilter::All,
+            page: 1,
+            rights: None,
+            usage: None,
+            max_duration: None,
+            scope: Default::default(),
+            sort: Default::default(),
+        },
         sink,
     )
     .await;
@@ -492,7 +578,17 @@ async fn la_clave_guardada_llega_al_componente_que_consulta() {
     let e = Arc::new(SearchEngine::new(vec![p], build_test_client(), EngineSettings::default(), Arc::new(OneKey)));
     let (sink, events) = collect();
     e.search(
-        SearchRequest { search_id: 31, query: "gato".into(), filter: KindFilter::All, page: 1, rights: None, usage: None, max_duration: None },
+        SearchRequest {
+            search_id: 31,
+            query: "gato".into(),
+            filter: KindFilter::All,
+            page: 1,
+            rights: None,
+            usage: None,
+            max_duration: None,
+            scope: Default::default(),
+            sort: Default::default(),
+        },
         sink,
     )
     .await;
@@ -529,17 +625,4 @@ fn servicio_central_y_prioridad_de_la_clave_propia() {
     assert!(engine.set_relay(Some(bad)).is_err());
     engine.set_relay(None).unwrap();
     assert_eq!(engine.ctx_for("youtube").api_key, None);
-}
-
-#[test]
-fn memes_no_consultan_catalogos_de_arte() {
-    use bouteca_core::query::{plan, LangCode};
-    let p = |q: &str| plan(q, LangCode::Es, &[]);
-    assert!(is_pop_culture(&p("pepe llorando")));
-    assert!(is_pop_culture(&p("cursed memes")));
-    assert!(is_pop_culture(&p("reaction gif")));
-    assert!(is_pop_culture(&p("gato riendo meme")));
-    assert!(!is_pop_culture(&p("gato")));
-    assert!(!is_pop_culture(&p("pintura de van gogh")));
-    assert!(!is_pop_culture(&p("nebulosa")));
 }

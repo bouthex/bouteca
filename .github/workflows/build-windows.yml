@@ -76,7 +76,7 @@ jobs:
         run: |
           $out = Join-Path $env:RUNNER_TEMP 'smoke.json'
           $p = Start-Process $env:BOUTECA_EXE -ArgumentList "--smoke-test=$out" -PassThru
-          if (-not $p.WaitForExit(180000)) { $p.Kill(); Write-Output "::error title=Humo::La app no terminó en 180 s"; exit 1 }
+          if (-not $p.WaitForExit(420000)) { $p.Kill(); Write-Output "::error title=Humo::La app no terminó en 420 s"; exit 1 }
           if (-not (Test-Path $out)) { Write-Output "::error title=Humo::No se generó el informe (código $($p.ExitCode))"; exit 1 }
           Copy-Item $out smoke.json
           $r = Get-Content $out -Raw | ConvertFrom-Json
@@ -84,7 +84,7 @@ jobs:
           Write-Output "::notice title=Humo — reposo::proceso $($r.idle.main_mb) MB + WebView2 $($r.idle.webview_mb) MB = $($r.idle.total_mb) MB; CPU $($r.idle.cpu_percent) %"
           Write-Output "::notice title=Humo — búsqueda::$($r.total_results) resultados en $($r.search_ms) ms; $(($r.results_by_provider | ConvertTo-Json -Compress))"
           Write-Output "::notice title=Humo — primeros resultados::$($r.first_results_ms) ms (total $($r.search_ms) ms)"
-          foreach ($q in $r.meme_queries.PSObject.Properties) { $v = $q.Value; Write-Output "::notice title=Memes — $($q.Name)::$($v.results) resultados; primeros en $($v.first_ms) ms, total $($v.total_ms) ms; consulta principal: $($v.main_variant); arriba: $(($v.top_titles | Select-Object -First 4) -join ' | ')" }
+          foreach ($q in $r.meme_queries.PSObject.Properties) { $v = $q.Value; Write-Output "BUSQUEDA $($q.Name) => sección $($v.section); $($v.results) resultados; primeros en $($v.first_ms) ms, total $($v.total_ms) ms; consulta: $($v.main_variant); arriba: $(($v.top_titles | Select-Object -First 6) -join ' | ')" }
           Write-Output "::notice title=Humo — tras búsqueda::total $($r.after_search.total_mb) MB; tras liberar $($r.after_idle_release.total_mb) MB"
           Write-Output "::notice title=Humo — procesos WebView2 (MB)::$(($r.processes | ForEach-Object { "$($_[0])=$($_[1])" }) -join ', ')"
           if ($r.provider_errors.PSObject.Properties.Count -gt 0) { Write-Output "::warning title=Humo — fuentes con error::$(($r.provider_errors | ConvertTo-Json -Compress))" }

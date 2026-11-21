@@ -28,6 +28,8 @@ struct Probe {
     ms: u128,
     /// Igual, pero sin Referer (para detectar bloqueo por hotlink).
     without_referer: Option<String>,
+    /// Igual, con el agente de usuario de Edge (como el visor de la app).
+    browser_ua: Option<String>,
 }
 
 #[derive(Serialize, Default)]
@@ -65,9 +67,7 @@ fn sniff(b: &[u8]) -> &'static str {
     } else if s(b"OggS") {
         "audio-o-video/ogg"
     } else if s(b"ID3")
-        || s(&[0xFF, 0xFB])
-        || s(&[0xFF, 0xF3])
-        || s(&[0xFF, 0xF2])
+        || (b.len() > 1 && b[0] == 0xFF && (b[1] & 0xE0) == 0xE0)
         || s(b"fLaC")
         || (b.len() > 12 && &b[0..4] == b"RIFF" && &b[8..12] == b"WAVE")
     {
@@ -135,6 +135,17 @@ async fn probe(client: &reqwest::Client, url: &str) -> Probe {
     if !ok_any(&p.outcome) {
         let q = probe_once(client, url, false).await;
         p.without_referer = Some(q.outcome);
+        if p.status == 403 || p.status == 429 {
+            // ¿Bloquea solo a clientes que no son navegadores? (el visor usa el agente de Edge)
+            let browser = reqwest::Client::builder()
+                .user_agent(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
+                )
+                .build()
+                .unwrap();
+            let b = probe_once(&browser, url, true).await;
+            p.browser_ua = Some(b.outcome);
+        }
     }
     p
 }
@@ -235,8 +246,9 @@ async fn auditoria_de_previsualizaciones() {
                     if matches!(pr.outcome.as_str(), "imagen" | "gif" | "imagen-svg") {
                         r.thumbs_ok += 1;
                     }
-                    let key = match &pr.without_referer {
-                        Some(w) if ok_any(w) => format!("{} (con Referer; sin Referer: OK → hotlink)", pr.outcome),
+                    let key = match (&pr.without_referer, &pr.browser_ua) {
+                        (Some(w), _) if ok_any(w) => format!("{} (con Referer; sin Referer: OK → hotlink)", pr.outcome),
+                        (_, Some(b)) if ok_any(b) => format!("{} (con agente de navegador: OK)", pr.outcome),
                         _ => pr.outcome.clone(),
                     };
                     *r.thumbs_by_outcome.entry(key).or_default() += 1;
@@ -249,8 +261,9 @@ async fn auditoria_de_previsualizaciones() {
                         if good {
                             r.media_ok += 1;
                         }
-                        let key = match &pr.without_referer {
-                            Some(w) if ok_any(w) => format!("{} (hotlink: sin Referer funciona)", pr.outcome),
+                        let key = match (&pr.without_referer, &pr.browser_ua) {
+                            (Some(w), _) if ok_any(w) => format!("{} (hotlink: sin Referer funciona)", pr.outcome),
+                            (_, Some(b)) if ok_any(b) => format!("{} (con agente de navegador: OK)", pr.outcome),
                             _ if !good && ok_any(&pr.outcome) => format!("{} (no corresponde a {:?})", pr.outcome, it.kind),
                             _ => pr.outcome.clone(),
                         };

@@ -126,7 +126,9 @@ pub fn registry() -> Vec<DynProvider> {
         Arc::new(museums::Met::new()),
         Arc::new(museums::Cleveland::new()),
         Arc::new(openmedia::INaturalist::new()),
-        Arc::new(openmedia::CcMixter::new()),
+        // ccMixter retirado de la búsqueda (1.2.0): la auditoría real mostró 16 de 16 resultados sin
+        // nada reproducible (sus archivos bloquean la reproducción fuera de su sitio). Su catálogo
+        // CC llega en parte por Openverse, con audio reproducible.
         Arc::new(videos::PeerTube::new()),
         Arc::new(videos::Dailymotion::new()),
     ]
