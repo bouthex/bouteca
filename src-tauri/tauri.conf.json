@@ -72,7 +72,7 @@
         "https://github.com/bouthex/bouteca/releases/latest/download/latest.json"
       ],
       "windows": {
-        "installMode": "passive"
+        "installMode": "quiet"
       }
     }
   }

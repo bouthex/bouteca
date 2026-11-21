@@ -60,3 +60,7 @@ export const Refresh = I(<><path d="M20 11a8 8 0 0 0-14.6-4.5L4 8" /><path d="M4
 export const Pencil = I(<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Z" />);
 export const Key = I(<><circle cx="8" cy="15" r="4" /><path d="m11 12 8-8M16 7l2 2M14 9l2 2" /></>);
 export const Globe = I(<><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>);
+export const Smile = I(<><circle cx="12" cy="12" r="9" /><path d="M8.5 14.5c.9 1.2 2.1 1.8 3.5 1.8s2.6-.6 3.5-1.8" /><path d="M9 9.5h.01M15 9.5h.01" stroke-width="2.6" /></>);
+export const Landmark = I(<><path d="M3 21h18M5 18h14M6 18v-7M10 18v-7M14 18v-7M18 18v-7M3.5 9 12 4l8.5 5z" /></>);
+export const Retry = I(<><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></>);
+export const VolumeOff = I(<><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z" /><path d="m16 9.5 5 5M21 9.5l-5 5" /></>);

@@ -30,6 +30,10 @@ const images = [
     rights: rights("public_domain", "sin_atribucion", true, false, true, "Sin derechos de autor conocidos.") }),
   base({ uid: "dailymotion:x1", provider: "dailymotion", provider_id: "x1", kind: "video", title: "Gato asustado por un pepino", dedupe_key: "g2", thumbnail: svg(10, "Dailymotion"), duration_secs: 31, download_policy: "preview_only", renditions: [], embed_url: null,
     license: "Dailymotion: derechos del autor", rights: rights("restricted", "uso_restringido", false, false, false, "Con derechos de autor: se puede ver en la fuente.") }),
+  base({ uid: "giphy:nothumb", provider: "giphy", provider_id: "nt", kind: "gif", title: "Pepe llorando (sin miniatura)", dedupe_key: "g7", thumbnail: null, popularity: 1_250_000, published_at: Math.floor(Date.now() / 1000) - 3 * 86400,
+    renditions: [{ label: "GIF", url: "https://example.org/nt.gif", mime: "image/gif", width: 480, height: 480, size_bytes: 900000, original: true }], rights: rights("restricted", "uso_restringido", true, false, false, "Uso personal.") }),
+  base({ uid: "youtube:v1", provider: "youtube", provider_id: "v1", kind: "video", title: "Clip viral sin miniatura", dedupe_key: "g8", thumbnail: null, popularity: 3_400_000, published_at: Math.floor(Date.now() / 1000) - 20 * 86400, duration_secs: 14, download_policy: "preview_only", renditions: [], embed_url: "https://www.youtube-nocookie.com/embed/abc",
+    rights: rights("restricted", "uso_restringido", false, false, false, "Solo reproductor oficial.") }),
   base({ uid: "artic:1", provider: "artic", provider_id: "1", kind: "image", title: "Tarde de domingo en la isla", dedupe_key: "g3", thumbnail: svg(120, "AIC"), width: 3000, height: 2010,
     renditions: [{ label: "IIIF 1686", url: "https://example.org/1686.jpg", mime: "image/jpeg", width: 1686, height: 1130, size_bytes: null, original: true }], rights: rights("cc0", "sin_atribucion", true, false, true, "Uso libre.") }),
   base({ uid: "archive:u", provider: "archive", provider_id: "u", kind: "video", title: "Película sin licencia declarada", dedupe_key: "g4", thumbnail: svg(300, "Archive"), license: null, duration_secs: 600,
@@ -65,7 +69,8 @@ export async function invoke(cmd: string, args?: Record<string, any>): Promise<a
       setTimeout(() => emit("search-event", { type: "plan", search_id: id, variants: [{ text: req.query, lang: "es", weight: 1, reason: "original" }, { text: isMusic ? "tension horror" : "cat", lang: "en", weight: 0.9, reason: "traducción" }], concepts: [], entities: [],
         providers: isMusic ? ["openverse", "ccmixter", "archive", "wikimedia"] : ["nasa", "artic", "dailymotion", "archive", "peertube"],
         intent: { cleaned: "tension terror", kind: isMusic ? "music" : null, rights: noAttr ? "sin_atribucion" : null, usage: null, duration_secs: /dos minutos/.test(req.query) ? 120 : null, detected: noAttr ? ["sin atribucion"] : [] },
-        filter: isMusic ? "music" : req.filter, rights: req.rights ?? (noAttr ? "sin_atribucion" : null), usage: req.usage }), 30);
+        filter: isMusic ? "music" : req.filter, rights: req.rights ?? (noAttr ? "sin_atribucion" : null), usage: req.usage,
+        scope: { scope: req.scope !== "auto" ? req.scope : /museo|arte|historia/i.test(req.query) ? "archivo" : /pepe|meme/i.test(req.query) ? "memes" : "auto", forced: req.scope !== "auto", memes_score: 3, archive_score: 0, person_like: false }, sort: req.sort }), 30);
       const items = isMusic ? (noAttr ? music.slice(0, 1) : music) : images;
       setTimeout(() => emit("search-event", { type: "batch", search_id: id, provider: "openverse", items }), 120);
       if (!isMusic) {
@@ -108,6 +113,18 @@ export async function invoke(cmd: string, args?: Record<string, any>): Promise<a
       const pv = (id: string, name: string, needs_key: boolean, via_relay: boolean, has_key = false) => ({ info: { id, name, needs_key, terms: "Términos del proveedor.", rate_limit: "100/h", key_url: needs_key ? "https://example.org" : null }, status: { state: needs_key && !via_relay && !has_key ? "needs_key" : "ready" }, has_key, via_relay, enabled: true });
       return [pv("openverse", "Openverse", false, false), pv("giphy", "GIPHY", true, false, true), pv("youtube", "YouTube", true, true), pv("pexels", "Pexels", true, false)];
     }
+    case "update_check": {
+      let done = 0;
+      const total = 5_000_000;
+      const t = setInterval(() => {
+        done += 900_000;
+        emit("update-event", { type: "progress", done: Math.min(done, total), total });
+        if (done >= total) { clearInterval(t); setTimeout(() => emit("update-event", { type: "ready", version: "1.2.0" }), 1500); }
+      }, 300);
+      return { configured: true, current: "1.1.0", available: "1.2.0", notes: "", date: null, ready: null };
+    }
+    case "update_install":
+      return new Promise(() => {});
     case "relay_refresh":
       return ["youtube"];
     default:
@@ -116,6 +133,10 @@ export async function invoke(cmd: string, args?: Record<string, any>): Promise<a
 }
 void lastQuery;
 
+// Con #avail: actualización disponible sin descargar (para ver el aviso y la pantalla integrada).
+if (typeof location !== "undefined" && location.hash === "#avail") {
+  setTimeout(() => emit("update-event", { type: "available", version: "1.2.0", notes: "Secciones Memes y Archivo, reproductor nuevo.", date: null }), 600);
+}
 // Con #update en la URL se simula una actualización descargándose y lista para instalar.
 if (typeof location !== "undefined" && location.hash === "#update") {
   setTimeout(() => emit("update-event", { type: "available", version: "0.3.0", notes: "Música, derechos y deduplicación.", date: null }), 600);

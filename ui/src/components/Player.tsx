@@ -2,6 +2,19 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { duration } from "../lib/format";
 import * as Icon from "../lib/icons";
 import { playerMounted, playerUnmounted } from "../lib/store";
+import { hostOf, record } from "../lib/metrics";
+
+type PState = "preparing" | "loading" | "playing" | "paused" | "blocked" | "error";
+
+/** Causa legible de un error del reproductor (MediaError del navegador integrado). */
+function errorText(el: HTMLMediaElement | null): string {
+  switch (el?.error?.code) {
+    case 2: return "La fuente no respondió o cortó la conexión.";
+    case 3: return "El archivo está dañado o usa un formato que el reproductor no admite.";
+    case 4: return "La fuente no entregó un archivo reproducible: el enlace pudo vencer o la fuente bloquea la reproducción fuera de su sitio.";
+    default: return "No se pudo reproducir este archivo.";
+  }
+}
 
 /**
  * Reproductor integrado de video/audio con controles propios: reproducir/pausar, ±10 s, progreso,
@@ -18,14 +31,34 @@ export function Player({ src, kind, poster, wave }: { src: string; kind: "video"
   const [muted, setMuted] = useState(false);
   const [loop, setLoop] = useState(kind === "video");
   const [error, setError] = useState<string | null>(null);
-  const [waiting, setWaiting] = useState(true);
+  const [state, setState] = useState<PState>("preparing");
+  const [slow, setSlow] = useState(false);
+  const started = useRef(performance.now());
+  const measured = useRef(false);
+
+  const measure = (ok: boolean, reason?: string) => {
+    if (measured.current) return;
+    measured.current = true;
+    record({ kind, host: hostOf(src), ok, ms: Math.round(performance.now() - started.current), reason });
+  };
+
+  const start = () => {
+    const el = ref.current;
+    if (!el) return;
+    el.play().catch((e: DOMException) => {
+      // El navegador integrado puede exigir un clic para reproducir con sonido.
+      if (e?.name === "NotAllowedError") setState("blocked");
+    });
+  };
 
   useEffect(() => {
     playerMounted();
     const el = ref.current!;
     el.volume = vol;
-    el.play().catch(() => {}); // si el WebView bloquea autoplay, queda listo para el clic
+    start();
+    const slowTimer = window.setTimeout(() => setSlow(true), 8000);
     return () => {
+      clearTimeout(slowTimer);
       el.pause();
       el.removeAttribute("src");
       el.load();
@@ -42,8 +75,20 @@ export function Player({ src, kind, poster, wave }: { src: string; kind: "video"
 
   const toggle = () => {
     const el = ref.current!;
-    if (el.paused) el.play().catch((e) => setError(String(e?.message ?? e)));
+    if (el.paused) el.play().catch((e: DOMException) => { if (e?.name === "NotAllowedError") setState("blocked"); });
     else el.pause();
+  };
+
+  const retry = () => {
+    const el = ref.current;
+    if (!el) return;
+    setError(null);
+    setSlow(false);
+    setState("preparing");
+    measured.current = false;
+    started.current = performance.now();
+    el.load();
+    start();
   };
 
   const skip = (secs: number) => {
@@ -71,16 +116,35 @@ export function Player({ src, kind, poster, wave }: { src: string; kind: "video"
     preload: "metadata" as const,
     onPlay: () => {
       setPlaying(true);
+      setState((s) => (s === "blocked" ? "loading" : s));
       // Nunca dos reproducciones con sonido a la vez.
       document.querySelectorAll<HTMLMediaElement>("audio, video").forEach((m) => { if (m !== ref.current && !m.muted && !m.paused) m.pause(); });
     },
-    onPause: () => setPlaying(false),
+    onPause: () => { setPlaying(false); setState((s) => (s === "playing" ? "paused" : s)); },
     onTimeUpdate: () => setT(ref.current?.currentTime ?? 0),
-    onLoadedMetadata: () => { setD(ref.current?.duration ?? 0); setWaiting(false); },
-    onWaiting: () => setWaiting(true),
-    onPlaying: () => setWaiting(false),
-    onError: () => setError("No se puede reproducir este archivo aquí. Probá descargarlo o abrir la fuente."),
+    onLoadedMetadata: () => { setD(ref.current?.duration ?? 0); setState((s) => (s === "preparing" ? "loading" : s)); },
+    onCanPlay: () => setState((s) => (s === "preparing" || s === "loading" ? (ref.current?.paused ? "paused" : "playing") : s)),
+    onWaiting: () => setState("loading"),
+    onPlaying: () => { setState("playing"); setSlow(false); measure(true); },
+    onError: () => { const m = errorText(ref.current); setError(m); setState("error"); measure(false, m); },
   };
+
+  const status = state === "preparing" ? (slow ? "La fuente está tardando en responder…" : "Preparando…")
+    : state === "loading" ? (slow ? "Cargando (la fuente responde lento)…" : "Cargando…")
+    : state === "blocked" ? "Tocá reproducir para empezar" : null;
+  const overlay = error ? (
+    <div class="player-msg error" role="alert" onClick={(e) => e.stopPropagation()}>
+      <Icon.Alert size={20} />
+      <p>{error}</p>
+      <button class="btn sm" onClick={retry}><Icon.Retry size={14} /> Reintentar</button>
+    </div>
+  ) : status ? (
+    <div class={`player-msg ${state}`} aria-live="polite" onClick={(e) => { e.stopPropagation(); if (state === "blocked") toggle(); }}>
+      {state === "blocked" ? <Icon.Play size={18} /> : <span class="spinner" />}
+      <span>{status}</span>
+      {slow && state !== "blocked" && <button class="btn sm ghost" onClick={retry}><Icon.Retry size={13} /> Reintentar</button>}
+    </div>
+  ) : null;
 
   const bar = (
     <div class="player-bar" onClick={(e) => e.stopPropagation()}>
@@ -112,15 +176,16 @@ export function Player({ src, kind, poster, wave }: { src: string; kind: "video"
       <div class="stage audio" ref={stage} tabIndex={0} onKeyDown={onKey} aria-label="Reproductor de audio">
         {wave ? <img class="wave-img" src={wave} alt="" /> : <Icon.Music size={56} class="wave" />}
         <audio {...common} />
-        {error ? <p class="small" style="color:#fff">{error}</p> : bar}
+        {overlay}
+        {!error && bar}
       </div>
     );
   }
   return (
     <div class="stage" ref={stage} tabIndex={0} onKeyDown={onKey} onClick={toggle} onDblClick={() => stage.current?.requestFullscreen()}>
       <video {...common} poster={poster ?? undefined} playsInline />
-      {error ? <p class="small" style="position:absolute;color:#fff;padding:16px;text-align:center">{error}</p> : bar}
-      {waiting && !error && <div class="skeleton" style="position:absolute;inset:0;opacity:.35;pointer-events:none" />}
+      {overlay}
+      {!error && bar}
     </div>
   );
 }

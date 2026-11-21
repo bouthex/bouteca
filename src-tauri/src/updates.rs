@@ -179,8 +179,15 @@ pub fn schedule_startup_check(app: &AppHandle) {
     }
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(10)).await;
-        let _ = check(app, auto).await;
+        // Al iniciar (sin demorar la apertura) y después cada 12 horas si la app sigue abierta.
+        tokio::time::sleep(Duration::from_secs(4)).await;
+        loop {
+            let ready = app.state::<std::sync::Arc<AppState>>().update_ready.lock().is_some();
+            if !ready {
+                let _ = check(app.clone(), auto).await;
+            }
+            tokio::time::sleep(Duration::from_secs(12 * 3600)).await;
+        }
     });
 }
 

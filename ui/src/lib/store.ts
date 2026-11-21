@@ -56,6 +56,21 @@ export function reveal(uid: string) {
   revealed.value = new Set([...revealed.value, uid]);
 }
 export const hoverSound = signal<boolean>(readLocal("bouteca.hoverSound", true));
+/** Sección elegida por el usuario para la búsqueda actual ("auto" = según la intención). */
+export const scopeSel = signal<T.Scope>("auto");
+/** Sección con la que se resolvió la búsqueda (la informa el motor). */
+export const resolvedScope = signal<T.ScopeResolved | null>(null);
+/** Orden de resultados (recordado en este equipo). */
+export const sortMode = signal<T.SortMode>(readLocal("bouteca.sort", "smart"));
+export function setScope(s: T.Scope) {
+  scopeSel.value = s;
+  rerunSearch();
+}
+export function setSort(s: T.SortMode) {
+  sortMode.value = s;
+  writeLocal("bouteca.sort", s);
+  rerunSearch();
+}
 
 function readLocal<V>(key: string, fallback: V): V {
   try {
@@ -75,6 +90,9 @@ interface NavEntry {
   rights: T.RightsFilter | null;
   usage: T.Usage | null;
   duration: number | null;
+  scope: T.Scope;
+  resolved: T.ScopeResolved | null;
+  sort: T.SortMode;
   results: T.MediaItem[];
   alternates: Map<string, Alt[]>;
   groups: Map<string, Group>;
@@ -93,6 +111,7 @@ function snapshot(): NavEntry | null {
   if (!lastSearched.value) return null;
   return {
     query: lastSearched.value, filter: filter.value, rights: rightsFilter.value, usage: usageFilter.value, duration: clipDuration.value,
+    scope: scopeSel.value, resolved: resolvedScope.value, sort: sortMode.value,
     results: results.value, alternates: alternates.value, groups: groups.value, plan: plan.value, understood: understood.value,
     hasMore: hasMore.value, scroll: gridScroll.top,
   };
@@ -103,6 +122,7 @@ function restore(e: NavEntry) {
   batch(() => {
     query.value = e.query; lastSearched.value = e.query; filter.value = e.filter;
     rightsFilter.value = e.rights; usageFilter.value = e.usage; clipDuration.value = e.duration;
+    scopeSel.value = e.scope; resolvedScope.value = e.resolved; sortMode.value = e.sort;
     results.value = e.results; alternates.value = e.alternates; groups.value = e.groups;
     plan.value = e.plan; understood.value = e.understood; hasMore.value = false;
     searching.value = false; loadingMore.value = false; userScrolled.value = true; view.value = "search";
@@ -134,6 +154,8 @@ export function runSearch(q = query.value, f = filter.value) {
   if (text === lastSearched.value && f === filter.value && results.value.length > 0 && !searching.value && view.value === "search" && q === query.value && !forceNext) {
     return;
   }
+  // Texto nuevo: la sección vuelve a deducirse de la intención.
+  if (text !== lastSearched.value) scopeSel.value = "auto";
   forceNext = false;
   const cur = snapshot();
   if (cur && cur.results.length > 0) {
@@ -152,6 +174,7 @@ export function runSearch(q = query.value, f = filter.value) {
     groups.value = new Map();
     plan.value = null;
     understood.value = null;
+    resolvedScope.value = null;
     providerState.value = {};
     providerErrors.value = {};
     searching.value = true;
@@ -161,7 +184,7 @@ export function runSearch(q = query.value, f = filter.value) {
     elapsedMs.value = null;
     view.value = "search";
   });
-  api.search(currentId, text, f, 1, rightsFilter.value, usageFilter.value, clipDuration.value).catch((e) => {
+  api.search(currentId, text, f, 1, rightsFilter.value, usageFilter.value, clipDuration.value, scopeSel.value, sortMode.value).catch((e) => {
     searching.value = false;
     toast(errText(e), "error");
   });
@@ -171,7 +194,7 @@ export function loadMore() {
   if (!hasMore.value || loadingMore.value || searching.value || !lastSearched.value) return;
   page += 1;
   loadingMore.value = true;
-  api.search(currentId, lastSearched.value, filter.value, page, rightsFilter.value, usageFilter.value, clipDuration.value).catch((e) => {
+  api.search(currentId, lastSearched.value, filter.value, page, rightsFilter.value, usageFilter.value, clipDuration.value, scopeSel.value, sortMode.value).catch((e) => {
     loadingMore.value = false;
     toast(errText(e), "error");
   });
@@ -183,6 +206,7 @@ function handleSearchEvent(e: T.SearchEvent) {
     case "plan": {
       plan.value = { variants: e.variants, providers: e.providers };
       understood.value = { intent: e.intent, rights: e.rights, usage: e.usage };
+      resolvedScope.value = e.scope ?? null;
       // Si el texto pedía un tipo ("música de…"), la pestaña refleja el filtro efectivo.
       if (e.filter !== filter.value) filter.value = e.filter;
       const st: Record<string, "pending"> = {};

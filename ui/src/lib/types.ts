@@ -41,6 +41,7 @@ export interface MediaItem {
   notices?: string[];
   sensitive?: boolean;
   published_at?: number | null;
+  relevance?: number;
   score: number;
   dedupe_key: string;
 }
@@ -117,6 +118,7 @@ export type SearchEvent =
   | {
       type: "plan"; search_id: number; variants: QueryVariant[]; concepts: string[]; entities: string[]; providers: string[];
       intent: Intent; filter: KindFilter; rights: RightsFilter | null; usage: Usage | null;
+      scope: ScopeResolved; sort: SortMode;
     }
   | { type: "batch"; search_id: number; provider: string; items: MediaItem[] }
   | { type: "alternate"; search_id: number; dedupe_key: string; provider: string; uid: string; renditions: Rendition[] }
@@ -303,3 +305,8 @@ export interface StudioProject { id: number; name: string; description: string; 
 export interface KitCategory { id: "music" | "sfx" | "video" | "image"; label: string; filter: KindFilter; queries: string[] }
 export interface KitPlan { theme: string; name: string; categories: KitCategory[]; rights: RightsFilter | null; usage: Usage | null; duration_secs: number | null }
 export interface StudioDetail { project: StudioProject; plan: KitPlan; items: { category: string; item: MediaItem }[] }
+
+/** Sección: memes y cultura de internet, o archivo (arte, museos, naturaleza, historia…). */
+export type Scope = "auto" | "memes" | "archivo";
+export type SortMode = "smart" | "trending" | "recent" | "popular" | "relevance";
+export interface ScopeResolved { scope: Scope; forced: boolean; memes_score: number; archive_score: number; person_like: boolean }

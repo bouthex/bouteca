@@ -9,6 +9,8 @@ import type { ItemDetails, MediaItem } from "../lib/types";
 import { CollectionPicker } from "./CollectionPicker";
 import { Player } from "./Player";
 import { RightsPanel } from "./RightsPanel";
+import { KindArt } from "./KindArt";
+import { hostOf, record } from "../lib/metrics";
 
 /** Reproductores oficiales permitidos (deben coincidir con `frame-src` de la CSP). */
 const OFFICIAL_EMBEDS: { prefix: string; name: string; params: string }[] = [
@@ -63,19 +65,30 @@ function OfficialEmbed({ src, name, title, pageUrl }: { src: string; name: strin
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
     playerMounted();
+    const t0 = performance.now();
+    let playedOnce = false;
     // Solo YouTube: escuchamos los eventos oficiales del reproductor para mostrar un estado
     // claro cuando un video no está disponible (edad, país, privado, inserción desactivada).
     const onMsg = (ev: MessageEvent) => {
       if (ev.origin !== "https://www.youtube-nocookie.com" || ev.source !== frame.current?.contentWindow) return;
       try {
         const d = typeof ev.data === "string" ? JSON.parse(ev.data) : ev.data;
-        if (d?.event === "onError") setErr(YT_ERRORS[Number(d.info)] ?? "YouTube no puede reproducir este video aquí.");
+        if (d?.event === "onError") {
+          const m = YT_ERRORS[Number(d.info)] ?? "YouTube no puede reproducir este video aquí.";
+          setErr(m);
+          record({ kind: "embed", host: "youtube", ok: false, ms: Math.round(performance.now() - t0), reason: m });
+        }
+        if (d?.event === "onStateChange" && d.info === 1 && !playedOnce) {
+          playedOnce = true;
+          record({ kind: "embed", host: "youtube", ok: true, ms: Math.round(performance.now() - t0) });
+        }
       } catch { /* mensajes ajenos */ }
     };
     window.addEventListener("message", onMsg);
     return () => { window.removeEventListener("message", onMsg); playerUnmounted(); };
   }, []);
   const onLoad = () => {
+    if (name !== "YouTube") record({ kind: "embed", host: hostOf(src), ok: true, ms: 0, reason: "iframe cargado" });
     if (name === "YouTube") frame.current?.contentWindow?.postMessage(JSON.stringify({ event: "listening", id: 1, channel: "widget" }), "https://www.youtube-nocookie.com");
   };
   if (err) {
@@ -148,15 +161,28 @@ function VideoFileOptions({ item }: { item: MediaItem }) {
   );
 }
 
-function StageImage({ src, fallback, title }: { src: string | null | undefined; fallback: string | null; title: string }) {
+function StageImage({ src, fallback, title, kind }: { src: string | null | undefined; fallback: string | null; title: string; kind: MediaItem["kind"] }) {
   const [cur, setCur] = useState(src ?? fallback);
   const [failed, setFailed] = useState(!src && !fallback);
+  const [loaded, setLoaded] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const t0 = useRef(performance.now());
+  const done = (ok: boolean) => record({ kind: "image", host: hostOf(cur), ok, ms: Math.round(performance.now() - t0.current) });
   return (
     <div class="stage">
       {!failed && cur ? (
-        <img src={cur} alt={title} onError={() => (cur !== fallback && fallback ? setCur(fallback) : setFailed(true))} />
+        <>
+          {/* La miniatura queda debajo mientras carga la versión grande: nunca un cuadro vacío. */}
+          {!loaded && fallback && fallback !== cur && <img class="stage-placeholder" src={fallback} alt="" aria-hidden="true" />}
+          <img key={attempt} src={cur} alt={title} onLoad={() => { setLoaded(true); done(true); }}
+            onError={() => (cur !== fallback && fallback ? setCur(fallback) : (done(false), setFailed(true)))} />
+          {!loaded && <div class="player-msg loading" aria-live="polite"><span class="spinner" /><span>Cargando…</span></div>}
+        </>
       ) : (
-        <p class="small" style="color:#fff;padding:24px;text-align:center">No se pudo cargar la vista previa. Probá abrir la fuente.</p>
+        <div class="stage-fail">
+          <KindArt kind={kind} status="La fuente no entregó la imagen" />
+          {src && <button class="btn sm" onClick={() => { setFailed(false); setLoaded(false); setCur(src); setAttempt((a) => a + 1); t0.current = performance.now(); }}><Icon.Retry size={14} /> Reintentar</button>}
+        </div>
       )}
     </div>
   );
@@ -208,7 +234,7 @@ export function PreviewDrawer({ item: initial }: { item: MediaItem }) {
     stage = <Player key={media} src={media} kind="video" poster={item.thumbnail} />;
   } else {
     const src = item.kind === "gif" ? (item.renditions.find((r) => r.mime === "image/gif")?.url ?? item.preview) : (item.preview ?? item.thumbnail);
-    stage = <StageImage src={src} fallback={item.thumbnail} title={item.title} />;
+    stage = <StageImage src={src} fallback={item.thumbnail} title={item.title} kind={item.kind} />;
   }
 
 

@@ -4,11 +4,11 @@ import { duration, providerName } from "../lib/format";
 import * as Icon from "../lib/icons";
 import {
   elapsedMs, filter, hasMore, lastSearched, loadMore, loadingMore, plan, providerErrors, providerState,
-  clipDuration, goBack, goForward, navState, rerunSearch, writeLocal,
+  clipDuration, goBack, goForward, navState, rerunSearch, writeLocal, resolvedScope, scopeSel, setScope, setSort, sortMode,
   results, resultFilters, rightsFilter, runSearch, saveSettings, searching, settings, understood, usageFilter, userScrolled, view, visibleResults, visual, clearVisual,
 } from "../lib/store";
 import { availableFormats, isActive, NO_FILTERS, type MinRes } from "../lib/filters";
-import type { KindFilter, RightsFilter, SearchEntry, Usage } from "../lib/types";
+import type { KindFilter, RightsFilter, SearchEntry, SortMode, Usage } from "../lib/types";
 import { ResultGrid } from "../components/ResultGrid";
 import { SearchBar } from "../components/SearchBar";
 
@@ -16,7 +16,7 @@ const FILTERS: { id: KindFilter; label: string; color?: string }[] = [
   { id: "all", label: "Todo" },
   { id: "gif", label: "GIFs", color: "var(--k-gif)" },
   { id: "video", label: "Videos", color: "var(--k-video)" },
-  { id: "meme", label: "Memes", color: "var(--k-image)" },
+  { id: "meme", label: "Plantillas", color: "var(--k-image)" },
   { id: "image", label: "Imágenes", color: "var(--k-image)" },
   { id: "audio", label: "Sonidos", color: "var(--k-audio)" },
   { id: "music", label: "Música", color: "var(--k-music)" },
@@ -134,6 +134,32 @@ function FiltersPopover({ onClose }: { onClose: () => void }) {
   );
 }
 
+export const SORT_OPTIONS: { v: SortMode; label: string }[] = [
+  { v: "smart", label: "Lo mejor" },
+  { v: "trending", label: "Tendencias" },
+  { v: "recent", label: "Más recientes" },
+  { v: "popular", label: "Más populares" },
+  { v: "relevance", label: "Relevancia" },
+];
+
+/** Memes / Archivo: la sección se deduce de la búsqueda; tocar una la fija. */
+function ScopeSwitch() {
+  const r = resolvedScope.value;
+  const active = scopeSel.value !== "auto" ? scopeSel.value : r?.scope ?? "auto";
+  if (filter.value === "music" || filter.value === "audio") return null;
+  const tip = r && !r.forced ? (r.scope === "auto" ? "Sin una intención clara: se busca en todo" : "Elegida según tu búsqueda; tocá la otra para cambiar") : "Elegida por vos";
+  return (
+    <div class="scope-switch" role="radiogroup" aria-label="Sección" title={tip}>
+      <button role="radio" aria-checked={active === "memes"} onClick={() => setScope(active === "memes" && scopeSel.value === "memes" ? "auto" : "memes")}>
+        <Icon.Smile size={14} /> Memes
+      </button>
+      <button role="radio" aria-checked={active === "archivo"} onClick={() => setScope(active === "archivo" && scopeSel.value === "archivo" ? "auto" : "archivo")}>
+        <Icon.Landmark size={14} /> Archivo
+      </button>
+    </div>
+  );
+}
+
 export const DURATION_OPTIONS: { v: number | null; label: string }[] = [
   { v: 10, label: "Muy cortos (≤ 10 s)" },
   { v: 30, label: "Hasta 30 s" },
@@ -189,6 +215,9 @@ function RightsBar() {
   const showDuration = filter.value !== "image";
   return (
     <div class="rights-bar">
+      <ScopeSwitch />
+      <Dropdown label="Orden" value={sortMode.value} options={SORT_OPTIONS} title="Tendencias y populares usan vistas y fechas reales de cada fuente; si una fuente no las informa, no se inventan"
+        onChange={(v) => setSort(v as SortMode)} />
       {showDuration && (
         <Dropdown label="Duración" value={clipDuration.value} options={DURATION_OPTIONS} title="Los clips más cortos aparecen primero; lo más largo no se oculta, solo baja"
           onChange={(v) => { clipDuration.value = v; writeLocal("bouteca.clipDuration", v); rerunSearch(); }} />
