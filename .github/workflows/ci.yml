@@ -78,7 +78,6 @@ jobs:
         env:
           BOUTECA_KEY_GIPHY: ${{ secrets.BOUTECA_KEY_GIPHY }}
           BOUTECA_KEY_KLIPY: ${{ secrets.BOUTECA_KEY_KLIPY }}
-          BOUTECA_KEY_YOUTUBE: ${{ secrets.BOUTECA_KEY_YOUTUBE }}
           BOUTECA_KEY_FREESOUND: ${{ secrets.BOUTECA_KEY_FREESOUND }}
           BOUTECA_KEY_PIXABAY: ${{ secrets.BOUTECA_KEY_PIXABAY }}
           BOUTECA_KEY_PEXELS: ${{ secrets.BOUTECA_KEY_PEXELS }}

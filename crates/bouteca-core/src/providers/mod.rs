@@ -165,7 +165,13 @@ pub(crate) fn decode_entities(s: &str) -> String {
     while let Some(i) = rest.find('&') {
         out.push_str(&rest[..i]);
         let tail = &rest[i..];
-        if let Some(end) = tail[..tail.len().min(12)].find(';') {
+        // Ventana de 12 bytes ajustada a un límite de carácter (un emoji después de "&" hacía
+        // entrar en pánico al motor: lo detectó la prueba real con títulos de PeerTube).
+        let mut lim = tail.len().min(12);
+        while !tail.is_char_boundary(lim) {
+            lim -= 1;
+        }
+        if let Some(end) = tail[..lim].find(';') {
             let ent = &tail[1..end];
             let decoded = match ent {
                 "amp" => Some('&'),
@@ -213,4 +219,14 @@ pub(crate) fn guess_mime(url: &str) -> Option<String> {
         _ => return None,
     };
     Some(m.to_string())
+}
+
+#[cfg(test)]
+mod entity_tests {
+    #[test]
+    fn entidades_con_emojis_no_rompen() {
+        assert_eq!(super::decode_entities("perro &🐶🐶🐶 y &amp; gato"), "perro &🐶🐶🐶 y & gato");
+        assert_eq!(super::decode_entities("&#128054;"), "🐶");
+        assert_eq!(super::decode_entities("a & b"), "a & b");
+    }
 }

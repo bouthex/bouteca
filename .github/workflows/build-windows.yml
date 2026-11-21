@@ -36,7 +36,6 @@ jobs:
         env:
           BOUTECA_KEY_GIPHY: ${{ secrets.BOUTECA_KEY_GIPHY }}
           BOUTECA_KEY_KLIPY: ${{ secrets.BOUTECA_KEY_KLIPY }}
-          BOUTECA_KEY_YOUTUBE: ${{ secrets.BOUTECA_KEY_YOUTUBE }}
           BOUTECA_KEY_FREESOUND: ${{ secrets.BOUTECA_KEY_FREESOUND }}
           BOUTECA_KEY_PIXABAY: ${{ secrets.BOUTECA_KEY_PIXABAY }}
           BOUTECA_KEY_PEXELS: ${{ secrets.BOUTECA_KEY_PEXELS }}
@@ -94,6 +93,11 @@ jobs:
         continue-on-error: true
         shell: pwsh
         run: |
+          # Depuración de WebView2 solo en este runner efímero: la sobrescritura por registro de
+          # WebView2 (la variable de entorno se ignora cuando la app pasa sus propios argumentos).
+          $k = 'HKCU:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments'
+          New-Item -Path $k -Force | Out-Null
+          New-ItemProperty -Path $k -Name 'bouteca.exe' -Value '--remote-debugging-port=9223 --autoplay-policy=no-user-gesture-required' -PropertyType String -Force | Out-Null
           New-Item -ItemType Directory -Force -Path $env:RUNNER_TEMP\uie2e | Out-Null
           Copy-Item scripts/ui-e2e.mjs $env:RUNNER_TEMP\uie2e\
           Push-Location $env:RUNNER_TEMP\uie2e
